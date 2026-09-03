@@ -1,0 +1,455 @@
+import { useCallback, useState } from 'react';
+import { ArrowLeft, CheckSquare, LoaderCircle, MessageCircleMore, Plus, Search, RefreshCw, Sparkles, Trash2, User } from 'lucide-react';
+import { useLeads } from '../../hooks/useLeads';
+import { useLeadFilters } from '../../hooks/useLeadFilters';
+import { useToast } from '../../hooks/useToast';
+import { Toast } from '../preferences/shared/Toast';
+import NotificationStrip from '../shared/NotificationStrip';
+import { WhatsAppConnectionFlow } from '../preferences/sections/WhatsAppConnectionFlow';
+import { useBusinessConnection } from '../../hooks/useBusinessConnection';
+import { useWhatsAppHistory } from '../../hooks/useWhatsAppHistory';
+import leadsService from '../../services/leadsService';
+import AddLeadModal from './modals/AddLeadModal';
+import BoughtModal from './modals/BoughtModal';
+import ConsentModal from './modals/ConsentModal';
+import EditLeadModal from './modals/EditLeadModal';
+import StatChips from './list/StatChips';
+import FilterTabs from './list/FilterTabs';
+import LeadRow from './list/LeadRow';
+import DetailPanel from './detail/DetailPanel';
+import FollowupsDrawer from './drawers/FollowupsDrawer';
+import ChatDrawer from './drawers/ChatDrawer';
+import ApprovalDrawer from './drawers/ApprovalDrawer';
+
+// Which drawer (if any) is open. Only one at a time — matches the old
+// closeAllDrawers-before-open behavior from leads.js.
+const DRAWER = { NONE: null, FOLLOWUPS: 'followups', CHAT: 'chat', APPROVALS: 'approvals' };
+
+export default function LeadsPage() {
+  const { leads, loading, error, refetch, patchLead, addLead, addBulkLeads, getChats, approveDraft, skipDraft, sendConsentMessage, updateLead, deleteLead, analyzeLead, markAsBought } = useLeads();
+  const { business, loading: businessLoading, refetch: refetchBusiness } = useBusinessConnection();
+  const { loading: historyLoading, error: historyError, loadHistory } = useWhatsAppHistory(refetch);
+  const { toast, showToast } = useToast();
+  const {
+    searchQuery, setSearchQuery,
+    stateFilter, setStateFilter,
+    typeFilter, setTypeFilter,
+    filteredLeads, stats,
+  } = useLeadFilters(leads);
+
+  const [activeLeadId, setActiveLeadId] = useState(null);
+  const [openDrawer, setOpenDrawer] = useState(DRAWER.NONE);
+  const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
+  const [showAddLeadModal, setShowAddLeadModal] = useState(false);
+  const [showBoughtModal, setShowBoughtModal] = useState(false);
+  const [showConsentModal, setShowConsentModal] = useState(false);
+  const [isConnectionOpen, setIsConnectionOpen] = useState(false);
+  const [gettingChats, setGettingChats] = useState(false);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [editingLead, setEditingLead] = useState(null);
+
+  const activeLead = leads.find((l) => l.id === activeLeadId) || null;
+  const isDisconnected = !businessLoading && business?.whatsapp_connected === false;
+  const showHistoryPrompt = !businessLoading && business?.whatsapp_connected === true && !loading && leads.length === 0 && !error;
+  const closeDrawer = () => setOpenDrawer(DRAWER.NONE);
+
+  const selectLead = (leadId) => {
+    setActiveLeadId(leadId);
+    setMobileDetailOpen(true);
+  };
+
+  const closeLeadDetail = () => {
+    setActiveLeadId(null);
+    setMobileDetailOpen(false);
+  };
+
+  const handleChatSend = useCallback((text) => {
+    if (!activeLead) return Promise.reject(new Error('No lead selected.'));
+    return leadsService.sendChatMessage({ leadId: activeLead.id, phone: activeLead.phone, text });
+  }, [activeLead]);
+
+  const handleMessagesRead = useCallback((leadId) => {
+    patchLead(leadId, { unread_count: 0 });
+  }, [patchLead]);
+
+  const handleGetChats = async () => {
+    if (gettingChats) return;
+    setGettingChats(true);
+    try {
+      const { leads: importedLeads, newConversations } = await getChats();
+      if (!importedLeads.length && !newConversations) {
+        showToast('Chats Synced Already');
+      } else {
+        const syncedCount = importedLeads.length + newConversations;
+        showToast(`${syncedCount} new chat${syncedCount === 1 ? '' : 's'} synced.`);
+      }
+    } catch (chatError) {
+      showToast(chatError.message || 'Could not load WhatsApp chats.', 'error');
+    } finally {
+      setGettingChats(false);
+    }
+  };
+
+  // Used by ApprovalDrawer's "jump to lead" — selects the lead and swaps
+  // straight into that lead's detail view.
+  const jumpToLead = (leadId) => {
+    setActiveLeadId(leadId);
+    setMobileDetailOpen(true);
+    closeDrawer();
+  };
+
+  const handleCreateLead = async (leadPayload) => {
+    try {
+      const createdLead = await addLead(leadPayload);
+      setActiveLeadId(createdLead.id);
+      setMobileDetailOpen(false);
+      showToast('Lead saved successfully.');
+      return true;
+    } catch (error) {
+      showToast(error.message || 'Could not save lead to Supabase.', 'error');
+      return false;
+    }
+  };
+
+  const handleCreateBulkLeads = async (bulkLeads) => {
+    try {
+      const createdLeads = await addBulkLeads(bulkLeads);
+      if (createdLeads.length) {
+        setActiveLeadId(createdLeads[0].id);
+      }
+      setMobileDetailOpen(false);
+      showToast(`${createdLeads.length} lead${createdLeads.length === 1 ? '' : 's'} saved successfully.`);
+      return true;
+    } catch (error) {
+      showToast(error.message || 'Could not import leads to Supabase.', 'error');
+      return false;
+    }
+  };
+
+  const handleMarkBought = async (boughtData) => {
+    if (!activeLead) return;
+    await markAsBought(activeLead.id, boughtData);
+    showToast('Sale Recorded Successfully! Congratulations!');
+    setShowBoughtModal(false);
+  };
+
+  const handleDeleteLead = async (leadId) => {
+    if (!window.confirm('Delete this lead, its conversations, and messages?')) return;
+    try {
+      await deleteLead(leadId);
+      setSelectedIds((current) => { const next = new Set(current); next.delete(leadId); return next; });
+      if (activeLeadId === leadId) closeLeadDetail();
+      showToast('Lead deleted.');
+    } catch (deleteError) {
+      showToast(deleteError.message || 'Could not delete lead.', 'error');
+    }
+  };
+
+  const handleSaveLead = async (changes) => {
+    try {
+      await updateLead(editingLead.id, changes);
+      setEditingLead(null);
+      showToast('Lead updated successfully.');
+    } catch (saveError) {
+      showToast(saveError.message || 'Could not update lead.', 'error');
+    }
+  };
+
+  const handleAnalyzeLead = async (leadId) => {
+    try {
+      await analyzeLead(leadId);
+      showToast('Lead analysis started.');
+    } catch (analysisError) {
+      showToast(analysisError.message || 'Could not analyse lead.', 'error');
+    }
+  };
+
+  const toggleSelected = (leadId) => {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(leadId)) next.delete(leadId); else next.add(leadId);
+      return next;
+    });
+  };
+
+  const allVisibleSelected = filteredLeads.length > 0 && filteredLeads.every((lead) => selectedIds.has(lead.id));
+  const toggleSelectAll = () => {
+    if (!selectMode) {
+      setSelectMode(true);
+      return;
+    }
+    setSelectedIds(allVisibleSelected ? new Set() : new Set(filteredLeads.map((lead) => lead.id)));
+  };
+
+  const handleBulkDelete = async () => {
+    if (!selectedIds.size || !window.confirm(`Delete ${selectedIds.size} selected lead${selectedIds.size === 1 ? '' : 's'} and their conversations?`)) return;
+    try {
+      await Promise.all([...selectedIds].map((leadId) => deleteLead(leadId)));
+      if (activeLeadId && selectedIds.has(activeLeadId)) closeLeadDetail();
+      setSelectedIds(new Set());
+      showToast('Selected leads deleted.');
+    } catch (deleteError) {
+      showToast(deleteError.message || 'Could not delete selected leads.', 'error');
+    }
+  };
+
+  const handleBulkAnalyze = async () => {
+    if (!selectedIds.size) return;
+    try {
+      await Promise.all([...selectedIds].map((leadId) => analyzeLead(leadId)));
+      showToast(`Analysis started for ${selectedIds.size} lead${selectedIds.size === 1 ? '' : 's'}.`);
+    } catch (analysisError) {
+      showToast(analysisError.message || 'Could not analyse selected leads.', 'error');
+    }
+  };
+
+  const handleSendConsent = async (message) => {
+    if (!activeLead) return;
+    try {
+      await sendConsentMessage(activeLead.id, message);
+      setShowConsentModal(false);
+      showToast('Consent message sent. The sequence will begin when they opt in.');
+    } catch (error) {
+      showToast(error.message || 'Could not send consent message.', 'error');
+    }
+  };
+
+  return (
+    <div className="relative flex h-full min-w-0 w-full flex-col overflow-hidden bg-[#F7FBF9] md:flex-row">
+      {(isDisconnected || showHistoryPrompt) && <div className="absolute left-0 right-0 top-0 z-20 px-3 pt-3 md:px-4"><NotificationStrip action={isDisconnected ? <><MessageCircleMore className="mr-1.5 inline h-3.5 w-3.5" />Connect now</> : <><LoaderCircle className={`mr-1.5 inline h-3.5 w-3.5 ${historyLoading ? 'animate-spin' : ''}`} />{historyLoading ? 'Loading...' : 'Load History'}</>} onAction={isDisconnected ? () => setIsConnectionOpen(true) : loadHistory}><span>{isDisconnected ? 'No WhatsApp connected for this business.' : 'Load your chat history for the last 90 days to start seeing data here!'}</span></NotificationStrip>{historyError && <p className="mt-1 text-xs text-red-500">{historyError}</p>}</div>}
+      {/* ── List panel ─────────────────────────────── */}
+      <div className={`flex min-h-0 w-full shrink-0 flex-col overflow-hidden border-b border-slate-200 bg-white/70 backdrop-blur-xl ${isDisconnected || showHistoryPrompt ? 'pt-16' : ''} md:w-[340px] md:min-w-[280px] md:max-w-[340px] md:border-b-0 md:border-r ${mobileDetailOpen ? 'hidden md:flex' : 'flex'}`}>
+        <div className="flex-shrink-0 px-0 pt-3 md:px-3.5 md:pt-4">
+          <div className="mb-3 flex items-center justify-between px-3 md:px-0">
+            <h2 className="text-lg font-bold tracking-tight text-slate-900">Leads</h2>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleGetChats}
+                disabled={gettingChats}
+                className="inline-flex h-7 items-center gap-1.5 rounded-lg border border-[#28A745]/30 px-2.5 text-[11px] font-semibold text-[#218c3a] transition hover:bg-[#28A745]/5 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <MessageCircleMore size={13} className={gettingChats ? 'animate-pulse' : ''} />
+                {gettingChats ? 'Syncing...' : 'Sync Chats'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowAddLeadModal(true)}
+                className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#28A745] text-white shadow-sm transition hover:bg-[#21963d]"
+                aria-label="Add new lead"
+              >
+                <Plus size={16} strokeWidth={2.5} />
+              </button>
+              <button
+                type="button"
+                onClick={refetch}
+                className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                aria-label="Refresh leads"
+              >
+                <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+              </button>
+            </div>
+          </div>
+
+          <StatChips
+            stats={stats}
+            onSetTypeFilter={setTypeFilter}
+            onSetStateFilter={setStateFilter}
+            onOpenApprovals={() => setOpenDrawer(DRAWER.APPROVALS)}
+          />
+
+          <FilterTabs
+            stateFilter={stateFilter}
+            onSetStateFilter={setStateFilter}
+            typeFilter={typeFilter}
+            onSetTypeFilter={setTypeFilter}
+          />
+
+          <div className="mb-2 flex items-center gap-2 px-3 md:px-0">
+            <label className="flex cursor-pointer items-center">
+              <input type="checkbox" checked={allVisibleSelected} onChange={toggleSelectAll} className="h-4 w-4 accent-[#28A745]" aria-label="Select leads" />
+            </label>
+            <div className="relative min-w-0 flex-1">
+              <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search leads..."
+                className="w-full rounded-lg border border-slate-200 bg-slate-50 py-1.5 pl-8 pr-3 text-[12.5px] text-slate-700 placeholder:text-slate-400 focus:border-[#28A745] focus:bg-white focus:outline-none"
+              />
+            </div>
+            {selectMode && (
+              <div className="flex shrink-0 items-center gap-1">
+                <span className="mr-1 text-[10px] font-semibold text-slate-400">Bulk actions</span>
+                <button type="button" onClick={handleBulkAnalyze} disabled={!selectedIds.size} className="inline-flex items-center gap-1 rounded-lg border border-[#28A745]/30 px-2 py-1.5 text-[10px] font-semibold text-[#218c3a] disabled:opacity-40"><Sparkles size={12} /> Analyse</button>
+                <button type="button" onClick={handleBulkDelete} disabled={!selectedIds.size} className="inline-flex items-center gap-1 rounded-lg border border-red-200 px-2 py-1.5 text-[10px] font-semibold text-red-600 disabled:opacity-40"><Trash2 size={12} /> Delete</button>
+                <button type="button" onClick={() => { setSelectMode(false); setSelectedIds(new Set()); }} className="rounded-lg px-1.5 py-1.5 text-slate-400 hover:bg-slate-100" aria-label="Close selection mode"><CheckSquare size={14} /></button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-0 pb-3 md:px-2 md:pb-4">
+          {error && (
+            <div className="mx-1.5 mt-2 rounded-lg bg-red-50 px-3 py-2 text-[11.5px] font-medium text-red-600">
+              {error}
+            </div>
+          )}
+          {!loading && filteredLeads.length === 0 && !error && (
+            <div className="flex flex-col items-center gap-1 px-4 py-10 text-center text-slate-400">
+              <User size={28} />
+              <p className="text-[12px] font-medium">No leads match these filters</p>
+            </div>
+          )}
+          <div className="flex flex-col gap-1">
+            {filteredLeads.map((lead) => (
+              <LeadRow
+                key={lead.id}
+                lead={lead}
+                isActive={lead.id === activeLeadId}
+                onClick={() => selectLead(lead.id)}
+                selectMode={selectMode}
+                selected={selectedIds.has(lead.id)}
+                onToggleSelect={toggleSelected}
+                onEdit={() => setEditingLead(lead)}
+                onDelete={() => handleDeleteLead(lead.id)}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Detail panel ───────────────────────────── */}
+      <div className={`min-h-0 min-w-0 flex-1 overflow-y-auto ${isDisconnected || showHistoryPrompt ? 'pt-16' : ''}`}>
+        <div className="hidden h-full md:block">
+          {activeLead ? (
+            <DetailPanel
+              lead={activeLead}
+              onOpenChat={() => setOpenDrawer(DRAWER.CHAT)}
+              onMarkBought={() => setShowBoughtModal(true)}
+              onApproveDraft={() => approveDraft(activeLead.id)}
+              onSkipDraft={() => skipDraft(activeLead.id)}
+              onEditDraft={() => {} /* TODO: no backing service method yet */}
+              onRewriteDraft={() => {} /* TODO: no backing service method yet */}
+              onSendConsent={() => setShowConsentModal(true)}
+              onViewFullSequence={() => setOpenDrawer(DRAWER.FOLLOWUPS)}
+            />
+          ) : (
+            <div className="flex h-full items-center justify-start pl-[clamp(1.5rem,5vw,4rem)]">
+              <div className="flex flex-col items-start gap-2 text-left text-slate-400">
+                <User size={48} strokeWidth={1.3} />
+                <p className="text-sm font-medium">Select a lead to view their profile</p>
+                <p className="text-xs">Click any lead from the list</p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {activeLead && (
+          <div className={`fixed inset-0 z-40 bg-[#F7FBF9] md:hidden ${mobileDetailOpen ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'} transition-all duration-200`}>
+            <div className="flex items-center gap-3 border-b border-slate-200 bg-white/80 px-4 py-3 backdrop-blur-sm">
+              <button
+                type="button"
+                onClick={closeLeadDetail}
+                className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100"
+                aria-label="Back to leads"
+              >
+                <ArrowLeft size={18} />
+              </button>
+              <span className="text-sm font-semibold text-slate-800">{activeLead.name}</span>
+            </div>
+            <div className="h-[calc(100%-57px)] overflow-y-auto">
+              <DetailPanel
+                lead={activeLead}
+                onOpenChat={() => setOpenDrawer(DRAWER.CHAT)}
+                onMarkBought={() => setShowBoughtModal(true)}
+                onApproveDraft={() => approveDraft(activeLead.id)}
+                onSkipDraft={() => skipDraft(activeLead.id)}
+                onEditDraft={() => {} /* TODO: no backing service method yet */}
+                onRewriteDraft={() => {} /* TODO: no backing service method yet */}
+                onSendConsent={() => setShowConsentModal(true)}
+                onViewFullSequence={() => setOpenDrawer(DRAWER.FOLLOWUPS)}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── Drawers (only one open at a time) ─────────── */}
+      <FollowupsDrawer
+        lead={activeLead}
+        open={openDrawer === DRAWER.FOLLOWUPS}
+        onClose={closeDrawer}
+        onApprove={() => activeLead && approveDraft(activeLead.id)}
+        onSkip={() => activeLead && skipDraft(activeLead.id)}
+        onEdit={() => {} /* TODO: no backing service method yet */}
+        onRewrite={() => {} /* TODO: no backing service method yet */}
+        onSendConsent={() => setShowConsentModal(true)}
+      />
+
+      <ChatDrawer
+        lead={activeLead}
+        open={openDrawer === DRAWER.CHAT}
+        onClose={closeDrawer}
+        onSend={handleChatSend}
+        onMessagesRead={handleMessagesRead}
+      />
+
+      <ApprovalDrawer
+        leads={leads}
+        open={openDrawer === DRAWER.APPROVALS}
+        onClose={closeDrawer}
+        onApprove={approveDraft}
+        onSkip={skipDraft}
+        onSelectLead={jumpToLead}
+      />
+
+      <AddLeadModal
+        open={showAddLeadModal}
+        onClose={() => setShowAddLeadModal(false)}
+        onCreateLead={handleCreateLead}
+        onCreateBulkLeads={handleCreateBulkLeads}
+      />
+
+      {activeLead && (
+        <BoughtModal
+          lead={activeLead}
+          open={showBoughtModal}
+          onClose={() => setShowBoughtModal(false)}
+          onConfirm={handleMarkBought}
+        />
+      )}
+
+      {editingLead && (
+        <EditLeadModal
+          key={editingLead.id}
+          lead={editingLead}
+          open
+          onClose={() => setEditingLead(null)}
+          onSave={handleSaveLead}
+          onAnalyze={() => handleAnalyzeLead(editingLead.id)}
+        />
+      )}
+
+      {activeLead && (
+        <ConsentModal
+          key={`${activeLead.id}-${showConsentModal}`}
+          lead={activeLead}
+          open={showConsentModal}
+          onClose={() => setShowConsentModal(false)}
+          onSend={handleSendConsent}
+        />
+      )}
+
+      <WhatsAppConnectionFlow
+        open={isConnectionOpen}
+        onClose={() => setIsConnectionOpen(false)}
+        onConnected={() => refetchBusiness()}
+      />
+
+      <Toast toast={toast} />
+    </div>
+  );
+}
