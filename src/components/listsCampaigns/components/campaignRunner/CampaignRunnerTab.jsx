@@ -95,11 +95,7 @@ export default function CampaignRunnerTab({ onNeedLists }) {
         </div>
       </div>
 
-      {showActivityLog && (
-        <div id="campaign-activity-log">
-          <CampaignActivityLog businessId={businessId} />
-        </div>
-      )}
+      {showActivityLog && <CampaignActivityLog businessId={businessId} onClose={() => setShowActivityLog(false)} />}
 
       <div className="flex justify-end">
         <ViewSwitcher view={view} onChange={setView} />

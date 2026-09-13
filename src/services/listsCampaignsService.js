@@ -259,6 +259,9 @@ export async function launchCampaign(
 ) {
   const primaryListId = listIds?.[0] ?? listId;
   const safeSequenceMode = sequenceMode ?? (sequenceType === 'educational' ? 'conditional' : 'linear');
+  if (!Array.isArray(steps) || steps.length === 0 || steps.some((step) => !step?.content?.trim())) {
+    throw new Error('Add at least one message before launching the campaign.');
+  }
 
   // firstMessageSendAt was accepted here but never used — every enrollment
   // got next_send_at: null below, which campaignScheduler.js's
@@ -302,7 +305,10 @@ export async function launchCampaign(
     condition: i === 0 ? null : s.condition ?? null,
   }));
   const { error: stepsError } = await supabase.from('campaign_steps').insert(stepRows);
-  if (stepsError) throw stepsError;
+  if (stepsError) {
+    await supabase.from('campaigns').delete().eq('id', campaign.id);
+    throw stepsError;
+  }
 
   const targetListIds = Array.from(new Set([primaryListId, ...(listIds || [])].filter(Boolean)));
 
@@ -342,6 +348,9 @@ export async function updateCampaign(
 ) {
   const primaryListId = listIds?.[0] ?? listId;
   const safeSequenceMode = sequenceMode ?? (sequenceType === 'educational' ? 'conditional' : 'linear');
+  if (!Array.isArray(steps) || steps.length === 0 || steps.some((step) => !step?.content?.trim())) {
+    throw new Error('Add at least one message before saving the campaign.');
+  }
   const { error } = await supabase
     .from('campaigns')
     .update({
@@ -385,6 +394,14 @@ export async function updateCampaign(
       : supabase.from('campaign_steps').insert({ campaign_id: campaignId, ...stepPayload });
     const { error: stepError } = await query;
     if (stepError) throw stepError;
+
+    const { error: queuedMessageError } = await supabase
+      .from('follow_up_queue')
+      .update({ final_message: stepPayload.content })
+      .eq('campaign_id', campaignId)
+      .eq('campaign_step', stepPayload.step_number)
+      .in('status', ['pending', 'ready_to_send']);
+    if (queuedMessageError) throw queuedMessageError;
   }
 
   const targetListIds = Array.from(new Set([primaryListId, ...(listIds || [])].filter(Boolean)));
@@ -525,7 +542,7 @@ export async function fetchCampaignActivity(businessId, { campaignId, limit = 10
   let query = supabase
     .from('follow_up_queue')
     .select(`
-      id, status, skip_reason, last_dispatch_error, dispatch_attempts,
+      id, status, approval_status, skip_reason, last_dispatch_error, dispatch_attempts,
       campaign_step, sequence_step, final_message, draft_message,
       scheduled_at, processed_at, created_at, campaign_id,
       campaigns:campaign_id ( name ),
@@ -548,7 +565,8 @@ export async function fetchCampaignActivity(businessId, { campaignId, limit = 10
     contactName: row.contacts?.name || row.contacts?.phone || 'Unknown lead',
     step: row.campaign_step ?? row.sequence_step,
     status: row.status,
-    errorReason: row.status === 'failed' || row.status === 'skipped'
+    approvalStatus: row.approval_status,
+    errorReason: ['failed', 'skipped', 'cancelled'].includes(row.status)
       ? (row.last_dispatch_error || row.skip_reason)
       : null,
     dispatchAttempts: row.dispatch_attempts ?? 0,
