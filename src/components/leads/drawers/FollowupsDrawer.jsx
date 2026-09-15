@@ -8,7 +8,7 @@ import FollowupCard from '../detail/FollowupCard';
 // rather than the collapsed one-liner.
 //
 // Props: lead, open, onClose, onApprove, onSkip, onEdit, onRewrite, onSendConsent
-export default function FollowupsDrawer({ lead, open, onClose, onApprove, onSkip, onEdit, onRewrite, onSendConsent }) {
+export default function FollowupsDrawer({ lead, open, onClose, onApprove, onSkip, onEdit, onRewrite, onSendConsent, onAddToCampaign, onRemoveFromCampaign }) {
   if (!lead) return null;
   const fu = lead.followup;
 
@@ -21,6 +21,8 @@ export default function FollowupsDrawer({ lead, open, onClose, onApprove, onSkip
         onEdit={onEdit}
         onRewrite={onRewrite}
         onSendConsent={onSendConsent}
+        onAddToCampaign={onAddToCampaign}
+        onRemoveFromCampaign={onRemoveFromCampaign}
       />
 
       {fu && fu.status !== 'not_enrolled' && (

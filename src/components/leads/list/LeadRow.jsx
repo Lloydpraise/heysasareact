@@ -7,6 +7,9 @@ import {
   readReceiptIcon,
   intentColor,
   timeAgo,
+  getLeadDisplayName,
+  isValidPhoneNumber,
+  isLikelyWhatsAppIdentifier,
 } from '../../../utils/leadHelpers';
 
 function LeadRow({ lead, isActive, onClick, selectMode, selected, onToggleSelect, onEdit, onDelete }) {
@@ -17,6 +20,9 @@ function LeadRow({ lead, isActive, onClick, selectMode, selected, onToggleSelect
   const isPersonal = lead.lead_type === 'personal';
   const score = lead.intent_score;
   const isWon = lead.lead_state === 'won';
+  const displayName = getLeadDisplayName(lead.name, lead.phone);
+  const phoneIsValid = isValidPhoneNumber(lead.phone);
+  const isWhatsAppIdentifier = isLikelyWhatsAppIdentifier(lead.phone);
 
   const signals = [
     lead.sent_voice_note && { key: 'voice', Icon: Mic },
@@ -40,12 +46,12 @@ function LeadRow({ lead, isActive, onClick, selectMode, selected, onToggleSelect
           isPersonal ? 'bg-slate-400' : 'bg-[#28A745]'
         }`}
       >
-        {lead.name.charAt(0)}
+        {displayName.charAt(0).toUpperCase()}
       </div>
 
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
-          <span className="truncate text-[13px] font-semibold text-slate-900">{lead.name}</span>
+          <span className="truncate text-[13px] font-semibold text-slate-900">{displayName}</span>
           <div className="flex flex-shrink-0 items-center gap-1.5">
             {lead.unread_count > 0 ? (
               <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[#28A745] px-1 text-[10px] font-bold text-white">
@@ -61,8 +67,10 @@ function LeadRow({ lead, isActive, onClick, selectMode, selected, onToggleSelect
         </div>
 
         <div className="mt-0.5 truncate text-[11.5px] text-slate-500">
-          {lead.context_summary || lead.customer_intent || lead.phone}
+          {lead.context_summary || lead.customer_intent || (isWhatsAppIdentifier ? 'WhatsApp username' : lead.phone) || 'No phone number'}
         </div>
+
+        {!phoneIsValid && !isWhatsAppIdentifier && <span className="mt-1 inline-flex rounded bg-red-50 px-1.5 py-0.5 text-[9.5px] font-semibold text-red-600">Invalid phone number</span>}
 
         <div className="mt-1.5 flex flex-wrap items-center gap-1">
           <Tag className={isWon ? 'bg-[#28A745]/10 text-[#27500A]' : 'bg-slate-100 text-slate-600'}>{sc.label}</Tag>

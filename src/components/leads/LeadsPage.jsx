@@ -9,6 +9,7 @@ import { WhatsAppConnectionFlow } from '../preferences/sections/WhatsAppConnecti
 import { useBusinessConnection } from '../../hooks/useBusinessConnection';
 import { useWhatsAppHistory } from '../../hooks/useWhatsAppHistory';
 import leadsService from '../../services/leadsService';
+import { addExistingLeadsToManualList, enrollLeadInCampaign, removeLeadFromCampaign } from '../../services/listsCampaignsService';
 import AddLeadModal from './modals/AddLeadModal';
 import BoughtModal from './modals/BoughtModal';
 import ConsentModal from './modals/ConsentModal';
@@ -20,6 +21,8 @@ import DetailPanel from './detail/DetailPanel';
 import FollowupsDrawer from './drawers/FollowupsDrawer';
 import ChatDrawer from './drawers/ChatDrawer';
 import ApprovalDrawer from './drawers/ApprovalDrawer';
+import AddToListModal from './modals/AddToListModal';
+import AddToCampaignModal from './modals/AddToCampaignModal';
 
 // Which drawer (if any) is open. Only one at a time — matches the old
 // closeAllDrawers-before-open behavior from leads.js.
@@ -42,6 +45,8 @@ export default function LeadsPage() {
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
   const [showAddLeadModal, setShowAddLeadModal] = useState(false);
   const [showBoughtModal, setShowBoughtModal] = useState(false);
+  const [showAddToListModal, setShowAddToListModal] = useState(false);
+  const [showAddToCampaignModal, setShowAddToCampaignModal] = useState(false);
   const [showConsentModal, setShowConsentModal] = useState(false);
   const [isConnectionOpen, setIsConnectionOpen] = useState(false);
   const [gettingChats, setGettingChats] = useState(false);
@@ -204,6 +209,14 @@ export default function LeadsPage() {
     }
   };
 
+  const handleAddToList = async (listName) => {
+    await addExistingLeadsToManualList(leadsService.getBusinessId(), listName, [...selectedIds]);
+    setShowAddToListModal(false);
+    setSelectMode(false);
+    setSelectedIds(new Set());
+    showToast('Selected leads added to the list.');
+  };
+
   const handleSendConsent = async (message) => {
     if (!activeLead) return;
     try {
@@ -212,6 +225,27 @@ export default function LeadsPage() {
       showToast('Consent message sent. The sequence will begin when they opt in.');
     } catch (error) {
       showToast(error.message || 'Could not send consent message.', 'error');
+    }
+  };
+
+  const handleAddToCampaign = async (campaign) => {
+    if (!activeLead) return;
+    const businessId = leadsService.getBusinessId();
+    const enrollment = await enrollLeadInCampaign(businessId, campaign.id, activeLead.id);
+    patchLead(activeLead.id, { campaignEnrollment: { ...enrollment, campaignName: enrollment.campaignName || campaign.name } });
+    setShowAddToCampaignModal(false);
+    showToast(`${activeLead.name} added to ${campaign.name}.`);
+  };
+
+  const handleRemoveFromCampaign = async () => {
+    if (!activeLead?.campaignEnrollment) return;
+    if (!window.confirm(`Remove ${activeLead.name} from ${activeLead.campaignEnrollment.campaignName}?`)) return;
+    try {
+      await removeLeadFromCampaign(leadsService.getBusinessId(), activeLead.campaignEnrollment.campaignId, activeLead.id);
+      patchLead(activeLead.id, { campaignEnrollment: null });
+      showToast('Lead removed from campaign.');
+    } catch (error) {
+      showToast(error.message || 'Could not remove lead from campaign.', 'error');
     }
   };
 
@@ -283,6 +317,7 @@ export default function LeadsPage() {
             {selectMode && (
               <div className="flex shrink-0 items-center gap-1">
                 <span className="mr-1 text-[10px] font-semibold text-slate-400">Bulk actions</span>
+                <button type="button" onClick={() => setShowAddToListModal(true)} disabled={!selectedIds.size} className="inline-flex items-center gap-1 rounded-lg border border-[#28A745]/30 px-2 py-1.5 text-[10px] font-semibold text-[#218c3a] disabled:opacity-40">Add to list</button>
                 <button type="button" onClick={handleBulkAnalyze} disabled={!selectedIds.size} className="inline-flex items-center gap-1 rounded-lg border border-[#28A745]/30 px-2 py-1.5 text-[10px] font-semibold text-[#218c3a] disabled:opacity-40"><Sparkles size={12} /> Analyse</button>
                 <button type="button" onClick={handleBulkDelete} disabled={!selectedIds.size} className="inline-flex items-center gap-1 rounded-lg border border-red-200 px-2 py-1.5 text-[10px] font-semibold text-red-600 disabled:opacity-40"><Trash2 size={12} /> Delete</button>
                 <button type="button" onClick={() => { setSelectMode(false); setSelectedIds(new Set()); }} className="rounded-lg px-1.5 py-1.5 text-slate-400 hover:bg-slate-100" aria-label="Close selection mode"><CheckSquare size={14} /></button>
@@ -327,6 +362,7 @@ export default function LeadsPage() {
           {activeLead ? (
             <DetailPanel
               lead={activeLead}
+              onEdit={() => setEditingLead(activeLead)}
               onOpenChat={() => setOpenDrawer(DRAWER.CHAT)}
               onMarkBought={() => setShowBoughtModal(true)}
               onApproveDraft={() => approveDraft(activeLead.id)}
@@ -334,6 +370,8 @@ export default function LeadsPage() {
               onEditDraft={() => {} /* TODO: no backing service method yet */}
               onRewriteDraft={() => {} /* TODO: no backing service method yet */}
               onSendConsent={() => setShowConsentModal(true)}
+              onAddToCampaign={() => setShowAddToCampaignModal(true)}
+              onRemoveFromCampaign={handleRemoveFromCampaign}
               onViewFullSequence={() => setOpenDrawer(DRAWER.FOLLOWUPS)}
             />
           ) : (
@@ -363,6 +401,7 @@ export default function LeadsPage() {
             <div className="h-[calc(100%-57px)] overflow-y-auto">
               <DetailPanel
                 lead={activeLead}
+                onEdit={() => setEditingLead(activeLead)}
                 onOpenChat={() => setOpenDrawer(DRAWER.CHAT)}
                 onMarkBought={() => setShowBoughtModal(true)}
                 onApproveDraft={() => approveDraft(activeLead.id)}
@@ -370,6 +409,8 @@ export default function LeadsPage() {
                 onEditDraft={() => {} /* TODO: no backing service method yet */}
                 onRewriteDraft={() => {} /* TODO: no backing service method yet */}
                 onSendConsent={() => setShowConsentModal(true)}
+                onAddToCampaign={() => setShowAddToCampaignModal(true)}
+                onRemoveFromCampaign={handleRemoveFromCampaign}
                 onViewFullSequence={() => setOpenDrawer(DRAWER.FOLLOWUPS)}
               />
             </div>
@@ -387,6 +428,8 @@ export default function LeadsPage() {
         onEdit={() => {} /* TODO: no backing service method yet */}
         onRewrite={() => {} /* TODO: no backing service method yet */}
         onSendConsent={() => setShowConsentModal(true)}
+        onAddToCampaign={() => setShowAddToCampaignModal(true)}
+        onRemoveFromCampaign={handleRemoveFromCampaign}
       />
 
       <ChatDrawer
@@ -412,6 +455,24 @@ export default function LeadsPage() {
         onCreateLead={handleCreateLead}
         onCreateBulkLeads={handleCreateBulkLeads}
       />
+
+      <AddToListModal
+        open={showAddToListModal}
+        leads={leads.filter((lead) => selectedIds.has(lead.id))}
+        onClose={() => setShowAddToListModal(false)}
+        onConfirm={handleAddToList}
+      />
+
+      {activeLead && (
+        <AddToCampaignModal
+          key={`${activeLead.id}-${showAddToCampaignModal}`}
+          lead={activeLead}
+          open={showAddToCampaignModal}
+          businessId={leadsService.getBusinessId()}
+          onClose={() => setShowAddToCampaignModal(false)}
+          onConfirm={handleAddToCampaign}
+        />
+      )}
 
       {activeLead && (
         <BoughtModal

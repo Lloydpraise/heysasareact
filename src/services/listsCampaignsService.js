@@ -85,6 +85,91 @@ export async function fetchLists(businessId) {
   });
 }
 
+export async function fetchListContacts(businessId, listId) {
+  if (!supabase || !businessId || !listId) return [];
+
+  const { data: list, error: listError } = await supabase
+    .from('lists')
+    .select('id, business_id')
+    .eq('id', listId)
+    .eq('business_id', businessId)
+    .maybeSingle();
+  if (listError) throw listError;
+  if (!list) return [];
+
+  const { data: memberships, error: membershipsError } = await supabase
+    .from('list_members')
+    .select('lead_id')
+    .eq('list_id', listId);
+  if (membershipsError) throw membershipsError;
+
+  const contactIds = [...new Set((memberships || []).map((member) => member.lead_id).filter(Boolean))];
+  if (!contactIds.length) return [];
+
+  const { data: contacts, error: contactsError } = await supabase
+    .from('contacts')
+    .select('id, name, phone, follow_up_opted_in, do_not_contact, presence_status')
+    .eq('business_id', businessId)
+    .in('id', contactIds);
+  if (contactsError) throw contactsError;
+
+  const contactById = new Map((contacts || []).map((contact) => [contact.id, contact]));
+  return contactIds.map((contactId) => contactById.get(contactId)).filter(Boolean);
+}
+
+export async function fetchManualListLeadIds(businessId) {
+  const { data: lists, error: listsError } = await supabase
+    .from('lists')
+    .select('id')
+    .eq('business_id', businessId)
+    .eq('type', 'manual');
+  if (listsError) throw listsError;
+
+  const listIds = (lists || []).map((list) => list.id).filter(Boolean);
+  if (!listIds.length) return new Set();
+
+  const { data: memberships, error: membershipsError } = await supabase
+    .from('list_members')
+    .select('lead_id')
+    .in('list_id', listIds);
+  if (membershipsError) throw membershipsError;
+
+  const memberIds = [...new Set((memberships || []).map((member) => member.lead_id).filter(Boolean))];
+  if (!memberIds.length) return new Set();
+
+  const { data: conversations, error: conversationsError } = await supabase
+    .from('conversations')
+    .select('contact_id')
+    .eq('business_id', businessId)
+    .in('contact_id', memberIds);
+  if (conversationsError) throw conversationsError;
+
+  const chatLeadIds = new Set((conversations || []).map((conversation) => conversation.contact_id).filter(Boolean));
+  return new Set(memberIds.filter((leadId) => !chatLeadIds.has(leadId)));
+}
+
+export async function addExistingLeadsToManualList(businessId, name, leadIds) {
+  const trimmedName = name?.trim();
+  const uniqueLeadIds = [...new Set((leadIds || []).filter(Boolean))];
+  if (!supabase || !businessId) throw new Error('No business selected.');
+  if (!trimmedName) throw new Error('Add a list name.');
+  if (!uniqueLeadIds.length) throw new Error('Select at least one lead.');
+
+  const { data: list, error: listError } = await supabase
+    .from('lists')
+    .insert({ business_id: businessId, name: trimmedName, type: 'manual' })
+    .select()
+    .single();
+  if (listError) throw listError;
+
+  const { error: membershipError } = await supabase
+    .from('list_members')
+    .insert(uniqueLeadIds.map((leadId) => ({ list_id: list.id, lead_id: leadId })));
+  if (membershipError) throw membershipError;
+
+  return list;
+}
+
 export async function createManualList(businessId, name) {
   const { data, error } = await supabase
     .from('lists')
@@ -429,8 +514,8 @@ export async function updateCampaign(
 async function syncCampaignEnrollments(campaignId, businessId, leadIds, firstSendAtIso) {
   const candidateLeadIds = [...new Set(
     (leadIds || [])
-      .map((leadId) => Number(leadId))
-      .filter((leadId) => Number.isSafeInteger(leadId))
+      .map((leadId) => String(leadId).trim())
+      .filter(Boolean)
   )];
   let validLeadIds = candidateLeadIds;
 
@@ -441,7 +526,7 @@ async function syncCampaignEnrollments(campaignId, businessId, leadIds, firstSen
       .eq('business_id', businessId)
       .in('id', candidateLeadIds);
     if (contactsError) throw contactsError;
-    validLeadIds = (contacts || []).map((contact) => Number(contact.id));
+    validLeadIds = (contacts || []).map((contact) => String(contact.id));
   }
 
   const { data: activeCampaigns, error: campaignsError } = await supabase
@@ -536,6 +621,60 @@ export async function deleteCampaign(campaignId) {
 // ============================================================
 // Module D — Activity Log (send visibility across all campaigns)
 // ============================================================
+//
+// Two different tables feed this log, and they're not interchangeable:
+//
+// - follow_up_queue rows are the lifecycle of a queued message itself
+//   (pending -> ready_to_send -> sent/failed/skipped). Every campaign
+//   send has exactly one row here.
+// - follow_up_send_events rows are dispatch-attempt events written by
+//   sender-baileys/worker.js. Some of them (no_open_session,
+//   circuit_breaker_tripped) never update follow_up_queue at all — the
+//   item is left sitting in ready_to_send and the sender just retries
+//   next poll — so without this second source those failure types are
+//   invisible here even though they're the ones most likely to explain
+//   "why did sending stall."
+//
+// We fetch both and merge by follow_up_queue_id, since an event row
+// always references the queue item it was trying to send.
+export const EVENT_TYPE_LABELS = {
+  no_open_session: 'WhatsApp not connected',
+  session_lookup_failed: 'Could not check WhatsApp connection',
+  circuit_breaker_tripped: 'Paused — too many recent failures',
+  business_not_found: 'Business record not found',
+  contact_or_phone_not_found: 'Contact has no phone number',
+  failed: 'Send failed',
+};
+
+// Full dispatch-attempt history for one queue item, oldest first — every
+// attempt the sender made (each failure, each retry) writes its own row
+// to follow_up_send_events, so this is a real timeline, not just the
+// latest error. Used by the activity log's expandable detail view.
+export async function fetchSendEventHistory(businessId, queueId) {
+  if (!supabase || !businessId || !queueId) return [];
+  const { data, error } = await supabase
+    .from('follow_up_send_events')
+    .select('id, event_type, reason, instance_name, created_at')
+    .eq('business_id', businessId)
+    .eq('follow_up_queue_id', queueId)
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+  return data || [];
+}
+
+async function fetchSendEvents(businessId, { limit } = {}) {
+  let query = supabase
+    .from('follow_up_send_events')
+    .select('id, follow_up_queue_id, contact_id, instance_name, event_type, reason, created_at')
+    .eq('business_id', businessId)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return data || [];
+}
+
 export async function fetchCampaignActivity(businessId, { campaignId, limit = 100 } = {}) {
   if (!businessId) return [];
 
@@ -544,7 +683,7 @@ export async function fetchCampaignActivity(businessId, { campaignId, limit = 10
     .select(`
       id, status, approval_status, skip_reason, last_dispatch_error, dispatch_attempts,
       campaign_step, sequence_step, final_message, draft_message,
-      scheduled_at, processed_at, created_at, campaign_id,
+      scheduled_at, processed_at, created_at, campaign_id, contact_id,
       campaigns:campaign_id ( name ),
       contacts:contact_id ( name, phone )
     `)
@@ -558,23 +697,56 @@ export async function fetchCampaignActivity(businessId, { campaignId, limit = 10
   const { data, error } = await query;
   if (error) throw error;
 
-  return (data || []).map((row) => ({
-    id: row.id,
-    campaignId: row.campaign_id,
-    campaignName: row.campaigns?.name ?? '(deleted campaign)',
-    contactName: row.contacts?.name || row.contacts?.phone || 'Unknown lead',
-    step: row.campaign_step ?? row.sequence_step,
-    status: row.status,
-    approvalStatus: row.approval_status,
-    errorReason: ['failed', 'skipped', 'cancelled'].includes(row.status)
-      ? (row.last_dispatch_error || row.skip_reason)
-      : null,
-    dispatchAttempts: row.dispatch_attempts ?? 0,
-    message: row.final_message || row.draft_message,
-    scheduledAt: row.scheduled_at,
-    processedAt: row.processed_at,
-    createdAt: row.created_at,
-  }));
+  const queueRows = data || [];
+
+  // Pull recent send events for this business and attach the most
+  // recent one to each matching queue row. Fetch a wider window than
+  // `limit` since events include no_open_session/circuit_breaker rows
+  // whose queue item may be older than the queue page we're viewing.
+  let eventsByQueueId = new Map();
+  try {
+    const events = await fetchSendEvents(businessId, { campaignId, limit: limit * 3 });
+    for (const event of events) {
+      if (!event.follow_up_queue_id) continue;
+      // events are already newest-first; keep only the first (latest) per queue id
+      if (!eventsByQueueId.has(event.follow_up_queue_id)) {
+        eventsByQueueId.set(event.follow_up_queue_id, event);
+      }
+    }
+  } catch (err) {
+    // Don't let a send-events read failure break the whole activity log —
+    // fall back to queue-only data, same as before this table existed.
+    console.error('Failed to load follow_up_send_events:', err.message);
+  }
+
+  return queueRows.map((row) => {
+    const latestEvent = eventsByQueueId.get(row.id);
+    const isStalled = row.status === 'ready_to_send' && latestEvent;
+
+    return {
+      id: row.id,
+      campaignId: row.campaign_id,
+      campaignName: row.campaigns?.name ?? '(deleted campaign)',
+      contactName: row.contacts?.name || row.contacts?.phone || 'Unknown lead',
+      step: row.campaign_step ?? row.sequence_step,
+      // A ready_to_send row that's actually stuck on a dispatch problem
+      // (no_open_session, circuit breaker) shows as "stalled" instead of
+      // the misleading "Ready to send" badge.
+      status: isStalled ? 'stalled' : row.status,
+      approvalStatus: row.approval_status,
+      errorReason: ['failed', 'skipped', 'cancelled'].includes(row.status)
+        ? (row.last_dispatch_error || row.skip_reason)
+        : isStalled
+          ? (EVENT_TYPE_LABELS[latestEvent.event_type] || latestEvent.event_type) + (latestEvent.reason ? ` — ${latestEvent.reason}` : '')
+          : null,
+      dispatchAttempts: row.dispatch_attempts ?? 0,
+      message: row.final_message || row.draft_message,
+      scheduledAt: row.scheduled_at,
+      processedAt: row.processed_at,
+      createdAt: row.created_at,
+      instanceName: latestEvent?.instance_name ?? null,
+    };
+  });
 }
 
 export function subscribeToCampaignActivity(businessId, onChange) {
@@ -589,6 +761,14 @@ export function subscribeToCampaignActivity(businessId, onChange) {
         // Only campaign-sourced rows matter for this view
         if (payload.new?.campaign_id || payload.old?.campaign_id) onChange?.(payload);
       }
+    )
+    // follow_up_send_events rows carry the failure detail follow_up_queue
+    // itself never gets (no_open_session, circuit_breaker_tripped) — a
+    // new event needs to trigger the same live refresh a queue change does.
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'follow_up_send_events', filter: `business_id=eq.${businessId}` },
+      (payload) => onChange?.(payload)
     )
     .subscribe();
 
@@ -638,4 +818,105 @@ export function subscribeToCapacity(businessId, onChange) {
     .subscribe();
 
   return () => supabase.removeChannel(channel);
+}
+
+export async function fetchLeadCampaignEnrollment(businessId, leadId) {
+  if (!supabase || !businessId || !leadId) return null;
+
+  const { data: enrollment, error: enrollmentError } = await supabase
+    .from('campaign_enrollments')
+    .select('campaign_id, status, current_step, next_send_at')
+    .eq('lead_id', leadId)
+    .in('status', ['pending', 'active'])
+    .limit(1)
+    .maybeSingle();
+  if (enrollmentError) throw enrollmentError;
+  if (!enrollment) return null;
+
+  const { data: campaign, error: campaignError } = await supabase
+    .from('campaigns')
+    .select('id, name, status')
+    .eq('id', enrollment.campaign_id)
+    .eq('business_id', businessId)
+    .maybeSingle();
+  if (campaignError) throw campaignError;
+  if (!campaign) return null;
+
+  const { data: lastMessage, error: messageError } = await supabase
+    .from('follow_up_queue')
+    .select('final_message, processed_at')
+    .eq('business_id', businessId)
+    .eq('campaign_id', enrollment.campaign_id)
+    .eq('contact_id', leadId)
+    .eq('status', 'sent')
+    .order('processed_at', { ascending: false, nullsLast: true })
+    .limit(1)
+    .maybeSingle();
+  if (messageError) throw messageError;
+
+  return {
+    campaignId: campaign.id,
+    campaignName: campaign.name,
+    status: enrollment.status,
+    currentStep: enrollment.current_step ?? 0,
+    lastMessage: lastMessage?.final_message || null,
+    lastSentAt: lastMessage?.processed_at || null,
+  };
+}
+
+export async function enrollLeadInCampaign(businessId, campaignId, leadId, firstSendAtIso = new Date().toISOString()) {
+  if (!supabase) return { campaignId, leadId, status: 'active', lastMessage: null, lastSentAt: null };
+  if (!businessId || !campaignId || !leadId) throw new Error('A campaign and lead are required.');
+
+  const { data: contact, error: contactError } = await supabase
+    .from('contacts')
+    .select('id')
+    .eq('id', leadId)
+    .eq('business_id', businessId)
+    .maybeSingle();
+  if (contactError) throw contactError;
+  if (!contact) throw new Error('This lead does not belong to the selected business.');
+
+  const { data: campaign, error: campaignError } = await supabase
+    .from('campaigns')
+    .select('id, name, status')
+    .eq('id', campaignId)
+    .eq('business_id', businessId)
+    .eq('status', 'active')
+    .maybeSingle();
+  if (campaignError) throw campaignError;
+  if (!campaign) throw new Error('That campaign is not active.');
+
+  const { data: occupied, error: occupiedError } = await supabase
+    .from('campaign_enrollments')
+    .select('campaign_id')
+    .eq('lead_id', leadId)
+    .in('status', ['pending', 'active'])
+    .neq('campaign_id', campaignId)
+    .limit(1);
+  if (occupiedError) throw occupiedError;
+  if (occupied?.length) throw new Error('This lead is already enrolled in another active campaign.');
+
+  const { error: enrollmentError } = await supabase
+    .from('campaign_enrollments')
+    .upsert({
+      campaign_id: campaignId,
+      lead_id: leadId,
+      status: 'active',
+      current_step: 0,
+      next_send_at: firstSendAtIso,
+    }, { onConflict: 'campaign_id,lead_id' });
+  if (enrollmentError) throw enrollmentError;
+
+  return { campaignId: campaign.id, campaignName: campaign.name, status: 'active', currentStep: 0, lastMessage: null, lastSentAt: null };
+}
+
+export async function removeLeadFromCampaign(businessId, campaignId, leadId) {
+  if (!supabase) return;
+  const { error } = await supabase
+    .from('campaign_enrollments')
+    .delete()
+    .eq('campaign_id', campaignId)
+    .eq('lead_id', leadId);
+  if (error) throw error;
 }

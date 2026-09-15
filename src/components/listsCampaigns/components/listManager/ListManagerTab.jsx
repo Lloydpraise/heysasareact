@@ -6,6 +6,7 @@ import CreateListModal from './CreateListModal';
 import ListSelectorBar from './ListSelectorBar';
 import ListHeroCard from './ListHeroCard';
 import ListRow from './ListRow';
+import ListContactsModal from './ListContactsModal';
 import AnCard from '../../../analytics/shared/AnCard';
 
 const GROUPS = ['Active Auto-Lists', 'Manual Lists', 'Archived Lists'];
@@ -15,6 +16,7 @@ export default function ListManagerTab({ onLaunchCampaign, onEditRules, openCrea
   const [activeGroup, setActiveGroup] = useState(GROUPS[0]);
   const [view, setView] = useState('list');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [contactsList, setContactsList] = useState(null);
 
   useEffect(() => {
     if (!openCreateModal) return;
@@ -35,6 +37,11 @@ export default function ListManagerTab({ onLaunchCampaign, onEditRules, openCrea
     const created = await createManualListWithContacts(businessId, name, contacts);
     await refetchLists();
     setSelectedListId(created.id);
+  };
+
+  const handleSelectList = (listId) => {
+    setSelectedListId(listId);
+    setContactsList(availableLists.find((list) => list.id === listId) || null);
   };
 
   return (
@@ -74,19 +81,20 @@ export default function ListManagerTab({ onLaunchCampaign, onEditRules, openCrea
             <div className="grid grid-cols-[minmax(0,1.5fr)_0.65fr_0.9fr_0.9fr_1fr_auto] gap-3 border-b border-slate-100 bg-slate-50/70 px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
               <span>List</span><span>Contacts</span><span>Reachable contacts</span><span>Pipeline</span><span>Status</span><span />
             </div>
-            {visibleLists.map((list) => <ListRow key={list.id} list={list} onSelect={setSelectedListId} actionProps={{ onLaunchCampaign, onExportCsv: (id) => console.log('export', id), onEditRules }} />)}
+            {visibleLists.map((list) => <ListRow key={list.id} list={list} onSelect={handleSelectList} actionProps={{ onLaunchCampaign, onExportCsv: (id) => console.log('export', id), onEditRules }} />)}
           </AnCard>
         </>
       ) : (
         <div className="space-y-4">
           {visibleLists.map((list) => (
-            <div key={list.id} onClick={() => setSelectedListId(list.id)} className="cursor-pointer">
+              <div key={list.id} onClick={() => handleSelectList(list.id)} className="cursor-pointer">
               <ListHeroCard list={list} actionProps={{ onLaunchCampaign, onExportCsv: (id) => console.log('export', id), onEditRules }} />
             </div>
           ))}
         </div>
       )}
       <CreateListModal open={showCreateModal} onClose={() => setShowCreateModal(false)} onCreate={handleCreateManual} />
+      {contactsList && <ListContactsModal open list={contactsList} businessId={businessId} onClose={() => setContactsList(null)} />}
     </div>
   );
 }

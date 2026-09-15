@@ -6,8 +6,9 @@ export default function CampaignActionsMenu({ campaign, onChanged, onEdit }) {
   const [open, setOpen] = useState(false);
 
   const handlePause = async () => {
+    if (!['active', 'paused'].includes(campaign.status)) return;
     await pauseCampaign(campaign.id, campaign.status === 'active');
-    onChanged();
+    onChanged?.();
   };
 
   return (
@@ -37,10 +38,12 @@ export default function CampaignActionsMenu({ campaign, onChanged, onEdit }) {
           >
             <Edit3 size={12} /> Edit
           </button>
-          <button type="button" onClick={handlePause} className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">
-            {campaign.status === 'active' ? <Pause size={12} /> : <Play size={12} />}
-            {campaign.status === 'active' ? 'Pause' : 'Resume'}
-          </button>
+          {['active', 'paused'].includes(campaign.status) && (
+            <button type="button" onClick={handlePause} className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">
+              {campaign.status === 'active' ? <Pause size={12} /> : <Play size={12} />}
+              {campaign.status === 'active' ? 'Pause' : 'Resume'}
+            </button>
+          )}
           <button type="button" className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">
             <Archive size={12} /> Archive
           </button>

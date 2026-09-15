@@ -17,9 +17,10 @@ import NotificationStrip from '../shared/NotificationStrip';
 export default function PreferencesPage({ initialSection = 'followup' }) {
   const [activeSection, setActiveSection] = useState(initialSection);
   const [isMobile, setIsMobile] = useState(false);
-  const { prefs, business, updatePref, updateBusiness, savePrefs, isSaving, loadError } = usePreferences();
+  const { prefs, business, updatePref, updateBusiness, savePrefs, isSaving, loadError, isDirty } = usePreferences();
   const materialsState = useMaterials();
   const { toast, showToast } = useToast();
+  const hasUnsavedChanges = isDirty || materialsState.isDirty;
 
   useEffect(() => {
     const mediaQuery = window.matchMedia('(max-width: 767px)');
@@ -38,9 +39,12 @@ export default function PreferencesPage({ initialSection = 'followup' }) {
   }, [activeSection]);
 
   const handleSave = async () => {
+    if (!hasUnsavedChanges || isSaving) return;
+
     try {
       await savePrefs();
       await saveMaterials(materialsState.materials);
+      materialsState.markSaved();
       showToast('Preferences saved successfully.');
     } catch (error) {
       showToast(error.message || 'Could not save preferences.', 'error');
@@ -103,8 +107,8 @@ export default function PreferencesPage({ initialSection = 'followup' }) {
           <button
             type="button"
             onClick={handleSave}
-            disabled={isSaving}
-            className="w-full rounded-full bg-[#28A745] px-3 py-2.5 text-sm font-semibold text-white shadow-lg shadow-[#28A745]/20 transition hover:bg-[#1f8d3d] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:px-4"
+            disabled={isSaving || !hasUnsavedChanges}
+            className="w-full rounded-full bg-[#28A745] px-3 py-2.5 text-sm font-semibold text-white shadow-lg shadow-[#28A745]/20 transition hover:bg-[#1f8d3d] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 disabled:shadow-none sm:w-auto sm:px-4"
           >
             {isSaving ? 'Saving...' : 'Save changes'}
           </button>

@@ -1,4 +1,5 @@
-import { MessageCircle, Phone, ExternalLink, ShoppingBag, User2, Megaphone } from 'lucide-react';
+import { Phone, ExternalLink, ShoppingBag, User2, Megaphone } from 'lucide-react';
+import { getLeadDisplayName, isLikelyWhatsAppIdentifier, isValidPhoneNumber } from '../../../utils/leadHelpers';
 import { stateConfig, qualityLabel, timeAgo } from '../../../utils/leadHelpers';
 import whatsappIcon from '../../../assets/images/whatsappicon.svg';
 
@@ -12,11 +13,14 @@ import whatsappIcon from '../../../assets/images/whatsappicon.svg';
 //   onMarkBought — () => void, opens the "mark as bought" flow (modal/form
 //                  lives in LeadsPage or a future BoughtModal — this button
 //                  just triggers it)
-export default function DetailHeader({ lead, onOpenChat, onMarkBought }) {
+export default function DetailHeader({ lead, onOpenChat, onMarkBought, onEdit }) {
   const state = stateConfig(lead.lead_state);
   const quality = qualityLabel(lead.lead_quality);
-  const initial = (lead.name || '?').trim().charAt(0).toUpperCase();
-  const waLink = lead.phone ? `https://wa.me/${lead.phone.replace(/[^\d]/g, '')}` : null;
+  const displayName = getLeadDisplayName(lead.name, lead.phone);
+  const initial = displayName.charAt(0).toUpperCase();
+  const phoneIsValid = isValidPhoneNumber(lead.phone);
+  const isWhatsAppIdentifier = isLikelyWhatsAppIdentifier(lead.phone);
+  const waLink = phoneIsValid ? `https://wa.me/${lead.phone.replace(/[^\d]/g, '')}` : null;
   const telLink = lead.phone ? `tel:${lead.phone}` : null;
 
   const isWon = lead.lead_state === 'won';
@@ -30,8 +34,21 @@ export default function DetailHeader({ lead, onOpenChat, onMarkBought }) {
             {initial}
           </div>
           <div className="min-w-0 flex-1">
-            <div className="flex min-w-0 flex-nowrap items-center gap-1.5 overflow-hidden">
-              <h2 className="truncate text-[17px] font-bold leading-tight text-slate-900">{lead.name}</h2>
+            <div
+              role={onEdit ? 'button' : undefined}
+              tabIndex={onEdit ? 0 : undefined}
+              onClick={onEdit}
+              onKeyDown={(event) => {
+                if (onEdit && (event.key === 'Enter' || event.key === ' ')) {
+                  event.preventDefault();
+                  onEdit();
+                }
+              }}
+              className={onEdit ? 'cursor-pointer rounded-lg outline-none hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-[#28A745]/40' : undefined}
+              title={onEdit ? 'Edit lead details' : undefined}
+            >
+              <div className="flex min-w-0 flex-nowrap items-center gap-1.5 overflow-hidden">
+              <h2 className="truncate text-[17px] font-bold leading-tight text-slate-900">{displayName}</h2>
               <span className={`flex shrink-0 items-center gap-1 whitespace-nowrap text-[11px] font-semibold ${state.textClass}`}>
                 <span className={`h-1.5 w-1.5 rounded-full ${state.dotClass}`} />
                 {state.label}
@@ -46,8 +63,9 @@ export default function DetailHeader({ lead, onOpenChat, onMarkBought }) {
                   <User2 size={10} /> Personal
                 </span>
               )}
+              </div>
+              <p className={`mt-0.5 text-[12.5px] ${phoneIsValid || isWhatsAppIdentifier ? 'text-slate-400' : 'font-semibold text-red-600'}`}>{isWhatsAppIdentifier ? 'WhatsApp username' : (lead.phone || 'No phone number')}{!phoneIsValid && !isWhatsAppIdentifier && ' · Invalid phone number'}</p>
             </div>
-            <p className="mt-0.5 text-[12.5px] text-slate-400">{lead.phone}</p>
 
             {lead.is_ad_lead && (
               <div className="mt-2 flex items-start gap-1.5 rounded-lg bg-[#F7FBF9] px-2.5 py-1.5 text-[11.5px] text-slate-600">

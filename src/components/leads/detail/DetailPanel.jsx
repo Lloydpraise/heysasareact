@@ -20,11 +20,14 @@ export default function DetailPanel({
   lead,
   onOpenChat,
   onMarkBought,
+  onEdit,
   onApproveDraft,
   onSkipDraft,
   onEditDraft,
   onRewriteDraft,
   onSendConsent,
+  onAddToCampaign,
+  onRemoveFromCampaign,
   onViewFullSequence,
 }) {
   if (!lead) return null;
@@ -35,6 +38,7 @@ export default function DetailPanel({
         lead={lead}
         onOpenChat={onOpenChat}
         onMarkBought={onMarkBought}
+        onEdit={onEdit}
       />
 
       {lead.lead_type === 'business' && (
@@ -56,6 +60,8 @@ export default function DetailPanel({
               onEdit={onEditDraft}
               onRewrite={onRewriteDraft}
               onSendConsent={onSendConsent}
+              onAddToCampaign={onAddToCampaign}
+              onRemoveFromCampaign={onRemoveFromCampaign}
               onViewFullSequence={onViewFullSequence}
             />
           )}

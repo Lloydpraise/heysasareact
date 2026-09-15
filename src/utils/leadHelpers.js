@@ -57,6 +57,23 @@ export function formatInterest(tag) {
   return tag.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+export function isValidPhoneNumber(phone) {
+  const value = String(phone || '').trim();
+  if (!value || !/^\+?[\d\s().-]+$/.test(value)) return false;
+  const digits = value.replace(/\D/g, '');
+  return digits.length >= 8 && digits.length <= 14;
+}
+
+export function isLikelyWhatsAppIdentifier(phone) {
+  const value = String(phone || '').trim();
+  const digits = value.replace(/\D/g, '');
+  return /^\+?[\d\s().-]+$/.test(value) && digits.length > 14;
+}
+
+export function getLeadDisplayName(name, phone) {
+  return String(name || '').trim() || String(phone || '').trim() || 'Unknown contact';
+}
+
 // read_receipt -> glyph + color. Kept as text glyphs (not icons) since
 // WhatsApp's own tick convention is instantly recognizable as text.
 const READ_RECEIPT_MAP = {

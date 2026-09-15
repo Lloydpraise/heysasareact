@@ -2,8 +2,32 @@ import { useState, useCallback, useEffect } from 'react';
 import { mockMaterials } from '../services/mockPreferences';
 import { getMaterials } from '../services/settingsService';
 
+function cloneValue(value) {
+  if (value === undefined) return undefined;
+  return JSON.parse(JSON.stringify(value));
+}
+
+function areValuesEqual(left, right) {
+  if (left === right) return true;
+  if (left === null || right === null || left === undefined || right === undefined) return false;
+
+  if (Array.isArray(left) || Array.isArray(right)) {
+    if (!Array.isArray(left) || !Array.isArray(right) || left.length !== right.length) return false;
+    return left.every((item, index) => areValuesEqual(item, right[index]));
+  }
+
+  if (typeof left !== 'object' || typeof right !== 'object') return false;
+
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
+  if (leftKeys.length !== rightKeys.length) return false;
+
+  return leftKeys.every((key) => Object.prototype.hasOwnProperty.call(right, key) && areValuesEqual(left[key], right[key]));
+}
+
 export function useMaterials() {
   const [materials, setMaterials] = useState(mockMaterials);
+  const [savedMaterials, setSavedMaterials] = useState(mockMaterials);
   const [loadError, setLoadError] = useState(null);
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({ 
@@ -14,11 +38,16 @@ export function useMaterials() {
     expires_at: '' 
   });
 
+  const isDirty = !areValuesEqual(materials, savedMaterials);
+
   useEffect(() => {
     let mounted = true;
     getMaterials()
-      .then((savedMaterials) => {
-        if (mounted) setMaterials(savedMaterials);
+      .then((savedMaterialsFromDb) => {
+        if (mounted) {
+          setMaterials(savedMaterialsFromDb);
+          setSavedMaterials(cloneValue(savedMaterialsFromDb));
+        }
       })
       .catch((error) => {
         if (mounted) setLoadError(error);
@@ -58,6 +87,10 @@ export function useMaterials() {
     setFormData({ type: 'testimonial', title: '', content: '', is_active: true, expires_at: '' });
   }, []);
 
+  const markSaved = useCallback(() => {
+    setSavedMaterials(cloneValue(materials));
+  }, [materials]);
+
   return {
     materials,
     editingId,
@@ -68,5 +101,7 @@ export function useMaterials() {
     deleteMaterial,
     cancelEdit,
     loadError,
+    isDirty,
+    markSaved,
   };
 }

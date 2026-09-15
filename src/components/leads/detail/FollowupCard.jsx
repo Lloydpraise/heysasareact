@@ -3,9 +3,30 @@ import PhaseBar from "./PhaseBar";
 import SequenceTimeline from "./SequenceTimeline";
 import { timeUntil } from "../../../utils/leadHelpers";
 
-export default function FollowupCard({ lead, onApprove, onSkip, onEdit, onRewrite, onSendConsent, onViewFullSequence }) {
+export default function FollowupCard({ lead, onApprove, onSkip, onEdit, onRewrite, onSendConsent, onViewFullSequence, onAddToCampaign, onRemoveFromCampaign }) {
   const fu = lead.followup;
   if (!fu) return null;
+
+  if (lead.campaignEnrollment) {
+    const enrollment = lead.campaignEnrollment;
+    return (
+      <div className="mx-6 mb-4 mt-1 rounded-xl border border-[#28A745]/20 bg-[#F7FBF9] px-4 py-3.5">
+        <div className="flex items-start gap-2">
+          <CheckCircle2 size={15} className="mt-0.5 flex-shrink-0 text-[#28A745]" />
+          <div className="min-w-0 flex-1">
+            <p className="text-[12.5px] font-semibold text-slate-700">Enrolled on campaign</p>
+            <p className="mt-0.5 truncate text-[13px] font-bold text-[#218c3a]">{enrollment.campaignName}</p>
+            <p className="mt-1 text-[11.5px] text-slate-500">
+              {enrollment.lastMessage ? `Last message sent: ${enrollment.lastMessage}` : 'No campaign message sent yet.'}
+            </p>
+            {onRemoveFromCampaign && (
+              <button type="button" onClick={onRemoveFromCampaign} className="mt-2 text-[11.5px] font-semibold text-red-500 hover:underline">Remove from campaign</button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const headerRow = (
     <div className="flex items-center justify-between px-6 pt-4">
@@ -30,15 +51,10 @@ export default function FollowupCard({ lead, onApprove, onSkip, onEdit, onRewrit
             <p className="text-[12.5px] font-semibold text-slate-600">Not enrolled in follow-up sequence</p>
             <p className="mt-0.5 text-[11.5px] text-slate-400">Send a consent message to start the 11-step sequence.</p>
           </div>
-          {onSendConsent && (
-            <button
-              type="button"
-              onClick={onSendConsent}
-              className="flex-shrink-0 rounded-lg bg-[#28A745] px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-[#1e7a35]"
-            >
-              Send consent
-            </button>
-          )}
+          <div className="flex flex-shrink-0 items-center gap-1.5">
+            {onAddToCampaign && <button type="button" onClick={onAddToCampaign} className="rounded-lg border border-[#28A745]/35 px-3 py-1.5 text-[12px] font-semibold text-[#218c3a] hover:bg-[#F7FBF9]">Add to campaign</button>}
+            {onSendConsent && <button type="button" onClick={onSendConsent} className="rounded-lg bg-[#28A745] px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-[#1e7a35]">Send consent</button>}
+          </div>
         </div>
       </div>
     );

@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { fetchWhatsAppSessions } from './businessService';
+import { fetchManualListLeadIds, fetchLeadCampaignEnrollment } from './listsCampaignsService';
 
 const EVOLUTION_API_URL = (import.meta.env.VITE_EVOLUTION_API_URL || 'http://localhost:8080').replace(/\/$/, '');
 const EVOLUTION_API_KEY = import.meta.env.VITE_EVOLUTION_API_KEY || '';
@@ -199,9 +200,22 @@ async function fetchLiveLeads(businessId) {
 
     if (error) throw error;
 
-    const leads = (data || []).map(normalizeLead);
-    const contactIds = leads.map((lead) => lead.id).filter(Boolean);
-    if (!contactIds.length) return leads;
+    const manualListLeadIds = await fetchManualListLeadIds(id);
+    const { data: enrolledRows, error: enrolledError } = await supabase
+      .from('campaign_enrollments')
+      .select('lead_id')
+      .in('status', ['pending', 'active']);
+    if (enrolledError) throw enrolledError;
+    const enrolledLeadIds = new Set((enrolledRows || []).map((row) => row.lead_id));
+    const leads = (data || []).filter((lead) => !manualListLeadIds.has(lead.id) || enrolledLeadIds.has(lead.id)).map(normalizeLead);
+    const enrolledLeads = await Promise.all(leads.filter((lead) => enrolledLeadIds.has(lead.id)).map(async (lead) => ({
+      id: lead.id,
+      campaignEnrollment: await fetchLeadCampaignEnrollment(id, lead.id),
+    })));
+    const enrollmentByLeadId = new Map(enrolledLeads.map((item) => [item.id, item.campaignEnrollment]).filter((item) => item[1]));
+    const leadsWithCampaigns = leads.map((lead) => ({ ...lead, campaignEnrollment: enrollmentByLeadId.get(lead.id) || null }));
+    const contactIds = leadsWithCampaigns.map((lead) => lead.id).filter(Boolean);
+    if (!contactIds.length) return leadsWithCampaigns;
 
     const { data: contacts, error: contactsError } = await supabase
       .from('contacts')
@@ -211,7 +225,7 @@ async function fetchLiveLeads(businessId) {
     if (contactsError) throw contactsError;
 
     const presenceById = new Map((contacts || []).map((contact) => [contact.id, contact]));
-    return leads.map((lead) => {
+    return leadsWithCampaigns.map((lead) => {
       const presence = presenceById.get(lead.id);
       return presence
         ? {
