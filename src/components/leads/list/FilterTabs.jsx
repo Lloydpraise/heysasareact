@@ -11,7 +11,7 @@
 const TYPES = [
   { id: 'business', label: 'Business' },
   { id: 'ad', label: 'Ads' },
-  { id: 'personal', label: 'Personal' },
+  { id: 'personal', label: 'Personal chats' },
 ];
 
 export default function FilterTabs({ stateFilter, onSetStateFilter, typeFilter, onSetTypeFilter }) {

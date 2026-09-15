@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Sparkles, X } from 'lucide-react';
+import { Check, LoaderCircle, Sparkles, X } from 'lucide-react';
 
 const STAGES = [
   ['new', 'New'],
@@ -12,7 +12,7 @@ const STAGES = [
   ['do_not_contact', 'Do not contact'],
 ];
 
-export default function EditLeadModal({ lead, open, onClose, onSave, onAnalyze }) {
+export default function EditLeadModal({ lead, open, onClose, onSave, onAnalyze, analysisState }) {
   const [form, setForm] = useState({ name: lead.name || '', phone: lead.phone || '', lead_state: lead.lead_state || 'new' });
   const [saving, setSaving] = useState(false);
   const [analysing, setAnalysing] = useState(false);
@@ -32,6 +32,7 @@ export default function EditLeadModal({ lead, open, onClose, onSave, onAnalyze }
   };
 
   const handleAnalyze = async () => {
+    if (analysisState === 'analysing') return;
     setAnalysing(true);
     try {
       await onAnalyze();
@@ -71,8 +72,9 @@ export default function EditLeadModal({ lead, open, onClose, onSave, onAnalyze }
         </div>
 
         <div className="mt-6 flex items-center justify-between gap-2 border-t border-slate-100 pt-4">
-          <button type="button" onClick={handleAnalyze} disabled={analysing} className="inline-flex items-center gap-1.5 rounded-lg border border-[#28A745]/30 px-3 py-2 text-xs font-semibold text-[#218c3a] hover:bg-[#28A745]/5 disabled:opacity-60">
-            <Sparkles size={14} /> {analysing ? 'Analysing...' : 'Analyse'}
+          <button type="button" onClick={handleAnalyze} disabled={analysing || analysisState === 'analysing'} className="inline-flex items-center gap-1.5 rounded-lg border border-[#28A745]/30 px-3 py-2 text-xs font-semibold text-[#218c3a] hover:bg-[#28A745]/5 disabled:opacity-60">
+            {analysisState === 'analysing' || analysing ? <LoaderCircle size={14} className="animate-spin" /> : analysisState === 'completed' ? <Check size={14} /> : <Sparkles size={14} />}
+            {analysisState === 'analysing' || analysing ? 'Analysing...' : analysisState === 'completed' ? 'Analysed' : 'Analyse'}
           </button>
           <div className="flex gap-2">
             <button type="button" onClick={onClose} className="rounded-lg px-3 py-2 text-xs font-semibold text-slate-500 hover:bg-slate-100">Cancel</button>

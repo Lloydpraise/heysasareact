@@ -262,6 +262,42 @@ async function fetchChatTranscript(leadId) {
   }
 }
 
+export function subscribeToLeadData(businessId, onChange) {
+  if (!supabase || !businessId) return () => {};
+
+  const channel = supabase
+    .channel(`lead-data-${businessId}`)
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'contacts', filter: `business_id=eq.${businessId}` },
+      onChange
+    )
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'conversations', filter: `business_id=eq.${businessId}` },
+      onChange
+    )
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, onChange)
+    .subscribe();
+
+  return () => supabase.removeChannel(channel);
+}
+
+export function subscribeToChatMessages(leadId, onChange) {
+  if (!supabase || !leadId) return () => {};
+
+  const channel = supabase
+    .channel(`chat-messages-${leadId}`)
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'messages', filter: `contact_id=eq.${leadId}` },
+      onChange
+    )
+    .subscribe();
+
+  return () => supabase.removeChannel(channel);
+}
+
 function getMediaDetails(payload = {}, fallbackType = '') {
   const image = payload.imageMessage || payload.image || {};
   const video = payload.videoMessage || payload.video || {};
@@ -701,15 +737,22 @@ async function updateLeadState(leadId, newState) {
   }
 }
 
-async function updateLead(leadId, { name, phone, lead_state: leadState }) {
+async function updateLead(leadId, { name, phone, lead_state: leadState, lead_type: leadType, is_business_chat: isBusinessChat }) {
   if (!supabase) return { ok: true };
   const validStates = ['new', 'engaged', 'warm', 'stalled', 'ghosted', 'won', 'lost', 'do_not_contact'];
-  if (!validStates.includes(leadState)) return { ok: false, error: 'invalid state' };
+  if (leadState && !validStates.includes(leadState)) return { ok: false, error: 'invalid state' };
 
   try {
+    const changes = {
+      ...(name !== undefined ? { name: name.trim() } : {}),
+      ...(phone !== undefined ? { phone: phone.trim() } : {}),
+      ...(leadState !== undefined ? { lead_state: leadState } : {}),
+      ...(leadType !== undefined ? { lead_type: leadType } : {}),
+      ...(isBusinessChat !== undefined ? { is_business_chat: isBusinessChat } : {}),
+    };
     const { error } = await supabase
       .from('contacts')
-      .update({ name: name.trim(), phone: phone.trim(), lead_state: leadState })
+      .update(changes)
       .eq('id', leadId);
     if (error) throw error;
     return { ok: true };
@@ -737,19 +780,32 @@ async function deleteLead(leadId) {
 }
 
 async function analyzeLead(leadId) {
-  if (!supabase) return { ok: true };
+  return analyzeContacts([leadId]);
+}
+
+async function analyzeContacts(contactIds = []) {
+  if (!supabase) return { ok: true, running: false };
 
   try {
-    const response = await fetch(`${BACKEND_API_URL}/debug/analysis/contact`, {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session?.access_token) throw new Error('You must be signed in to analyse contacts.');
+
+    const normalizedContactIds = [...new Set((contactIds || []).filter((contactId) => Number.isInteger(Number(contactId))).map(Number))];
+    const response = await fetch(`${BACKEND_API_URL}/analysis/start`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contactId: leadId }),
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ contactIds: normalizedContactIds }),
     });
     const result = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(result.message || result.error || 'Could not analyse this lead.');
+    if (!response.ok) throw new Error(result.message || result.error || 'Could not analyse contacts.');
     return { ok: true, ...result };
   } catch (error) {
-    console.error('[leadsService] analyzeLead failed:', error.message);
+    console.error('[leadsService] analyzeContacts failed:', error.message);
     return { ok: false, error: error.message };
   }
 }
@@ -804,6 +860,8 @@ export const leadsService = {
   createBulkLeads,
   fetchLiveLeads,
   fetchChatTranscript,
+  subscribeToLeadData,
+  subscribeToChatMessages,
   markChatMessagesRead,
   sendChatMessage,
   syncEvolutionChats,
@@ -815,6 +873,7 @@ export const leadsService = {
   updateLead,
   deleteLead,
   analyzeLead,
+  analyzeContacts,
   markAsBought,
   getPriorityTabCounts,
   getPriorityTabLeads,

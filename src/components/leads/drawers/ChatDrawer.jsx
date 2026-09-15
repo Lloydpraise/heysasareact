@@ -62,6 +62,23 @@ export default function ChatDrawer({ lead, open, onClose, onSend, onMessagesRead
   }, [leadId, open, onMessagesRead]);
 
   useEffect(() => {
+    if (!open || !leadId) return undefined;
+
+    let mounted = true;
+    const refreshTranscript = () => {
+      leadsService.fetchChatTranscript(leadId).then((messages) => {
+        if (!mounted) return;
+        setTranscript(messages);
+        hydrateMedia(messages);
+      }).catch((loadError) => {
+        if (mounted) setError(loadError.message || 'Could not refresh this chat.');
+      });
+    };
+
+    return leadsService.subscribeToChatMessages(leadId, refreshTranscript);
+  }, [leadId, open]);
+
+  useEffect(() => {
     if (open) messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [open, transcript]);
 

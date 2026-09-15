@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Play, MessageSquare } from 'lucide-react';
 import { fetchRecentConversations, fetchConversationMessages } from '../../../services/personaPackService';
+import { supabase } from '../../../lib/supabase';
 import { LiveChatPlayground } from '../LiveChatPlayground';
 
 export function ReplaySection({ businessId, liveChat }) {
@@ -11,7 +12,28 @@ export function ReplaySection({ businessId, liveChat }) {
 
   useEffect(() => {
     if (!businessId) return;
-    fetchRecentConversations(businessId).then(setConversations).catch(() => setConversations([]));
+
+    let mounted = true;
+    const loadConversations = () => {
+      fetchRecentConversations(businessId)
+        .then((rows) => {
+          if (mounted) setConversations(rows);
+        })
+        .catch(() => {
+          if (mounted) setConversations([]);
+        });
+    };
+
+    loadConversations();
+    const channel = supabase?.channel(`replay-conversations-${businessId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations', filter: `business_id=eq.${businessId}` }, loadConversations)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, loadConversations)
+      .subscribe();
+
+    return () => {
+      mounted = false;
+      if (channel) supabase.removeChannel(channel);
+    };
   }, [businessId]);
 
   const selectConversation = async (id) => {

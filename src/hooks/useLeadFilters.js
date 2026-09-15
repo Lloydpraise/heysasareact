@@ -1,6 +1,10 @@
 ﻿import { useMemo, useState } from 'react';
 import { STATE_PRIORITY } from '../utils/leadHelpers';
 
+export function isPersonalChat(lead) {
+  return lead.lead_type === 'personal' || lead.is_business_chat === false;
+}
+
 export function useLeadFilters(leads) {
   const [searchQuery, setSearchQuery] = useState('');
   const [stateFilter, setStateFilter] = useState('all');
@@ -19,8 +23,11 @@ export function useLeadFilters(leads) {
           (lead.product_interests || []).some((p) => p.includes(q));
         const matchesState = stateFilter === 'all'
           || (stateFilter === 'unread' ? lead.unread_count > 0 : lead.lead_state === stateFilter);
-        const matchesType =
-          typeFilter === 'all' || lead.lead_type === typeFilter || (typeFilter === 'ad' && lead.is_ad_lead);
+        const matchesType = typeFilter === 'personal'
+          ? isPersonalChat(lead)
+          : typeFilter === 'all'
+            ? !isPersonalChat(lead)
+            : lead.lead_type === typeFilter || (typeFilter === 'ad' && lead.is_ad_lead);
         return matchesSearch && matchesState && matchesType;
       })
       .sort((a, b) => {

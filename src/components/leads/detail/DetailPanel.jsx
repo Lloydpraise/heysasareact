@@ -19,6 +19,8 @@ import FollowupCard from './FollowupCard';
 export default function DetailPanel({
   lead,
   onOpenChat,
+  onAnalyze,
+  analysisState,
   onMarkBought,
   onEdit,
   onApproveDraft,
@@ -37,6 +39,8 @@ export default function DetailPanel({
       <DetailHeader
         lead={lead}
         onOpenChat={onOpenChat}
+        onAnalyze={onAnalyze}
+        analysisState={analysisState}
         onMarkBought={onMarkBought}
         onEdit={onEdit}
       />

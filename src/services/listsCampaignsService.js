@@ -782,11 +782,11 @@ export function subscribeToLists(businessId, onChange) {
   const channel = supabase
     .channel(`lists-${businessId}`)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'lists', filter: `business_id=eq.${businessId}` }, onChange)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'list_members' }, (payload) => {
-      const changedListId = payload.new?.list_id ?? payload.old?.list_id;
-      if (changedListId) onChange?.(payload);
-    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'list_members' }, onChange)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'contacts', filter: `business_id=eq.${businessId}` }, onChange)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations', filter: `business_id=eq.${businessId}` }, onChange)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'campaign_enrollments' }, onChange)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'segmentation_rules', filter: `business_id=eq.${businessId}` }, onChange)
     .subscribe();
 
   return () => supabase.removeChannel(channel);

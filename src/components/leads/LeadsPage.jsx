@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { ArrowLeft, CheckSquare, LoaderCircle, MessageCircleMore, Plus, Search, RefreshCw, Sparkles, Trash2, User } from 'lucide-react';
+import { ArrowLeft, BriefcaseBusiness, CheckSquare, LoaderCircle, MessageCircleMore, Plus, Search, RefreshCw, Sparkles, Trash2, User } from 'lucide-react';
 import { useLeads } from '../../hooks/useLeads';
 import { useLeadFilters } from '../../hooks/useLeadFilters';
 import { useToast } from '../../hooks/useToast';
@@ -29,7 +29,7 @@ import AddToCampaignModal from './modals/AddToCampaignModal';
 const DRAWER = { NONE: null, FOLLOWUPS: 'followups', CHAT: 'chat', APPROVALS: 'approvals' };
 
 export default function LeadsPage() {
-  const { leads, loading, error, refetch, patchLead, addLead, addBulkLeads, getChats, approveDraft, skipDraft, sendConsentMessage, updateLead, deleteLead, analyzeLead, markAsBought } = useLeads();
+  const { leads, loading, error, refetch, patchLead, addLead, addBulkLeads, getChats, approveDraft, skipDraft, sendConsentMessage, updateLead, deleteLead, markAsBought } = useLeads();
   const { business, loading: businessLoading, refetch: refetchBusiness } = useBusinessConnection();
   const { loading: historyLoading, error: historyError, loadHistory } = useWhatsAppHistory(refetch);
   const { toast, showToast } = useToast();
@@ -53,6 +53,8 @@ export default function LeadsPage() {
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [editingLead, setEditingLead] = useState(null);
+  const [analysisStates, setAnalysisStates] = useState({});
+  const [analysingAll, setAnalysingAll] = useState(false);
 
   const activeLead = leads.find((l) => l.id === activeLeadId) || null;
   const isDisconnected = !businessLoading && business?.whatsapp_connected === false;
@@ -161,14 +163,27 @@ export default function LeadsPage() {
     }
   };
 
-  const handleAnalyzeLead = async (leadId) => {
+  const runAnalysis = async (contactIds, successMessage) => {
+    const ids = [...new Set(contactIds)].filter(Boolean);
+    if (!ids.length) return;
+
+    setAnalysisStates((current) => ids.reduce((next, id) => ({ ...next, [id]: 'analysing' }), current));
     try {
-      await analyzeLead(leadId);
-      showToast('Lead analysis started.');
+      const result = await leadsService.analyzeContacts(ids);
+      if (result?.ok === false) throw new Error(result.error || 'Could not analyse contacts.');
+      setAnalysisStates((current) => ids.reduce((next, id) => ({ ...next, [id]: 'completed' }), current));
+      showToast(successMessage);
     } catch (analysisError) {
+      setAnalysisStates((current) => {
+        const next = { ...current };
+        ids.forEach((id) => delete next[id]);
+        return next;
+      });
       showToast(analysisError.message || 'Could not analyse lead.', 'error');
     }
   };
+
+  const handleAnalyzeLead = (leadId) => runAnalysis([leadId], 'Lead analysis started.');
 
   const toggleSelected = (leadId) => {
     setSelectedIds((current) => {
@@ -201,11 +216,34 @@ export default function LeadsPage() {
 
   const handleBulkAnalyze = async () => {
     if (!selectedIds.size) return;
+    await runAnalysis([...selectedIds], `Analysis started for ${selectedIds.size} lead${selectedIds.size === 1 ? '' : 's'}.`);
+  };
+
+  const handleAnalyzeAll = async () => {
+    const businessContactIds = leads.filter((lead) => lead.lead_type === 'business').map((lead) => lead.id);
+    if (!businessContactIds.length || analysingAll) return;
+    setAnalysingAll(true);
+    await runAnalysis(businessContactIds, 'Analysis started for all business contacts.');
+    setAnalysingAll(false);
+  };
+
+  const handleBulkMarkBusiness = async () => {
+    if (!selectedIds.size) return;
     try {
-      await Promise.all([...selectedIds].map((leadId) => analyzeLead(leadId)));
-      showToast(`Analysis started for ${selectedIds.size} lead${selectedIds.size === 1 ? '' : 's'}.`);
-    } catch (analysisError) {
-      showToast(analysisError.message || 'Could not analyse selected leads.', 'error');
+      await Promise.all([...selectedIds].map((leadId) => {
+        const lead = leads.find((item) => item.id === leadId);
+        return updateLead(leadId, {
+          lead_type: 'business',
+          is_business_chat: true,
+          name: lead?.name,
+          phone: lead?.phone,
+          lead_state: lead?.lead_state,
+        });
+      }));
+      setSelectedIds(new Set());
+      showToast(`Marked ${selectedIds.size} chat${selectedIds.size === 1 ? '' : 's'} as business.`);
+    } catch (error) {
+      showToast(error.message || 'Could not mark selected chats as business.', 'error');
     }
   };
 
@@ -265,7 +303,16 @@ export default function LeadsPage() {
                 className="inline-flex h-7 items-center gap-1.5 rounded-lg border border-[#28A745]/30 px-2.5 text-[11px] font-semibold text-[#218c3a] transition hover:bg-[#28A745]/5 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <MessageCircleMore size={13} className={gettingChats ? 'animate-pulse' : ''} />
-                {gettingChats ? 'Syncing...' : 'Sync Chats'}
+                {gettingChats ? 'Syncing...' : 'Sync'}
+              </button>
+              <button
+                type="button"
+                onClick={handleAnalyzeAll}
+                disabled={analysingAll || !leads.some((lead) => lead.lead_type === 'business')}
+                className="inline-flex h-7 items-center gap-1.5 rounded-lg border border-[#28A745]/30 px-2.5 text-[11px] font-semibold text-[#218c3a] transition hover:bg-[#28A745]/5 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {analysingAll ? <LoaderCircle size={13} className="animate-spin" /> : <Sparkles size={13} />}
+                {analysingAll ? 'Analysing...' : 'Analyse'}
               </button>
               <button
                 type="button"
@@ -300,6 +347,12 @@ export default function LeadsPage() {
             onSetTypeFilter={setTypeFilter}
           />
 
+          {typeFilter === 'personal' && (
+            <div className="mx-3 mb-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] leading-relaxed text-slate-500 md:mx-0">
+              These contacts cannot be followed up or analysed for business.
+            </div>
+          )}
+
           <div className="mb-2 flex items-center gap-2 px-3 md:px-0">
             <label className="flex cursor-pointer items-center">
               <input type="checkbox" checked={allVisibleSelected} onChange={toggleSelectAll} className="h-4 w-4 accent-[#28A745]" aria-label="Select leads" />
@@ -317,8 +370,14 @@ export default function LeadsPage() {
             {selectMode && (
               <div className="flex shrink-0 items-center gap-1">
                 <span className="mr-1 text-[10px] font-semibold text-slate-400">Bulk actions</span>
-                <button type="button" onClick={() => setShowAddToListModal(true)} disabled={!selectedIds.size} className="inline-flex items-center gap-1 rounded-lg border border-[#28A745]/30 px-2 py-1.5 text-[10px] font-semibold text-[#218c3a] disabled:opacity-40">Add to list</button>
-                <button type="button" onClick={handleBulkAnalyze} disabled={!selectedIds.size} className="inline-flex items-center gap-1 rounded-lg border border-[#28A745]/30 px-2 py-1.5 text-[10px] font-semibold text-[#218c3a] disabled:opacity-40"><Sparkles size={12} /> Analyse</button>
+                {typeFilter === 'personal' ? (
+                  <button type="button" onClick={handleBulkMarkBusiness} disabled={!selectedIds.size} className="inline-flex items-center gap-1 rounded-lg border border-[#28A745]/30 px-2 py-1.5 text-[10px] font-semibold text-[#218c3a] disabled:opacity-40"><BriefcaseBusiness size={12} /> Mark Business</button>
+                ) : (
+                  <>
+                    <button type="button" onClick={() => setShowAddToListModal(true)} disabled={!selectedIds.size} className="inline-flex items-center gap-1 rounded-lg border border-[#28A745]/30 px-2 py-1.5 text-[10px] font-semibold text-[#218c3a] disabled:opacity-40">Add to list</button>
+                    <button type="button" onClick={handleBulkAnalyze} disabled={!selectedIds.size} className="inline-flex items-center gap-1 rounded-lg border border-[#28A745]/30 px-2 py-1.5 text-[10px] font-semibold text-[#218c3a] disabled:opacity-40"><Sparkles size={12} /> Analyse</button>
+                  </>
+                )}
                 <button type="button" onClick={handleBulkDelete} disabled={!selectedIds.size} className="inline-flex items-center gap-1 rounded-lg border border-red-200 px-2 py-1.5 text-[10px] font-semibold text-red-600 disabled:opacity-40"><Trash2 size={12} /> Delete</button>
                 <button type="button" onClick={() => { setSelectMode(false); setSelectedIds(new Set()); }} className="rounded-lg px-1.5 py-1.5 text-slate-400 hover:bg-slate-100" aria-label="Close selection mode"><CheckSquare size={14} /></button>
               </div>
@@ -364,6 +423,8 @@ export default function LeadsPage() {
               lead={activeLead}
               onEdit={() => setEditingLead(activeLead)}
               onOpenChat={() => setOpenDrawer(DRAWER.CHAT)}
+              onAnalyze={() => handleAnalyzeLead(activeLead.id)}
+              analysisState={analysisStates[activeLead.id]}
               onMarkBought={() => setShowBoughtModal(true)}
               onApproveDraft={() => approveDraft(activeLead.id)}
               onSkipDraft={() => skipDraft(activeLead.id)}
@@ -403,6 +464,8 @@ export default function LeadsPage() {
                 lead={activeLead}
                 onEdit={() => setEditingLead(activeLead)}
                 onOpenChat={() => setOpenDrawer(DRAWER.CHAT)}
+                onAnalyze={() => handleAnalyzeLead(activeLead.id)}
+                analysisState={analysisStates[activeLead.id]}
                 onMarkBought={() => setShowBoughtModal(true)}
                 onApproveDraft={() => approveDraft(activeLead.id)}
                 onSkipDraft={() => skipDraft(activeLead.id)}
@@ -491,6 +554,7 @@ export default function LeadsPage() {
           onClose={() => setEditingLead(null)}
           onSave={handleSaveLead}
           onAnalyze={() => handleAnalyzeLead(editingLead.id)}
+          analysisState={analysisStates[editingLead.id]}
         />
       )}
 

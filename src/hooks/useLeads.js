@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from 'react';
-import { supabase } from '../lib/supabase';
 import { MOCK_LEADS } from '../services/mockLeads';
 import leadsService from '../services/leadsService';
 
@@ -63,19 +62,12 @@ export function useLeads() {
   }, [fetchLeads]);
 
   useEffect(() => {
-    if (USE_MOCK_DATA || !supabase) return undefined;
+    if (USE_MOCK_DATA) return undefined;
 
     const businessId = typeof window !== 'undefined' ? localStorage.getItem('business_id') : null;
     if (!businessId) return undefined;
 
-    const channel = supabase
-      .channel(`leads-${businessId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'contacts', filter: `business_id=eq.${businessId}` }, () => {
-        fetchLeads();
-      })
-      .subscribe();
-
-    return () => supabase.removeChannel(channel);
+    return leadsService.subscribeToLeadData(businessId, fetchLeads);
   }, [fetchLeads]);
 
   // Patches one lead in local state without a full refetch — used for

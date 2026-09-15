@@ -1,4 +1,4 @@
-import { Phone, ExternalLink, ShoppingBag, User2, Megaphone } from 'lucide-react';
+import { Check, LoaderCircle, Phone, ExternalLink, ShoppingBag, Sparkles, User2, Megaphone } from 'lucide-react';
 import { getLeadDisplayName, isLikelyWhatsAppIdentifier, isValidPhoneNumber } from '../../../utils/leadHelpers';
 import { stateConfig, qualityLabel, timeAgo } from '../../../utils/leadHelpers';
 import whatsappIcon from '../../../assets/images/whatsappicon.svg';
@@ -13,7 +13,7 @@ import whatsappIcon from '../../../assets/images/whatsappicon.svg';
 //   onMarkBought — () => void, opens the "mark as bought" flow (modal/form
 //                  lives in LeadsPage or a future BoughtModal — this button
 //                  just triggers it)
-export default function DetailHeader({ lead, onOpenChat, onMarkBought, onEdit }) {
+export default function DetailHeader({ lead, onOpenChat, onAnalyze, analysisState, onMarkBought, onEdit }) {
   const state = stateConfig(lead.lead_state);
   const quality = qualityLabel(lead.lead_quality);
   const displayName = getLeadDisplayName(lead.name, lead.phone);
@@ -81,6 +81,16 @@ export default function DetailHeader({ lead, onOpenChat, onMarkBought, onEdit })
 
         <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:items-center md:gap-1.5">
           <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={onAnalyze}
+              disabled={!onAnalyze || analysisState === 'analysing'}
+              className={`flex h-8 w-8 items-center justify-center rounded-lg transition ${analysisState === 'completed' ? 'text-[#28A745]' : 'text-slate-400 hover:bg-slate-100 hover:text-[#28A745]'} disabled:cursor-not-allowed`}
+              aria-label={analysisState === 'completed' ? 'Analysis complete' : 'Analyse contact'}
+              title={analysisState === 'completed' ? 'Analysis complete' : 'Analyse contact'}
+            >
+              {analysisState === 'analysing' ? <LoaderCircle size={16} className="animate-spin" /> : analysisState === 'completed' ? <Check size={16} strokeWidth={2.5} /> : <Sparkles size={16} />}
+            </button>
             <button
               type="button"
               onClick={onOpenChat}

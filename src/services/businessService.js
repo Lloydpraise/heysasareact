@@ -23,16 +23,31 @@ async function readBackendResponse(response, fallbackMessage) {
 }
 
 export async function startHistoryAnalysis(businessId) {
-  const response = await fetch(`${BACKEND_API_URL}/debug/analysis/start`, {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session?.access_token) throw new Error('You must be signed in to load chat history.');
+
+  const response = await fetch(`${BACKEND_API_URL}/analysis/start`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${session.access_token}`,
+    },
     body: JSON.stringify({ businessId }),
   });
   return readBackendResponse(response, 'Could not start history loading.');
 }
 
 export async function fetchHistoryAnalysisStatus() {
-  const response = await fetch(`${BACKEND_API_URL}/debug/analysis/status`);
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session?.access_token) throw new Error('You must be signed in to check history loading status.');
+
+  const response = await fetch(`${BACKEND_API_URL}/analysis/status`, {
+    headers: { Authorization: `Bearer ${session.access_token}` },
+  });
   return readBackendResponse(response, 'Could not check history loading status.');
 }
 
