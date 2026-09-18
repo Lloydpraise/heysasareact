@@ -1,54 +1,61 @@
 import { supabase } from '../lib/supabase';
 
-const BACKEND_API_URL = (import.meta.env.VITE_BACKEND_API_URL || 'http://localhost:3000').replace(/\/$/, '');
 const EVOLUTION_API_URL = (import.meta.env.VITE_EVOLUTION_API_URL || 'http://localhost:8080').replace(/\/$/, '');
 const EVOLUTION_API_KEY = import.meta.env.VITE_EVOLUTION_API_KEY || '';
+
+async function fetchEvolutionInstances() {
+  if (!EVOLUTION_API_KEY) return null;
+
+  try {
+    const response = await fetch(`${EVOLUTION_API_URL}/instance/fetchInstances`, {
+      headers: { apikey: EVOLUTION_API_KEY },
+    });
+    if (!response.ok) return null;
+    const instances = await response.json().catch(() => null);
+    return Array.isArray(instances) ? instances : null;
+  } catch {
+    return null;
+  }
+}
 
 export async function fetchWhatsAppSessions(businessId) {
   if (!supabase || !businessId) return [];
 
+  const evolutionInstances = await fetchEvolutionInstances();
   const { data, error } = await supabase
     .from('whatsapp_sessions')
-    .select('id, business_id, phone_number, status, instance_name, history_loaded_at, updated_at')
+    .select('id, business_id, phone_number, status, instance_name, evolution_instance_id, history_loaded_at, updated_at, session_data')
     .eq('business_id', businessId)
+    .eq('status', 'connected')
     .order('created_at', { ascending: false });
   if (error) throw error;
-  return (data || []).filter((session) => session.business_id === businessId);
+
+  const sessions = (data || [])
+    .filter((session) => session.business_id === businessId && session.instance_name)
+    .map((session) => ({
+      ...session,
+      label: session.session_data?.label
+        || session.session_data?.raw_payload?.data?.profileName
+        || null,
+    }));
+
+  if (!evolutionInstances) return sessions;
+
+  const openInstanceNames = new Set(
+    evolutionInstances
+      .filter((instance) => ['open', 'connected', 'ready', 'authenticated'].includes(
+        String(instance.connectionStatus || instance.status || instance.state || '').toLowerCase()
+      ))
+      .map((instance) => instance.name)
+      .filter(Boolean)
+  );
+  return sessions.filter((session) => openInstanceNames.has(session.instance_name));
 }
 
 async function readBackendResponse(response, fallbackMessage) {
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data.message || data.error || fallbackMessage);
   return data;
-}
-
-export async function startHistoryAnalysis(businessId) {
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  if (!session?.access_token) throw new Error('You must be signed in to load chat history.');
-
-  const response = await fetch(`${BACKEND_API_URL}/analysis/start`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${session.access_token}`,
-    },
-    body: JSON.stringify({ businessId }),
-  });
-  return readBackendResponse(response, 'Could not start history loading.');
-}
-
-export async function fetchHistoryAnalysisStatus() {
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  if (!session?.access_token) throw new Error('You must be signed in to check history loading status.');
-
-  const response = await fetch(`${BACKEND_API_URL}/analysis/status`, {
-    headers: { Authorization: `Bearer ${session.access_token}` },
-  });
-  return readBackendResponse(response, 'Could not check history loading status.');
 }
 
 export async function markWhatsAppHistoryLoaded({ businessId, sessionId }) {
@@ -71,7 +78,7 @@ export async function markWhatsAppHistoryLoaded({ businessId, sessionId }) {
   return savedSession;
 }
 
-export async function saveWhatsAppSession({ businessId, phoneNumber, instanceName, status = 'connected' }) {
+export async function saveWhatsAppSession({ businessId, phoneNumber, instanceName, label, status = 'connected' }) {
   if (!supabase) throw new Error('Supabase is not configured.');
   if (!businessId) throw new Error('No active business is available to save this WhatsApp connection.');
 
@@ -82,12 +89,25 @@ export async function saveWhatsAppSession({ businessId, phoneNumber, instanceNam
       phone_number: phoneNumber || null,
       instance_name: instanceName || null,
       status,
+      session_data: label ? { label } : null,
     })
-    .select('id, business_id, phone_number, status, instance_name, history_loaded_at, updated_at')
+    .select('id, business_id, phone_number, status, instance_name, evolution_instance_id, history_loaded_at, updated_at, session_data')
     .single();
 
   if (error) throw new Error(`Could not save WhatsApp connection: ${error.message}`);
-  return data;
+  const evolutionInstances = await fetchEvolutionInstances();
+  const evolutionInstance = evolutionInstances?.find((instance) => instance.name === instanceName);
+  if (!evolutionInstance?.id) return data;
+
+  const { data: linkedSession, error: linkError } = await supabase
+    .from('whatsapp_sessions')
+    .update({ evolution_instance_id: evolutionInstance.id })
+    .eq('id', data.id)
+    .eq('business_id', businessId)
+    .select('id, business_id, phone_number, status, instance_name, evolution_instance_id, history_loaded_at, updated_at, session_data')
+    .single();
+  if (linkError) throw new Error(`WhatsApp was saved, but its Evolution instance could not be linked: ${linkError.message}`);
+  return linkedSession;
 }
 
 export async function disconnectWhatsAppInstance({ businessId, sessionId, instanceName }) {
@@ -109,7 +129,7 @@ export async function disconnectWhatsAppInstance({ businessId, sessionId, instan
     .eq('id', sessionId)
     .eq('business_id', businessId)
     .eq('instance_name', instanceName)
-    .select('id, business_id, phone_number, status, instance_name, history_loaded_at, updated_at')
+    .select('id, business_id, phone_number, status, instance_name, evolution_instance_id, history_loaded_at, updated_at')
     .single();
   if (error) throw new Error(`WhatsApp was removed, but its session record could not be deleted: ${error.message}`);
   return data;

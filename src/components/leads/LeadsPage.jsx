@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ArrowLeft, BriefcaseBusiness, CheckSquare, LoaderCircle, MessageCircleMore, Plus, Search, RefreshCw, Sparkles, Trash2, User } from 'lucide-react';
 import { useLeads } from '../../hooks/useLeads';
 import { useLeadFilters } from '../../hooks/useLeadFilters';
@@ -9,6 +9,8 @@ import { WhatsAppConnectionFlow } from '../preferences/sections/WhatsAppConnecti
 import { useBusinessConnection } from '../../hooks/useBusinessConnection';
 import { useWhatsAppHistory } from '../../hooks/useWhatsAppHistory';
 import leadsService from '../../services/leadsService';
+import { fetchWhatsAppSessions } from '../../services/businessService';
+import { useAuth } from '../../context/useAuth';
 import { addExistingLeadsToManualList, enrollLeadInCampaign, removeLeadFromCampaign } from '../../services/listsCampaignsService';
 import AddLeadModal from './modals/AddLeadModal';
 import BoughtModal from './modals/BoughtModal';
@@ -31,14 +33,32 @@ const DRAWER = { NONE: null, FOLLOWUPS: 'followups', CHAT: 'chat', APPROVALS: 'a
 export default function LeadsPage() {
   const { leads, loading, error, refetch, patchLead, addLead, addBulkLeads, getChats, approveDraft, skipDraft, sendConsentMessage, updateLead, deleteLead, markAsBought } = useLeads();
   const { business, loading: businessLoading, refetch: refetchBusiness } = useBusinessConnection();
+  const { activeBusinessId } = useAuth();
   const { loading: historyLoading, error: historyError, loadHistory } = useWhatsAppHistory(refetch);
   const { toast, showToast } = useToast();
   const {
     searchQuery, setSearchQuery,
     stateFilter, setStateFilter,
     typeFilter, setTypeFilter,
+    instanceFilter, setInstanceFilter,
     filteredLeads, stats,
   } = useLeadFilters(leads);
+  const [connectedInstances, setConnectedInstances] = useState([]);
+
+  useEffect(() => {
+    let mounted = true;
+    if (!activeBusinessId) {
+      return undefined;
+    }
+
+    fetchWhatsAppSessions(activeBusinessId)
+      .then((sessions) => {
+        if (mounted) setConnectedInstances(sessions.filter((session) => session.status === 'connected' && session.instance_name));
+      })
+      .catch(() => { if (mounted) setConnectedInstances([]); });
+
+    return () => { mounted = false; };
+  }, [activeBusinessId]);
 
   const [activeLeadId, setActiveLeadId] = useState(null);
   const [openDrawer, setOpenDrawer] = useState(DRAWER.NONE);
@@ -60,6 +80,16 @@ export default function LeadsPage() {
   const isDisconnected = !businessLoading && business?.whatsapp_connected === false;
   const showHistoryPrompt = !businessLoading && business?.whatsapp_connected === true && !loading && leads.length === 0 && !error;
   const closeDrawer = () => setOpenDrawer(DRAWER.NONE);
+
+  const handleStateFilter = (value) => {
+    setStateFilter(value);
+    if (value !== 'all') setTypeFilter('all');
+  };
+
+  const handleTypeFilter = (value) => {
+    setTypeFilter(value);
+    if (value !== 'all') setStateFilter('all');
+  };
 
   const selectLead = (leadId) => {
     setActiveLeadId(leadId);
@@ -333,18 +363,42 @@ export default function LeadsPage() {
             </div>
           </div>
 
+          <div className="mb-3 border-y border-slate-200/80 bg-slate-50/80 px-3 py-2 md:px-0">
+            <div className="mb-1.5 flex items-center justify-between gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">WhatsApp inbox</span>
+              <span className="text-[10px] font-medium text-slate-400">{instanceFilter === 'all' ? 'All contacts' : 'Filtered'}</span>
+            </div>
+            <div className="flex gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <InstanceChip
+                active={instanceFilter === 'all'}
+                label="All"
+                count={leads.length}
+                onClick={() => setInstanceFilter('all')}
+              />
+              {connectedInstances.map((session) => (
+                <InstanceChip
+                  key={session.id}
+                  active={instanceFilter === session.id}
+                  label={session.phone_number || session.instance_name}
+                  count={leads.filter((lead) => (lead.whatsappSessionIds || []).includes(session.id)).length}
+                  onClick={() => setInstanceFilter(session.id)}
+                />
+              ))}
+            </div>
+          </div>
+
           <StatChips
             stats={stats}
-            onSetTypeFilter={setTypeFilter}
-            onSetStateFilter={setStateFilter}
+            onSetTypeFilter={handleTypeFilter}
+            onSetStateFilter={handleStateFilter}
             onOpenApprovals={() => setOpenDrawer(DRAWER.APPROVALS)}
           />
 
           <FilterTabs
             stateFilter={stateFilter}
-            onSetStateFilter={setStateFilter}
+            onSetStateFilter={handleStateFilter}
             typeFilter={typeFilter}
-            onSetTypeFilter={setTypeFilter}
+            onSetTypeFilter={handleTypeFilter}
           />
 
           {typeFilter === 'personal' && (
@@ -528,7 +582,6 @@ export default function LeadsPage() {
 
       {activeLead && (
         <AddToCampaignModal
-          key={`${activeLead.id}-${showAddToCampaignModal}`}
           lead={activeLead}
           open={showAddToCampaignModal}
           businessId={leadsService.getBusinessId()}
@@ -560,7 +613,6 @@ export default function LeadsPage() {
 
       {activeLead && (
         <ConsentModal
-          key={`${activeLead.id}-${showConsentModal}`}
           lead={activeLead}
           open={showConsentModal}
           onClose={() => setShowConsentModal(false)}
@@ -576,5 +628,20 @@ export default function LeadsPage() {
 
       <Toast toast={toast} />
     </div>
+  );
+}
+
+function InstanceChip({ active, label, count, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex min-w-[92px] shrink-0 items-center justify-between gap-2 rounded-lg border px-2.5 py-1.5 text-left transition ${active
+        ? 'border-[#28A745] bg-[#28A745] text-white shadow-sm'
+        : 'border-slate-200 bg-white text-slate-600 hover:border-[#28A745]/40 hover:bg-[#28A745]/5'}`}
+    >
+      <span className="max-w-[140px] truncate text-[11px] font-semibold">{label}</span>
+      <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${active ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'}`}>{count}</span>
+    </button>
   );
 }

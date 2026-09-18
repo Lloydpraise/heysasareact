@@ -68,6 +68,7 @@ function normalizeLead(lead) {
     id: lead.id,
     name: lead.name || 'Unknown',
     phone: lead.phone || '',
+    whatsappSessionIds: Array.isArray(lead.whatsapp_session_ids) ? lead.whatsapp_session_ids : [],
     lead_state: lead.lead_state || 'new',
     lead_type: leadType,
     lead_quality: lead.lead_quality || 'warm',
@@ -225,16 +226,28 @@ async function fetchLiveLeads(businessId) {
     if (contactsError) throw contactsError;
 
     const presenceById = new Map((contacts || []).map((contact) => [contact.id, contact]));
+    const { data: instanceLinks, error: instanceLinksError } = await supabase
+      .from('contact_whatsapp_sessions')
+      .select('contact_id, whatsapp_session_id')
+      .in('contact_id', contactIds);
+    if (instanceLinksError) console.warn('[leadsService] Contact session links unavailable:', instanceLinksError.message);
+    const sessionIdsByContact = new Map();
+    (instanceLinks || []).forEach((link) => {
+      const current = sessionIdsByContact.get(link.contact_id) || [];
+      current.push(link.whatsapp_session_id);
+      sessionIdsByContact.set(link.contact_id, current);
+    });
     return leadsWithCampaigns.map((lead) => {
       const presence = presenceById.get(lead.id);
       return presence
         ? {
             ...lead,
+            whatsappSessionIds: sessionIdsByContact.get(lead.id) || [],
             presence_status: presence.presence_status || null,
             presence_updated_at: presence.presence_updated_at || null,
             last_seen_online: presence.presence_updated_at || null,
           }
-        : lead;
+        : { ...lead, whatsappSessionIds: sessionIdsByContact.get(lead.id) || [] };
     });
   } catch (error) {
     console.error('[leadsService] fetchLiveLeads failed:', error.message);
@@ -466,15 +479,19 @@ function normalizeEvolutionChat(chat) {
   });
 }
 
-async function loadEvolutionChats() {
+async function loadEvolutionChats(instanceName = null) {
   const businessId = getBusinessId();
   if (!businessId) throw new Error('No business selected.');
 
-  const sessions = await fetchWhatsAppSessions(businessId);
-  const session = sessions.find((item) => item.status === 'connected' && item.instance_name);
-  if (!session) throw new Error('No connected WhatsApp instance is available.');
+  let targetInstanceName = instanceName;
+  if (!targetInstanceName) {
+    const sessions = await fetchWhatsAppSessions(businessId);
+    const session = sessions.find((item) => item.status === 'connected' && item.instance_name);
+    targetInstanceName = session?.instance_name;
+  }
+  if (!targetInstanceName) throw new Error('No connected WhatsApp instance is available.');
 
-  const response = await fetch(`${EVOLUTION_API_URL}/chat/findChats/${encodeURIComponent(session.instance_name)}`, {
+  const response = await fetch(`${EVOLUTION_API_URL}/chat/findChats/${encodeURIComponent(targetInstanceName)}`, {
     method: 'POST',
     headers: { apikey: EVOLUTION_API_KEY, 'Content-Type': 'application/json' },
     body: JSON.stringify({}),
@@ -491,11 +508,15 @@ async function loadEvolutionChats() {
     .filter((chat) => chat.phone);
 }
 
-async function syncEvolutionChats(existingLeads = []) {
+async function syncEvolutionChats(existingLeads = [], instanceName = null, chatsOverride = null) {
   const businessId = getBusinessId();
   if (!businessId) throw new Error('No business selected.');
 
-  const chats = await loadEvolutionChats();
+  const chats = chatsOverride || await loadEvolutionChats(instanceName);
+  const sessions = await fetchWhatsAppSessions(businessId);
+  const targetSession = sessions.find((session) => session.instance_name === instanceName)
+    || sessions.find((session) => session.status === 'connected' && session.instance_name);
+  if (!targetSession?.id) throw new Error('The WhatsApp instance could not be matched to a saved session.');
   const uniqueChats = [...new Map(chats.map((chat) => [chat.phone, chat])).values()];
   if (!supabase) return { leads: uniqueChats, newConversations: uniqueChats.length };
 
@@ -539,6 +560,15 @@ async function syncEvolutionChats(existingLeads = []) {
     .map((chat) => contactByPhone.get(chat.phone))
     .filter(Boolean);
   const contactIds = [...new Set(contactsForChats.map((contact) => contact.id))];
+  if (contactIds.length) {
+    const { error: linksError } = await supabase
+      .from('contact_whatsapp_sessions')
+      .upsert(
+        contactIds.map((contactId) => ({ contact_id: contactId, whatsapp_session_id: targetSession.id })),
+        { onConflict: 'contact_id,whatsapp_session_id', ignoreDuplicates: true }
+      );
+    if (linksError) throw linksError;
+  }
   let newConversations = 0;
 
   if (contactIds.length) {
@@ -562,19 +592,44 @@ async function syncEvolutionChats(existingLeads = []) {
   }
 
   return {
-    leads: createdLeads.filter((lead) => !localPhones.has(String(lead.phone || '').replace(/\D/g, ''))),
+    leads: createdLeads
+      .filter((lead) => !localPhones.has(String(lead.phone || '').replace(/\D/g, '')))
+      .map((lead) => ({ ...lead, whatsappSessionIds: [targetSession.id] })),
     newConversations,
   };
 }
 
-async function loadPastChatMessages({ phone }) {
+async function syncAllEvolutionChats(existingLeads = []) {
+  const businessId = getBusinessId();
+  if (!businessId) throw new Error('No business selected.');
+
+  const sessions = await fetchWhatsAppSessions(businessId);
+  const connectedSessions = sessions.filter((session) => session.status === 'connected' && session.instance_name);
+  if (!connectedSessions.length) throw new Error('No connected WhatsApp instance is available.');
+
+  const importedLeads = [];
+  let newConversations = 0;
+  for (const session of connectedSessions) {
+    const result = await syncEvolutionChats([...existingLeads, ...importedLeads], session.instance_name);
+    importedLeads.push(...result.leads);
+    newConversations += result.newConversations;
+  }
+
+  return { leads: importedLeads, newConversations };
+}
+
+async function loadPastChatMessages({ phone, instanceName = null }) {
   const businessId = getBusinessId();
   if (!businessId) throw new Error('No business selected.');
   if (!phone) throw new Error('This lead has no phone number.');
 
-  const sessions = await fetchWhatsAppSessions(businessId);
-  const session = sessions.find((item) => item.status === 'connected' && item.instance_name);
-  if (!session) throw new Error('No connected WhatsApp instance is available.');
+  let targetInstanceName = instanceName;
+  if (!targetInstanceName) {
+    const sessions = await fetchWhatsAppSessions(businessId);
+    const session = sessions.find((item) => item.status === 'connected' && item.instance_name);
+    targetInstanceName = session?.instance_name;
+  }
+  if (!targetInstanceName) throw new Error('No connected WhatsApp instance is available.');
 
   const remoteJid = `${phone.replace(/\D/g, '')}@s.whatsapp.net`;
   const pageSize = 100;
@@ -582,7 +637,7 @@ async function loadPastChatMessages({ phone }) {
   const messagesById = new Map();
 
   for (let page = 1; page <= maxPages; page += 1) {
-    const response = await fetch(`${EVOLUTION_API_URL}/chat/findMessages/${encodeURIComponent(session.instance_name)}`, {
+    const response = await fetch(`${EVOLUTION_API_URL}/chat/findMessages/${encodeURIComponent(targetInstanceName)}`, {
       method: 'POST',
       headers: { apikey: EVOLUTION_API_KEY, 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -605,6 +660,23 @@ async function loadPastChatMessages({ phone }) {
   }
 
   return [...messagesById.values()].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+}
+
+async function loadEvolutionHistory({ instanceName }) {
+  if (!instanceName) throw new Error('This WhatsApp connection has no Evolution instance.');
+
+  const chats = await loadEvolutionChats(instanceName);
+  await syncEvolutionChats([], instanceName, chats);
+
+  const history = await Promise.all(chats.map(async (chat) => ({
+    phone: chat.phone,
+    messages: await loadPastChatMessages({ phone: chat.phone, instanceName }),
+  })));
+
+  return {
+    chatCount: history.length,
+    messageCount: history.reduce((total, item) => total + item.messages.length, 0),
+  };
 }
 
 async function approveFollowUpDraft(leadId, draft) {
@@ -865,6 +937,8 @@ export const leadsService = {
   markChatMessagesRead,
   sendChatMessage,
   syncEvolutionChats,
+  syncAllEvolutionChats,
+  loadEvolutionHistory,
   loadPastChatMessages,
   loadChatMessageMedia,
   approveFollowUpDraft,

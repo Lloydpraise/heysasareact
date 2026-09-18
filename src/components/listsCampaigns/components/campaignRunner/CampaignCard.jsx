@@ -37,6 +37,13 @@ export default function CampaignCard({ campaign, onChanged, onEdit }) {
         <KpiTile label="Response Rate" value={`${campaign.responseRate}%`} sub={`${campaign.repliesCount} responses`} />
         <KpiTile label="Realized Revenue" value={`KES ${campaign.revenue.toLocaleString()}`} />
       </div>
+      <div className="flex flex-wrap gap-x-4 gap-y-1 border-t border-slate-100 pt-3 text-[11px] text-slate-500">
+        <span><strong className="font-semibold text-emerald-700">{campaign.sent} sent</strong></span>
+        <span>{campaign.skipped ?? 0} skipped</span>
+        <span>{campaign.failed ?? 0} failed</span>
+        <span>{campaign.queued ?? 0} queued</span>
+        {(campaign.cancelled ?? 0) > 0 && <span>{campaign.cancelled} cancelled</span>}
+      </div>
     </AnCard>
   );
 }

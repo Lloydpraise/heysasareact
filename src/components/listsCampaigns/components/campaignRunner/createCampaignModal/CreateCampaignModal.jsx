@@ -6,13 +6,14 @@ import MessageSequenceBuilder from './Messagesequencebuilder';
 import ScheduleGuardrails from './ScheduleGuardrails';
 import { SEQUENCE_TYPE, EDUCATIONAL_FREQUENCY } from '../../../constants';
 import { launchCampaign, updateCampaign } from '../../../../../services/listsCampaignsService';
+import { fetchWhatsAppSessions } from '../../../../../services/businessService';
 import { getSettings } from '../../../../../services/settingsService';
 import { formatDateTimeLocalInTimeZone, parseDateTimeLocalInTimeZone } from '../../../../../utils/businessTime';
 
 const STEPS = ['Select lists', 'Build campaign'];
 
 function emptyStep() {
-  return { content: '', gapHours: 24 };
+  return { content: '', gapHours: 24, media: null };
 }
 
 function getInitialSteps(campaign) {
@@ -21,6 +22,7 @@ function getInitialSteps(campaign) {
     id: step.id,
     content: step.content || '',
     gapHours: index === 0 ? 0 : step.gapHours ?? step.delayHours ?? 24,
+    media: step.media || null,
   }));
 }
 
@@ -35,6 +37,8 @@ function getDefaultSendTime(timeZone = 'UTC') {
 export default function CreateCampaignModal({ open, campaign, onClose, businessId, onLaunched }) {
   const [stepIndex, setStepIndex] = useState(() => (campaign ? 1 : 0));
   const [campaignName, setCampaignName] = useState(() => campaign?.name || '');
+  const [whatsappSessions, setWhatsappSessions] = useState([]);
+  const [selectedInstanceId, setSelectedInstanceId] = useState('');
   const [selectedListIds, setSelectedListIds] = useState(() => (campaign?.listId ? [campaign.listId] : []));
   const [audience, setAudience] = useState(() => (
     campaign ? { sendableCount: campaign.enrolled ?? 0 } : null
@@ -98,9 +102,34 @@ export default function CreateCampaignModal({ open, campaign, onClose, businessI
     return () => { isMounted = false; };
   }, [businessId]);
 
+  useEffect(() => {
+    let isMounted = true;
+    if (!businessId) {
+      return () => { isMounted = false; };
+    }
+
+    fetchWhatsAppSessions(businessId)
+      .then((sessions) => {
+        if (!isMounted) return;
+        const connectedSessions = sessions.filter((session) => session.status === 'connected' && session.instance_name);
+        setWhatsappSessions(connectedSessions);
+        const existing = connectedSessions.find((session) => session.instance_name === campaign?.whatsappInstanceName);
+        setSelectedInstanceId(existing?.id || '');
+      })
+      .catch(() => {
+        if (isMounted) {
+          setWhatsappSessions([]);
+          setSelectedInstanceId('');
+        }
+      });
+
+    return () => { isMounted = false; };
+  }, [businessId, campaign]);
+
   const reset = () => {
     setStepIndex(0);
     setCampaignName('');
+    setSelectedInstanceId('');
     setSelectedListIds([]);
     setAudience(null);
     setSequenceType(SEQUENCE_TYPE.BROADCAST);
@@ -130,6 +159,7 @@ export default function CreateCampaignModal({ open, campaign, onClose, businessI
   const canContinueFromLists = selectedListIds.length > 0 && audience && !audience.error;
   const canLaunch =
     campaignName.trim().length > 0 &&
+    selectedInstanceId &&
     steps.every((s) => s.content.trim().length > 0) &&
     (sequenceType !== SEQUENCE_TYPE.EDUCATIONAL || educationalTopic.trim().length > 0);
 
@@ -152,6 +182,9 @@ export default function CreateCampaignModal({ open, campaign, onClose, businessI
           id: s.id,
           order: i + 1,
           content: s.content,
+          media: s.media
+            ? { ...s.media, caption: s.content.trim() || null }
+            : null,
           condition: s.condition,
           gapHours:
             i === 0
@@ -167,6 +200,7 @@ export default function CreateCampaignModal({ open, campaign, onClose, businessI
         businessId,
         timezone,
         name: campaignName.trim(),
+        whatsappInstanceId: selectedInstanceId,
         listIds: selectedListIds,
         sequenceType,
         educationalTopic: sequenceType === SEQUENCE_TYPE.EDUCATIONAL ? educationalTopic.trim() : null,
@@ -223,6 +257,28 @@ export default function CreateCampaignModal({ open, campaign, onClose, businessI
                   placeholder="Name this campaign"
                   className="w-full bg-transparent text-2xl font-semibold text-slate-900 placeholder:text-slate-400 outline-none"
                 />
+                <div className="mt-4 max-w-xl space-y-2">
+                  <label htmlFor="campaign-whatsapp-instance" className="block text-sm font-medium text-slate-700">
+                    Select instance <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    id="campaign-whatsapp-instance"
+                    value={selectedInstanceId}
+                    onChange={(event) => setSelectedInstanceId(event.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-[#28A745]"
+                    required
+                  >
+                    <option value="">Choose a connected WhatsApp instance</option>
+                    {whatsappSessions.map((session, index) => (
+                      <option key={session.id} value={session.id}>
+                        {session.label || session.first_name || session.phone_number || session.instance_name || `WhatsApp ${index + 1}`}
+                      </option>
+                    ))}
+                  </select>
+                  {!whatsappSessions.length && (
+                    <p className="text-xs text-amber-600">Connect a WhatsApp instance before launching a campaign.</p>
+                  )}
+                </div>
                 <p className="text-sm text-slate-500">
                   {audience?.sendableCount ?? '—'} leads will be sent to · from {selectedListIds.length} list{selectedListIds.length === 1 ? '' : 's'}
                 </p>
@@ -250,6 +306,7 @@ export default function CreateCampaignModal({ open, campaign, onClose, businessI
                   setFrequency={setFrequency}
                   steps={steps}
                   setSteps={setSteps}
+                  businessId={businessId}
                   firstMessageSendAt={firstMessageSendAt}
                   setFirstMessageSendAt={setFirstMessageSendAt}
                   quietStart={quietHours.start}

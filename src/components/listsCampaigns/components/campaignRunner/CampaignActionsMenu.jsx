@@ -1,9 +1,11 @@
-import { Archive, Edit3, MoreVertical, Pause, Play } from 'lucide-react';
+import { Edit3, MoreVertical, Pause, Play } from 'lucide-react';
 import { useState } from 'react';
 import { pauseCampaign } from '../../../../services/listsCampaignsService';
 
 export default function CampaignActionsMenu({ campaign, onChanged, onEdit }) {
   const [open, setOpen] = useState(false);
+
+  if (['completed', 'failed'].includes(campaign.status)) return null;
 
   const handlePause = async () => {
     if (!['active', 'paused'].includes(campaign.status)) return;
@@ -44,9 +46,6 @@ export default function CampaignActionsMenu({ campaign, onChanged, onEdit }) {
               {campaign.status === 'active' ? 'Pause' : 'Resume'}
             </button>
           )}
-          <button type="button" className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">
-            <Archive size={12} /> Archive
-          </button>
         </div>
       )}
     </div>

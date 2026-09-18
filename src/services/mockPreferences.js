@@ -18,11 +18,6 @@ export const mockPrefs = {
   nudge_interval_hrs:     2,
   hot_lead_alert:         true,
   hot_lead_threshold:     8,
-  mat_testimonial:        true,
-  mat_tip:                true,
-  mat_offer:              true,
-  mat_story:              false,
-  mat_educational:        false,
 };
 
 export const mockMaterials = [
@@ -34,7 +29,6 @@ export const mockMaterials = [
 
 export const mockBusiness = {
   name:        'SolarTech Kenya',
-  type:        'service',
   currency:    'KES',
   timezone:    'Africa/Nairobi',
   language:    'auto',

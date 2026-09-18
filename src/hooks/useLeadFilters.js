@@ -9,26 +9,33 @@ export function useLeadFilters(leads) {
   const [searchQuery, setSearchQuery] = useState('');
   const [stateFilter, setStateFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
+  const [instanceFilter, setInstanceFilter] = useState('all');
 
   const filteredLeads = useMemo(() => {
     return leads
       .filter((lead) => {
         const q = searchQuery.toLowerCase();
+        const name = String(lead.name || '').toLowerCase();
+        const phone = String(lead.phone || '');
+        const intent = String(lead.customer_intent || '').toLowerCase();
+        const adHeadline = String(lead.ad_headline || '').toLowerCase();
         const matchesSearch =
           !q ||
-          lead.name.toLowerCase().includes(q) ||
-          lead.phone.includes(q) ||
-          (lead.customer_intent || '').toLowerCase().includes(q) ||
-          (lead.ad_headline || '').toLowerCase().includes(q) ||
-          (lead.product_interests || []).some((p) => p.includes(q));
+          name.includes(q) ||
+          phone.includes(q) ||
+          intent.includes(q) ||
+          adHeadline.includes(q) ||
+          (lead.product_interests || []).some((product) => String(product || '').toLowerCase().includes(q));
         const matchesState = stateFilter === 'all'
           || (stateFilter === 'unread' ? lead.unread_count > 0 : lead.lead_state === stateFilter);
         const matchesType = typeFilter === 'personal'
           ? isPersonalChat(lead)
           : typeFilter === 'all'
-            ? !isPersonalChat(lead)
+            ? true
             : lead.lead_type === typeFilter || (typeFilter === 'ad' && lead.is_ad_lead);
-        return matchesSearch && matchesState && matchesType;
+        const matchesInstance = instanceFilter === 'all'
+          || (lead.whatsappSessionIds || []).includes(instanceFilter);
+        return matchesSearch && matchesState && matchesType && matchesInstance;
       })
       .sort((a, b) => {
         const aIntentScore = a.intent_score ?? -1;
@@ -43,7 +50,7 @@ export function useLeadFilters(leads) {
         if (ap !== bp) return ap - bp;
         return new Date(b.last_seen) - new Date(a.last_seen);
       });
-  }, [leads, searchQuery, stateFilter, typeFilter]);
+  }, [leads, searchQuery, stateFilter, typeFilter, instanceFilter]);
 
   const stats = useMemo(() => {
     const business = leads.filter((l) => l.lead_type === 'business');
@@ -71,6 +78,8 @@ export function useLeadFilters(leads) {
     setStateFilter,
     typeFilter,
     setTypeFilter,
+    instanceFilter,
+    setInstanceFilter,
     filteredLeads,
     stats,
   };

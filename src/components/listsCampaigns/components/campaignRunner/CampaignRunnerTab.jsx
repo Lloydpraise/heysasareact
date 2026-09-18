@@ -17,6 +17,7 @@ export default function CampaignRunnerTab({ onNeedLists }) {
   const [campaigns, setCampaigns] = useState(() => (businessId ? null : MOCK_CAMPAIGNS));
   const [expandedId, setExpandedId] = useState(null);
   const [view, setView] = useState('list');
+  const [campaignSection, setCampaignSection] = useState('active');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showActivityLog, setShowActivityLog] = useState(false);
   const [editingCampaign, setEditingCampaign] = useState(null);
@@ -61,6 +62,35 @@ export default function CampaignRunnerTab({ onNeedLists }) {
 
   if (!campaigns) return <div className="text-sm text-slate-400">Loading campaigns...</div>;
 
+  const currentCampaigns = campaigns.filter((campaign) => ['active', 'paused'].includes(campaign.status));
+  const archivedCampaigns = campaigns.filter((campaign) => ['completed', 'failed'].includes(campaign.status));
+  const visibleCampaigns = campaignSection === 'active' ? currentCampaigns : archivedCampaigns;
+
+  const renderCampaignList = (items) => (
+    <AnCard className="overflow-hidden p-0">
+      <div className="grid grid-cols-[minmax(0,1.5fr)_0.8fr_0.8fr_0.8fr_auto] gap-3 border-b border-slate-100 bg-slate-50/70 px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+        <span>Campaign</span><span>Leads</span><span>Sent</span><span>Response rate</span><span />
+      </div>
+      {items.map((campaign) => (
+        <CampaignRow key={campaign.id} campaign={campaign} onChanged={refetch} onEdit={openEditCampaign} />
+      ))}
+    </AnCard>
+  );
+
+  const renderCampaignGrid = (items) => (
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      {items.map((campaign) => (
+        <div key={campaign.id} className="min-w-0 space-y-3">
+          <div onClick={() => setExpandedId(expandedId === campaign.id ? null : campaign.id)} className="cursor-pointer">
+            <CampaignCard campaign={campaign} onChanged={refetch} onEdit={openEditCampaign} />
+          </div>
+          <MessageUsage businessId={businessId} dailyCap={campaign.dailyCap} initialSentToday={campaign.sentToday} />
+          {expandedId === campaign.id && <SequenceStepList steps={campaign.steps} />}
+        </div>
+      ))}
+    </div>
+  );
+
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col space-y-4 overflow-y-auto">
       <div className="flex items-center justify-between gap-3">
@@ -97,34 +127,52 @@ export default function CampaignRunnerTab({ onNeedLists }) {
 
       {showActivityLog && <CampaignActivityLog businessId={businessId} onClose={() => setShowActivityLog(false)} />}
 
-      <div className="flex justify-end">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/80 pb-2">
+        <div className="flex items-center gap-1 rounded-xl bg-slate-100 p-1" role="tablist" aria-label="Campaign status">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={campaignSection === 'active'}
+            onClick={() => setCampaignSection('active')}
+            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${campaignSection === 'active' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+          >
+            Active <span className="ml-1 text-[10px] text-slate-400">{currentCampaigns.length}</span>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={campaignSection === 'achieved'}
+            onClick={() => setCampaignSection('achieved')}
+            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${campaignSection === 'achieved' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+          >
+            Achieved <span className="ml-1 text-[10px] text-slate-400">{archivedCampaigns.length}</span>
+          </button>
+        </div>
         <ViewSwitcher view={view} onChange={setView} />
       </div>
 
-      {campaigns.length === 0 && (
-        <p className="text-slate-400 text-sm">No campaigns yet - launch one from a list in List Manager.</p>
-      )}
-
-      {view === 'list' && campaigns.length > 0 && (
-        <AnCard className="overflow-hidden p-0">
-          <div className="grid grid-cols-[minmax(0,1.5fr)_0.8fr_0.8fr_0.8fr_auto] gap-3 border-b border-slate-100 bg-slate-50/70 px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-            <span>Campaign</span><span>Leads</span><span>Sent</span><span>Response rate</span><span />
-          </div>
-          {campaigns.map((campaign) => (
-            <CampaignRow key={campaign.id} campaign={campaign} onChanged={refetch} onEdit={openEditCampaign} />
-          ))}
-        </AnCard>
-      )}
-
-      {view === 'grid' && campaigns.map((c) => (
-        <div key={c.id} className="space-y-3">
-          <div onClick={() => setExpandedId(expandedId === c.id ? null : c.id)} className="cursor-pointer">
-            <CampaignCard campaign={c} onChanged={refetch} onEdit={openEditCampaign} />
-          </div>
-          <MessageUsage businessId={businessId} dailyCap={c.dailyCap} initialSentToday={c.sentToday} />
-          {expandedId === c.id && <SequenceStepList steps={c.steps} />}
+      {campaignSection === 'active' && currentCampaigns.length === 0 && (
+        <div className="flex min-h-[280px] flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 px-6 text-center">
+          <h3 className="text-base font-semibold text-slate-800">No active campaigns</h3>
+          <p className="mt-1 max-w-sm text-sm text-slate-500">Create a new campaign to start reaching the leads in your lists.</p>
+          <button
+            type="button"
+            onClick={() => (hasLists ? openCreateCampaign() : onNeedLists?.())}
+            className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[#28A745] px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-[#28A745]/20 transition hover:bg-[#218838]"
+          >
+            <Plus size={16} /> {hasLists ? 'Create new campaign' : 'Create lists first'}
+          </button>
         </div>
-      ))}
+      )}
+
+      {campaignSection === 'achieved' && visibleCampaigns.length === 0 && (
+        <div className="flex min-h-[220px] items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 px-6 text-center text-sm text-slate-500">
+          No achieved campaigns yet.
+        </div>
+      )}
+
+      {visibleCampaigns.length > 0 && view === 'list' && renderCampaignList(visibleCampaigns)}
+      {visibleCampaigns.length > 0 && view === 'grid' && renderCampaignGrid(visibleCampaigns)}
 
       <CreateCampaignModal
         key={editingCampaign?.id || 'new-campaign'}

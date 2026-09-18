@@ -1,16 +1,15 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ChevronRight, LoaderCircle, Plus } from 'lucide-react';
 import { GlassCard, Toggle } from '../shared/ui';
 import { WhatsAppConnectionFlow } from './WhatsAppConnectionFlow';
 import whatsappIcon from '../../../assets/images/whatsappicon.svg';
 import {
-  fetchHistoryAnalysisStatus,
   markWhatsAppHistoryLoaded,
   fetchWhatsAppSessions,
   disconnectWhatsAppInstance,
   saveWhatsAppSession,
-  startHistoryAnalysis,
 } from '../../../services/businessService';
+import leadsService from '../../../services/leadsService';
 import { useAuth } from '../../../context/useAuth';
 
 const HISTORY_COOLDOWN_MS = 30 * 24 * 60 * 60 * 1000;
@@ -25,66 +24,24 @@ export function WhatsAppSection() {
   const [currentTime] = useState(() => Date.now());
   const [historyError, setHistoryError] = useState('');
   const [disconnectingId, setDisconnectingId] = useState(null);
-  const historyPollRef = useRef(null);
-
-  const stopHistoryPolling = () => {
-    if (historyPollRef.current) {
-      clearInterval(historyPollRef.current);
-      historyPollRef.current = null;
-    }
-  };
-
-  const checkHistoryStatus = async (connection, startedAt) => {
-    const status = await fetchHistoryAnalysisStatus();
-    if (status.businessId && status.businessId !== activeBusinessId) {
-      throw new Error('History status belongs to a different business. No data was loaded.');
-    }
-    if (!status.running) {
-      stopHistoryPolling();
-      setHistoryLoading(false);
-      const statusValue = String(status.status || '').toLowerCase();
-      const succeeded = status.success === true
-        || status.completed === true
-        || statusValue === 'success'
-        || statusValue === 'completed'
-        || (!status.error && status.failed !== true && statusValue !== 'failed' && statusValue !== 'error');
-      if (succeeded) {
-        const savedSession = await markWhatsAppHistoryLoaded({ businessId: activeBusinessId, sessionId: connection.id });
-        setConnections((current) => current.map((item) => (
-          item.id === connection.id
-            ? { ...item, history_loaded_at: savedSession?.history_loaded_at || startedAt }
-            : item
-        )));
-      }
-    }
-    return status;
-  };
 
   const handleLoadHistory = async (connection) => {
     if (!activeBusinessId || historyLoading) return;
 
-    stopHistoryPolling();
     setHistoryError('');
     setHistoryLoading(true);
     try {
-      const result = await startHistoryAnalysis(activeBusinessId);
-      if (result.businessId && result.businessId !== activeBusinessId) {
-        throw new Error('History analysis started for a different business. No data was loaded.');
-      }
-      const startedAt = new Date().toISOString();
-      const status = await checkHistoryStatus(connection, startedAt);
-      if (status.running) {
-        historyPollRef.current = setInterval(() => {
-          checkHistoryStatus(connection, startedAt).catch((error) => {
-            stopHistoryPolling();
-            setHistoryLoading(false);
-            setHistoryError(error.message || 'Could not check history loading status.');
-          });
-        }, 1500);
-      }
+      await leadsService.loadEvolutionHistory({ instanceName: connection.instance_name });
+      const savedSession = await markWhatsAppHistoryLoaded({ businessId: activeBusinessId, sessionId: connection.id });
+      setConnections((current) => current.map((item) => (
+        item.id === connection.id
+          ? { ...item, history_loaded_at: savedSession?.history_loaded_at || new Date().toISOString() }
+          : item
+      )));
+      setHistoryLoading(false);
     } catch (error) {
       setHistoryLoading(false);
-      setHistoryError(error.message || 'Could not start history loading.');
+      setHistoryError(error.message || 'Could not load WhatsApp history.');
     }
   };
 
@@ -106,22 +63,33 @@ export function WhatsAppSection() {
     }
   };
 
-  useEffect(() => () => stopHistoryPolling(), []);
+  const loadConnections = useCallback(async () => {
+    setLoading(true);
+    const [sessions, businesses] = await Promise.all([fetchWhatsAppSessions(activeBusinessId), getBusinesses()]);
+    const businessIndex = businesses.findIndex((business) => business.business_id === activeBusinessId);
+    const activeBusiness = businessIndex >= 0 ? businesses[businessIndex] : null;
+    setBusinessName(activeBusiness?.name?.trim() || activeBusiness?.business_name?.trim() || 'Business name');
+    setConnections(sessions);
+    setLoading(false);
+  }, [activeBusinessId, getBusinesses]);
 
   useEffect(() => {
     let mounted = true;
-    Promise.all([fetchWhatsAppSessions(activeBusinessId), getBusinesses()])
-      .then(([sessions, businesses]) => {
-        if (!mounted) return;
-        const businessIndex = businesses.findIndex((business) => business.business_id === activeBusinessId);
-        const activeBusiness = businessIndex >= 0 ? businesses[businessIndex] : null;
-        setBusinessName(activeBusiness?.name?.trim() || activeBusiness?.business_name?.trim() || 'Business name');
-        setConnections(sessions);
-      })
-      .catch((error) => console.error('[WhatsAppSection] load failed:', error))
-      .finally(() => { if (mounted) setLoading(false); });
-    return () => { mounted = false; };
-  }, [activeBusinessId]);
+    const refresh = () => {
+      if (!mounted) return;
+      loadConnections().catch((error) => {
+        console.error('[WhatsAppSection] load failed:', error);
+        if (mounted) setLoading(false);
+      });
+    };
+
+    refresh();
+    window.addEventListener('focus', refresh);
+    return () => {
+      mounted = false;
+      window.removeEventListener('focus', refresh);
+    };
+  }, [loadConnections]);
 
   return (
     <div className="w-full space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -236,9 +204,10 @@ export function WhatsAppSection() {
               businessId: activeBusinessId,
               phoneNumber: newConnection.number,
               instanceName: newConnection.instanceName,
+              label: newConnection.label,
             });
             if (savedConnection) {
-              setConnections((current) => [{ ...savedConnection, label: newConnection.label }, ...current]);
+              setConnections((current) => [savedConnection, ...current]);
             }
           } catch (error) {
             console.error('[WhatsAppSection] save failed:', error);

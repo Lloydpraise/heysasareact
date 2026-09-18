@@ -2,6 +2,12 @@ import { mockBalance, mockBusiness, mockMaterials, mockPrefs } from './mockPrefe
 import { supabase } from '../lib/supabase';
 
 const STORAGE_KEY = 'heysasa_preferences_v1';
+// The follow-up settings API lives in followup-engine's own Express app
+// (followup-engine/src/api/server.js), which the root backend spawns as
+// a child process on a separate port (FOLLOWUP_ENGINE_PORT, default
+// 3001) — distinct from VITE_BACKEND_API_URL (port 3000), which points
+// at the root server's own routes (/analysis/*, /webhook/*, etc.).
+const FOLLOWUP_API_URL = (import.meta.env.VITE_FOLLOWUP_API_URL || 'http://localhost:3001').replace(/\/$/, '');
 
 const fallback = {
   prefs: mockPrefs,
@@ -11,49 +17,63 @@ const fallback = {
 
 export const DEFAULT_PREFERENCES = { ...mockPrefs };
 
+// Columns on `businesses` this service is allowed to write directly for
+// the "business info" section. Follow-up prefs go through the backend
+// API instead (see below) — that's where the real column mapping and
+// validation for those live.
+const BUSINESS_COLUMNS = ['name', 'currency', 'timezone', 'language', 'owner_phone', 'website_url'];
+
 function getBusinessId() {
   if (typeof window === 'undefined') return null;
   return window.currentBusinessId || localStorage.getItem('business_id') || null;
 }
 
-function mergeSettings(row) {
-  const preferences = row?.settings?.preferences || row?.preferences || {};
-  const directPreferences = Object.fromEntries(
-    Object.keys(mockPrefs)
-      .filter((key) => Object.prototype.hasOwnProperty.call(row || {}, key))
-      .map((key) => [key, row[key]])
-  );
+async function getAuthToken() {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  return session?.access_token ?? null;
+}
 
-  return {
-    prefs: { ...mockPrefs, ...preferences, ...directPreferences },
-    business: row ? {
-      name: row.name || '',
-      type: row.type || '',
-      currency: row.currency || '',
-      timezone: row.timezone || '',
-      followup_quiet_start: row.followup_quiet_start,
-      followup_quiet_end: row.followup_quiet_end,
-      followup_active_days: row.followup_active_days,
-      language: row.language || '',
-      owner_phone: row.owner_phone || '',
-      website_url: row.website_url || '',
-      whatsapp_connected: row.whatsapp_connected === true,
-    } : mockBusiness,
-    balance: mockBalance,
-  };
+async function readBackendResponse(response, fallbackMessage) {
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.message || data.error || fallbackMessage);
+  return data;
+}
+
+function mergeBusinessRow(row) {
+  return row
+    ? {
+        name: row.name || '',
+        currency: row.currency || '',
+        timezone: row.timezone || '',
+        language: row.language || '',
+        owner_phone: row.owner_phone || '',
+        website_url: row.website_url || '',
+        whatsapp_connected: row.whatsapp_connected === true,
+      }
+    : mockBusiness;
 }
 
 export async function getSettings() {
   const businessId = getBusinessId();
-  if (supabase && businessId) {
-    const { data, error } = await supabase
-      .from('businesses')
-      .select('*')
-      .eq('business_id', businessId)
-      .maybeSingle();
+  const token = await getAuthToken();
 
-    if (error) throw error;
-    if (data) return mergeSettings(data);
+  if (supabase && businessId && token) {
+    const [businessResult, prefsResult] = await Promise.all([
+      supabase.from('businesses').select('*').eq('business_id', businessId).maybeSingle(),
+      fetch(`${FOLLOWUP_API_URL}/settings/followup`, {
+        headers: { Authorization: `Bearer ${token}`, 'X-Business-Id': businessId },
+      }).then((res) => readBackendResponse(res, 'Could not load follow-up preferences.')),
+    ]);
+
+    if (businessResult.error) throw businessResult.error;
+
+    return {
+      prefs: { ...mockPrefs, ...prefsResult },
+      business: mergeBusinessRow(businessResult.data),
+      balance: mockBalance,
+    };
   }
 
   try {
@@ -81,45 +101,36 @@ export async function saveSettings(nextSettings) {
   };
 
   const businessId = getBusinessId();
-  if (supabase && businessId) {
-    const { data: current, error: readError } = await supabase
-      .from('businesses')
-      .select('*')
-      .eq('business_id', businessId)
-      .maybeSingle();
+  const token = await getAuthToken();
 
-    if (readError) throw readError;
-    if (!current) throw new Error('Could not find the current business settings record.');
-
-    const update = {};
-    const currentSettings = current.settings && typeof current.settings === 'object' ? current.settings : {};
-    if (Object.prototype.hasOwnProperty.call(current, 'settings')) {
-      update.settings = { ...currentSettings, preferences: payload.prefs };
-    }
-
-    Object.keys(payload.prefs).forEach((key) => {
-      if (Object.prototype.hasOwnProperty.call(current, key)) update[key] = payload.prefs[key];
+  if (supabase && businessId && token) {
+    const businessUpdate = {};
+    BUSINESS_COLUMNS.forEach((key) => {
+      if (payload.business[key] !== undefined) businessUpdate[key] = payload.business[key];
     });
 
-    ['name', 'type', 'currency', 'timezone', 'language', 'owner_phone', 'website_url'].forEach((key) => {
-      if (Object.prototype.hasOwnProperty.call(current, key) && payload.business[key] !== undefined) {
-        update[key] = payload.business[key];
-      }
-    });
+    const [businessResult, prefsResult] = await Promise.all([
+      Object.keys(businessUpdate).length > 0
+        ? supabase.from('businesses').update(businessUpdate).eq('business_id', businessId).select('*').single()
+        : supabase.from('businesses').select('*').eq('business_id', businessId).single(),
+      fetch(`${FOLLOWUP_API_URL}/settings/followup`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          'X-Business-Id': businessId,
+        },
+        body: JSON.stringify(payload.prefs),
+      }).then((res) => readBackendResponse(res, 'Could not save follow-up preferences.')),
+    ]);
 
-    if (Object.keys(update).length === 0) {
-      throw new Error('The businesses table has no supported settings columns.');
-    }
+    if (businessResult.error) throw businessResult.error;
 
-    const { data, error } = await supabase
-      .from('businesses')
-      .update(update)
-      .eq('business_id', businessId)
-      .select('*')
-      .single();
-
-    if (error) throw error;
-    return mergeSettings(data);
+    return {
+      prefs: { ...mockPrefs, ...prefsResult },
+      business: mergeBusinessRow(businessResult.data),
+      balance: mockBalance,
+    };
   }
 
   localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));

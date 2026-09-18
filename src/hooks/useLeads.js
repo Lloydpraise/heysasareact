@@ -148,7 +148,7 @@ export function useLeads() {
   }, []);
 
   const getChats = useCallback(async () => {
-    const { leads: importedLeads, newConversations } = await leadsService.syncEvolutionChats(leads);
+    const { leads: importedLeads, newConversations } = await leadsService.syncAllEvolutionChats(leads);
     if (importedLeads.length) {
       setLeads((prev) => [...importedLeads, ...prev.filter((item) => !importedLeads.some((lead) => lead.phone === item.phone))]);
     }

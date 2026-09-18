@@ -1,7 +1,8 @@
 import { useMemo, useRef, useState } from 'react';
-import { Plus, X, AlertTriangle } from 'lucide-react';
+import { AlertTriangle, LoaderCircle, Paperclip, Plus, X } from 'lucide-react';
 import { MERGE_FIELDS, SEQUENCE_TYPE, EDUCATIONAL_FREQUENCY, BROADCAST_GAP_OPTIONS } from '../../../constants';
 import { formatDateTimeLocalInTimeZone, getTimeZoneHour, getTimeZoneWeekday, parseDateTimeLocalInTimeZone } from '../../../../../utils/businessTime';
+import { uploadCampaignImage } from '../../../../../services/campaignMediaService';
 
 function emptyStep() {
   return { content: '', gapHours: BROADCAST_GAP_OPTIONS[2].value }; // defaults to 1 day
@@ -45,6 +46,7 @@ export default function MessageSequenceBuilder({
   setFrequency,
   steps,
   setSteps,
+  businessId,
   firstMessageSendAt,
   setFirstMessageSendAt,
   quietStart = 21,
@@ -57,6 +59,8 @@ export default function MessageSequenceBuilder({
   const [schedulePreset, setSchedulePreset] = useState('now');
   const [scheduleError, setScheduleError] = useState('');
   const [minimumScheduleTime] = useState(() => new Date(Date.now() + 5 * 60 * 1000));
+  const [uploadingIndex, setUploadingIndex] = useState(null);
+  const [uploadErrors, setUploadErrors] = useState({});
 
   const insertToken = (index, token) => {
     const el = textareaRefs.current[index];
@@ -72,6 +76,28 @@ export default function MessageSequenceBuilder({
     const updated = [...steps];
     updated[index] = { ...updated[index], [field]: value };
     setSteps(updated);
+  };
+
+  const handleImageUpload = async (index, event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    setUploadingIndex(index);
+    setUploadErrors((current) => ({ ...current, [index]: '' }));
+    try {
+      const media = await uploadCampaignImage(businessId, file);
+      const updated = [...steps];
+      updated[index] = { ...updated[index], media };
+      setSteps(updated);
+    } catch (error) {
+      setUploadErrors((current) => ({
+        ...current,
+        [index]: error.message || 'Could not upload the image.',
+      }));
+    } finally {
+      setUploadingIndex(null);
+    }
   };
 
   const addStep = () => setSteps([...steps, emptyStep()]);
@@ -309,14 +335,56 @@ export default function MessageSequenceBuilder({
                 {stepIsQuiet && ' — falls in quiet hours, will actually send after they end'}
               </div>
 
-              <textarea
-                ref={(el) => (textareaRefs.current[i] = el)}
-                value={step.content}
-                onChange={(e) => updateStep(i, 'content', e.target.value)}
-                rows={3}
-                placeholder="Message to send…"
-                className="w-full rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-800 outline-none focus:border-[#28A745] focus:bg-white placeholder:text-slate-400"
-              />
+              <div className="relative">
+                <textarea
+                  ref={(el) => (textareaRefs.current[i] = el)}
+                  value={step.content}
+                  onChange={(e) => updateStep(i, 'content', e.target.value)}
+                  rows={3}
+                  placeholder="Message to send…"
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 p-3 pb-11 text-sm text-slate-800 outline-none focus:border-[#28A745] focus:bg-white placeholder:text-slate-400"
+                />
+                <input
+                  id={`campaign-image-${i}`}
+                  type="file"
+                  accept="image/png,image/jpeg,.png,.jpg,.jpeg"
+                  onChange={(event) => handleImageUpload(i, event)}
+                  className="hidden"
+                />
+                <label
+                  htmlFor={`campaign-image-${i}`}
+                  title="Attach PNG, JPG, or JPEG image"
+                  aria-label={`Attach image to message ${i + 1}`}
+                  className={`absolute bottom-2 left-2 flex h-7 w-7 cursor-pointer items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:border-[#28A745]/40 hover:text-[#28A745] ${uploadingIndex === i ? 'pointer-events-none opacity-60' : ''}`}
+                >
+                  {uploadingIndex === i ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" /> : <Paperclip className="h-3.5 w-3.5" />}
+                </label>
+                {step.media && (
+                  <div className="absolute bottom-2 left-11 flex max-w-[calc(100%-3.5rem)] items-center gap-1.5 rounded-lg border border-[#BFE8CA] bg-white p-1 shadow-sm">
+                    <img
+                      src={step.media.url}
+                      alt={step.media.file_name || 'Attached image'}
+                      className="h-7 w-7 rounded object-cover"
+                    />
+                    <span className="max-w-32 truncate text-[10px] text-slate-600">{step.media.file_name}</span>
+                    <button
+                      type="button"
+                      onClick={() => updateStep(i, 'media', null)}
+                      className="text-slate-400 hover:text-red-600"
+                      aria-label={`Remove image from message ${i + 1}`}
+                      title="Remove image"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                )}
+              </div>
+              {uploadErrors[i] && (
+                <p className="flex items-center gap-1 text-xs font-medium text-red-600">
+                  <AlertTriangle className="h-3 w-3 shrink-0" />
+                  {uploadErrors[i]}
+                </p>
+              )}
             </div>
           </div>
           );

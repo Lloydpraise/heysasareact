@@ -25,7 +25,8 @@ export default function CampaignRow({ campaign, onChanged, onEdit }) {
       </div>
       <div>
         <div className="text-[11px] font-semibold text-slate-700">{sentPercent}%</div>
-        <div className="text-[10px] text-slate-400">{campaign.sent} sent</div>
+        <div className="text-[10px] text-emerald-700">{campaign.sent} sent</div>
+        <div className="text-[10px] text-slate-400">{campaign.skipped ?? 0} skipped · {campaign.failed ?? 0} failed</div>
       </div>
       <div>
         <div className="text-[11px] font-semibold text-slate-700">{campaign.responseRate}%</div>

@@ -1,6 +1,7 @@
 // listsCampaigns/listsCampaignsService.js
 import { supabase } from '../lib/supabase';
 import { parseDateTimeLocalInTimeZone } from '../utils/businessTime';
+import { fetchWhatsAppSessions } from './businessService';
 
 // ============================================================
 // Module A — Automation Rules
@@ -275,6 +276,26 @@ export async function fetchCampaigns(businessId) {
 
   if (!campaigns?.length) return [];
 
+  const { data: queueRows, error: queueError } = await supabase
+    .from('follow_up_queue')
+    .select('campaign_id, status')
+    .eq('business_id', businessId)
+    .not('campaign_id', 'is', null);
+  if (queueError) throw queueError;
+
+  const deliveryCounts = new Map();
+  for (const row of queueRows || []) {
+    if (!deliveryCounts.has(row.campaign_id)) {
+      deliveryCounts.set(row.campaign_id, { sent: 0, skipped: 0, failed: 0, queued: 0, cancelled: 0 });
+    }
+    const counts = deliveryCounts.get(row.campaign_id);
+    if (row.status === 'sent') counts.sent += 1;
+    else if (row.status === 'skipped') counts.skipped += 1;
+    else if (row.status === 'failed') counts.failed += 1;
+    else if (row.status === 'cancelled') counts.cancelled += 1;
+    else if (['pending', 'ready_to_send', 'awaiting_approval'].includes(row.status)) counts.queued += 1;
+  }
+
   const { data: allSteps, error: stepsError } = await supabase
     .from('v_campaign_step_summary')
     .select('*')
@@ -282,9 +303,11 @@ export async function fetchCampaigns(businessId) {
   if (stepsError) throw stepsError;
 
   return campaigns.map((row) => ({
+    ...(deliveryCounts.get(row.campaign_id) || { sent: 0, skipped: 0, failed: 0, queued: 0, cancelled: 0 }),
     id: row.campaign_id,
     name: row.name,
     status: row.status,
+    whatsappInstanceName: row.whatsapp_instance_name || null,
     listId: row.list_id,
     listName: row.list_name,
     sequenceMode: row.sequence_mode,
@@ -292,7 +315,7 @@ export async function fetchCampaigns(businessId) {
     dailyCap: row.daily_cap,
     sentToday: Number(row.sent_today ?? 0),
     enrolled: Number(row.enrolled_count ?? 0),
-    sent: Number(row.sent_count ?? 0),
+    sent: deliveryCounts.get(row.campaign_id)?.sent ?? Number(row.sent_count ?? 0),
     responseRate: Number(row.response_rate ?? 0),
     repliesCount: Number(row.replies_count ?? 0),
     revenue: Number(row.realized_revenue ?? 0),
@@ -305,6 +328,7 @@ export async function fetchCampaigns(businessId) {
       .map((s) => ({
         id: s.step_id,
         content: s.content,
+        media: s.media,
         delayHours: s.delay_hours,
         condition: s.condition,
         sentCount: s.sent_count,
@@ -312,6 +336,18 @@ export async function fetchCampaigns(businessId) {
         optOuts: s.opt_outs,
       })),
   }));
+}
+
+async function assertCampaignEditable(campaignId) {
+  const { data, error } = await supabase
+    .from('campaigns')
+    .select('status')
+    .eq('id', campaignId)
+    .single();
+  if (error) throw error;
+  if (['completed', 'failed'].includes(data.status)) {
+    throw new Error('Completed campaigns are archived and cannot be edited. Create a new campaign instead.');
+  }
 }
 
 export async function toggleCampaignAiRewrite(campaignId, enabled) {
@@ -340,6 +376,8 @@ export async function launchCampaign(
     timezone,
     aiRewriteEnabled,
     autoApprove,
+    whatsappInstanceId,
+    whatsappInstanceName,
   }
 ) {
   const primaryListId = listIds?.[0] ?? listId;
@@ -347,6 +385,7 @@ export async function launchCampaign(
   if (!Array.isArray(steps) || steps.length === 0 || steps.some((step) => !step?.content?.trim())) {
     throw new Error('Add at least one message before launching the campaign.');
   }
+  const selectedInstanceName = await resolveCampaignInstanceName(businessId, whatsappInstanceId, whatsappInstanceName);
 
   // firstMessageSendAt was accepted here but never used — every enrollment
   // got next_send_at: null below, which campaignScheduler.js's
@@ -365,6 +404,7 @@ export async function launchCampaign(
       business_id: businessId,
       list_id: primaryListId,
       name,
+      whatsapp_instance_name: selectedInstanceName,
       sequence_mode: safeSequenceMode,
       smart_timing: smartTiming ?? true,
       status: 'active',
@@ -386,6 +426,7 @@ export async function launchCampaign(
     campaign_id: campaign.id,
     step_number: i + 1,
     content: s.content,
+    media: s.media ?? null,
     delay_hours: Number(s.delayHours ?? s.gapHours ?? 0),
     condition: i === 0 ? null : s.condition ?? null,
   }));
@@ -429,18 +470,26 @@ export async function updateCampaign(
     dailyCap,
     aiRewriteEnabled,
     autoApprove,
+    whatsappInstanceId,
+    whatsappInstanceName,
   }
 ) {
+  await assertCampaignEditable(campaignId);
   const primaryListId = listIds?.[0] ?? listId;
   const safeSequenceMode = sequenceMode ?? (sequenceType === 'educational' ? 'conditional' : 'linear');
   if (!Array.isArray(steps) || steps.length === 0 || steps.some((step) => !step?.content?.trim())) {
     throw new Error('Add at least one message before saving the campaign.');
   }
+  const selectedInstanceName = await resolveCampaignInstanceName(businessId, whatsappInstanceId, whatsappInstanceName);
   const { error } = await supabase
     .from('campaigns')
     .update({
       list_id: primaryListId,
       name,
+      whatsapp_instance_name: selectedInstanceName,
+      status: 'active',
+      failure_reason: null,
+      failed_at: null,
       sequence_mode: safeSequenceMode,
       smart_timing: smartTiming ?? true,
       daily_cap: Number(dailyCap ?? 40),
@@ -471,6 +520,7 @@ export async function updateCampaign(
     const stepPayload = {
       step_number: index + 1,
       content: step.content,
+      media: step.media ?? null,
       delay_hours: Number(step.delayHours ?? step.gapHours ?? 0),
       condition: index === 0 ? null : step.condition ?? null,
     };
@@ -482,7 +532,7 @@ export async function updateCampaign(
 
     const { error: queuedMessageError } = await supabase
       .from('follow_up_queue')
-      .update({ final_message: stepPayload.content })
+      .update({ final_message: stepPayload.content, media: stepPayload.media })
       .eq('campaign_id', campaignId)
       .eq('campaign_step', stepPayload.step_number)
       .in('status', ['pending', 'ready_to_send']);
@@ -509,6 +559,20 @@ export async function updateCampaign(
   await syncCampaignEnrollments(campaignId, businessId, leadIds, firstSendAtIso);
 
   return { id: campaignId };
+}
+
+async function resolveCampaignInstanceName(businessId, instanceId, instanceName) {
+  if (instanceId) {
+    const sessions = await fetchWhatsAppSessions(businessId);
+    const selectedSession = sessions.find((session) => session.id === instanceId);
+    if (selectedSession?.status === 'connected' && selectedSession.instance_name) {
+      return selectedSession.instance_name;
+    }
+    throw new Error('Select a connected WhatsApp instance before saving the campaign.');
+  }
+
+  if (instanceName) return instanceName;
+  throw new Error('Select a WhatsApp instance before saving the campaign.');
 }
 
 async function syncCampaignEnrollments(campaignId, businessId, leadIds, firstSendAtIso) {
@@ -546,7 +610,7 @@ async function syncCampaignEnrollments(campaignId, businessId, leadIds, firstSen
       .in('campaign_id', otherCampaignIds)
       .in('status', ['pending', 'active']);
     if (occupiedError) throw occupiedError;
-    occupiedLeadIds = new Set((occupied || []).map((row) => row.lead_id));
+    occupiedLeadIds = new Set((occupied || []).map((row) => String(row.lead_id)));
   }
 
   const eligibleLeadIds = validLeadIds.filter((leadId) => !occupiedLeadIds.has(leadId));
@@ -571,7 +635,7 @@ async function syncCampaignEnrollments(campaignId, businessId, leadIds, firstSen
     if (removeError) throw removeError;
   }
 
-  const existingLeadIds = new Set((existing || []).map((row) => row.lead_id));
+  const existingLeadIds = new Set((existing || []).map((row) => String(row.lead_id)));
   const newEnrollmentRows = eligibleLeadIds
     .filter((leadId) => !existingLeadIds.has(leadId))
     .map((leadId) => ({
@@ -798,6 +862,10 @@ export function subscribeToCampaigns(businessId, onChange) {
   const channel = supabase
     .channel(`campaigns-${businessId}`)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'campaigns', filter: `business_id=eq.${businessId}` }, onChange)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'follow_up_queue', filter: `business_id=eq.${businessId}` }, (payload) => {
+      const campaignId = payload.new?.campaign_id ?? payload.old?.campaign_id;
+      if (campaignId) onChange?.(payload);
+    })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'campaign_steps' }, (payload) => {
       const campaignId = payload.new?.campaign_id ?? payload.old?.campaign_id;
       if (campaignId) onChange?.(payload);

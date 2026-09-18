@@ -108,8 +108,8 @@ export default function CampaignActivityLog({ businessId, campaignId = null, onC
     };
   }, [businessId]);
 
-  const load = async () => {
-    setLoading(true);
+  const load = async ({ showLoading = false } = {}) => {
+    if (showLoading) setLoading(true);
     try {
       const rows = await fetchCampaignActivity(businessId, { campaignId, limit: 150 });
       setEntries(rows);
@@ -124,7 +124,7 @@ export default function CampaignActivityLog({ businessId, campaignId = null, onC
   useEffect(() => {
     if (!businessId) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    load();
+    load({ showLoading: true });
 
     // Realtime pushes tell us something changed — re-fetch that slice
     // rather than trying to hand-patch the payload shape (it doesn't
