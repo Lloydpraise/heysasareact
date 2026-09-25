@@ -851,11 +851,11 @@ async function deleteLead(leadId) {
   }
 }
 
-async function analyzeLead(leadId) {
-  return analyzeContacts([leadId]);
+async function analyzeLead(leadId, businessId) {
+  return analyzeContacts([leadId], businessId);
 }
 
-async function analyzeContacts(contactIds = []) {
+async function analyzeContacts(contactIds = [], businessId) {
   if (!supabase) return { ok: true, running: false };
 
   try {
@@ -863,6 +863,8 @@ async function analyzeContacts(contactIds = []) {
       data: { session },
     } = await supabase.auth.getSession();
     if (!session?.access_token) throw new Error('You must be signed in to analyse contacts.');
+    const selectedBusinessId = getBusinessId(businessId);
+    if (!selectedBusinessId) throw new Error('No business selected for contact analysis.');
 
     const normalizedContactIds = [...new Set((contactIds || []).filter((contactId) => Number.isInteger(Number(contactId))).map(Number))];
     const response = await fetch(`${BACKEND_API_URL}/analysis/start`, {
@@ -870,8 +872,9 @@ async function analyzeContacts(contactIds = []) {
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${session.access_token}`,
+        'X-Business-Id': selectedBusinessId,
       },
-      body: JSON.stringify({ contactIds: normalizedContactIds }),
+      body: JSON.stringify({ businessId: selectedBusinessId, contactIds: normalizedContactIds }),
     });
     const result = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(result.message || result.error || 'Could not analyse contacts.');

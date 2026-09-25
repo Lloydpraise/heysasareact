@@ -34,7 +34,11 @@ export default function CampaignCard({ campaign, onChanged, onEdit }) {
           value={`${sentPercent}%`}
           sub={`${campaign.sent} sent`}
         />
-        <KpiTile label="Response Rate" value={`${campaign.responseRate}%`} sub={`${campaign.repliesCount} responses`} />
+        <KpiTile
+          label="Response Rate"
+          value={`${campaign.responseRate}%`}
+          sub={`${campaign.repliesCount} responses${campaign.actionCount ? ` · ${campaign.actionCount} need attention` : ''}${campaign.positiveCount ? ` · ${campaign.positiveCount} positive` : ''}`}
+        />
         <KpiTile label="Realized Revenue" value={`KES ${campaign.revenue.toLocaleString()}`} />
       </div>
       <div className="flex flex-wrap gap-x-4 gap-y-1 border-t border-slate-100 pt-3 text-[11px] text-slate-500">

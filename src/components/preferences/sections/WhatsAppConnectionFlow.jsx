@@ -64,16 +64,27 @@ export function WhatsAppConnectionFlow({ open, onClose, onConnected }) {
     const data = await response.json().catch(() => ({}));
 
     if (!response.ok) throw new Error(data?.message || data?.error || 'Evolution API could not start this connection.');
-    if (data.base64) {
+    const qrValue = data.base64 || data.qr_code || data.qrCode;
+    const pairingValue = data.pairingCode || data.pairing_code;
+
+    if (qrValue) {
       receivedChallengeRef.current = true;
-      setQrCode(getQrImageSource(data.base64));
+      setQrCode(getQrImageSource(qrValue));
     }
-    if (data.pairingCode) {
+    if (pairingValue) {
       receivedChallengeRef.current = true;
-      setPairingCode(data.pairingCode);
+      setPairingCode(pairingValue);
     }
 
-    const apiState = String(data?.instance?.state ?? data?.state ?? '').toLowerCase();
+    const apiState = String(
+      data?.instance?.state
+      ?? data?.instance?.connectionStatus
+      ?? data?.instance?.connection_status
+      ?? data?.state
+      ?? data?.connectionStatus
+      ?? data?.connection_status
+      ?? ''
+    ).toLowerCase();
     const isConnectionOpen = ['open', 'connected', 'ready', 'authenticated'].includes(apiState);
 
     if (isConnectionOpen) {

@@ -82,17 +82,14 @@ export default function CreateCampaignModal({ open, campaign, onClose, businessI
         const nextCap = Number(settings?.prefs?.daily_cap);
         setDailyCap(Number.isFinite(nextCap) && nextCap > 0 ? nextCap : null);
 
-        // NOTE: assumed to live alongside daily_cap in the same prefs
-        // object — same path pattern already used above. If your actual
-        // settings shape differs, this is a one-line fix.
-        const qStart = Number(settings?.business?.followup_quiet_start ?? settings?.prefs?.followup_quiet_start);
-        const qEnd = Number(settings?.business?.followup_quiet_end ?? settings?.prefs?.followup_quiet_end);
+        const qStart = Number(settings?.prefs?.quiet_start);
+        const qEnd = Number(settings?.prefs?.quiet_end);
         setQuietHours({
           start: Number.isFinite(qStart) ? qStart : 21,
           end: Number.isFinite(qEnd) ? qEnd : 8,
         });
-        setActiveDays(Array.isArray(settings?.business?.followup_active_days)
-          ? settings.business.followup_active_days
+        setActiveDays(Array.isArray(settings?.prefs?.active_days)
+          ? settings.prefs.active_days
           : [0, 1, 2, 3, 4, 5, 6]);
       })
       .catch(() => {

@@ -3,6 +3,7 @@ import { Activity, Plus } from 'lucide-react';
 import { useListsCampaigns } from '../../ListsCampaignsContext';
 import { MOCK_CAMPAIGNS } from '../../constants';
 import { fetchCampaigns, subscribeToCampaigns } from '../../../../services/listsCampaignsService';
+import leadsService from '../../../../services/leadsService';
 import CampaignCard from './CampaignCard';
 import CampaignRow from './CampaignRow';
 import MessageUsage from './MessageUsage';
@@ -11,6 +12,7 @@ import CreateCampaignModal from './createCampaignModal/CreateCampaignModal';
 import CampaignActivityLog from './CampaignActivityLog';
 import AnCard from '../../../analytics/shared/AnCard';
 import ViewSwitcher from '../ViewSwitcher';
+import ChatDrawer from '../../../leads/drawers/ChatDrawer';
 
 export default function CampaignRunnerTab({ onNeedLists }) {
   const { businessId, lists } = useListsCampaigns();
@@ -21,7 +23,22 @@ export default function CampaignRunnerTab({ onNeedLists }) {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showActivityLog, setShowActivityLog] = useState(false);
   const [editingCampaign, setEditingCampaign] = useState(null);
+  const [activeChatLead, setActiveChatLead] = useState(null);
   const hasLists = (lists || []).length > 0;
+
+  const openChatForResponse = useCallback((response) => {
+    if (!response?.contactId) return;
+    setActiveChatLead({
+      id: response.contactId,
+      phone: response.contactPhone,
+      name: response.contactName || response.contactPhone || 'Lead',
+    });
+  }, []);
+
+  const handleChatSend = useCallback((text) => {
+    if (!activeChatLead) return Promise.reject(new Error('No lead selected.'));
+    return leadsService.sendChatMessage({ phone: activeChatLead.phone, text });
+  }, [activeChatLead]);
 
   const refetch = useCallback(async () => {
     try {
@@ -62,7 +79,9 @@ export default function CampaignRunnerTab({ onNeedLists }) {
 
   if (!campaigns) return <div className="text-sm text-slate-400">Loading campaigns...</div>;
 
-  const currentCampaigns = campaigns.filter((campaign) => ['active', 'paused'].includes(campaign.status));
+  const currentCampaigns = campaigns
+    .filter((campaign) => ['active', 'paused'].includes(campaign.status))
+    .sort((a, b) => (b.actionCount ?? 0) - (a.actionCount ?? 0));
   const archivedCampaigns = campaigns.filter((campaign) => ['completed', 'failed'].includes(campaign.status));
   const visibleCampaigns = campaignSection === 'active' ? currentCampaigns : archivedCampaigns;
 
@@ -72,7 +91,20 @@ export default function CampaignRunnerTab({ onNeedLists }) {
         <span>Campaign</span><span>Leads</span><span>Sent</span><span>Response rate</span><span />
       </div>
       {items.map((campaign) => (
-        <CampaignRow key={campaign.id} campaign={campaign} onChanged={refetch} onEdit={openEditCampaign} />
+        <div key={campaign.id}>
+          <CampaignRow
+            campaign={campaign}
+            onChanged={refetch}
+            onEdit={openEditCampaign}
+            expanded={expandedId === campaign.id}
+            onToggleExpand={() => setExpandedId(expandedId === campaign.id ? null : campaign.id)}
+          />
+          {expandedId === campaign.id && (
+            <div className="border-b border-slate-100 bg-slate-50/40 px-3 py-3">
+              <SequenceStepList campaignId={campaign.id} steps={campaign.steps} onOpenChat={openChatForResponse} />
+            </div>
+          )}
+        </div>
       ))}
     </AnCard>
   );
@@ -85,7 +117,9 @@ export default function CampaignRunnerTab({ onNeedLists }) {
             <CampaignCard campaign={campaign} onChanged={refetch} onEdit={openEditCampaign} />
           </div>
           <MessageUsage businessId={businessId} dailyCap={campaign.dailyCap} initialSentToday={campaign.sentToday} />
-          {expandedId === campaign.id && <SequenceStepList steps={campaign.steps} />}
+          {expandedId === campaign.id && (
+            <SequenceStepList campaignId={campaign.id} steps={campaign.steps} onOpenChat={openChatForResponse} />
+          )}
         </div>
       ))}
     </div>
@@ -184,6 +218,13 @@ export default function CampaignRunnerTab({ onNeedLists }) {
         }}
         businessId={businessId}
         onLaunched={refetch}
+      />
+
+      <ChatDrawer
+        lead={activeChatLead}
+        open={Boolean(activeChatLead)}
+        onClose={() => setActiveChatLead(null)}
+        onSend={handleChatSend}
       />
     </div>
   );

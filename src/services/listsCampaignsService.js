@@ -302,39 +302,86 @@ export async function fetchCampaigns(businessId) {
     .in('campaign_id', campaigns.map((c) => c.campaign_id));
   if (stepsError) throw stepsError;
 
-  return campaigns.map((row) => ({
-    ...(deliveryCounts.get(row.campaign_id) || { sent: 0, skipped: 0, failed: 0, queued: 0, cancelled: 0 }),
-    id: row.campaign_id,
-    name: row.name,
-    status: row.status,
-    whatsappInstanceName: row.whatsapp_instance_name || null,
-    listId: row.list_id,
-    listName: row.list_name,
-    sequenceMode: row.sequence_mode,
-    gateway: row.gateway_type,
-    dailyCap: row.daily_cap,
-    sentToday: Number(row.sent_today ?? 0),
-    enrolled: Number(row.enrolled_count ?? 0),
-    sent: deliveryCounts.get(row.campaign_id)?.sent ?? Number(row.sent_count ?? 0),
-    responseRate: Number(row.response_rate ?? 0),
-    repliesCount: Number(row.replies_count ?? 0),
-    revenue: Number(row.realized_revenue ?? 0),
-    smartTiming: row.smart_timing ?? true,
-    aiRewriteEnabled: row.ai_rewrite_enabled,
-    autoApprove: row.auto_approve,
-    steps: allSteps
-      .filter((s) => s.campaign_id === row.campaign_id)
-      .sort((a, b) => a.step_number - b.step_number)
-      .map((s) => ({
-        id: s.step_id,
-        content: s.content,
-        media: s.media,
-        delayHours: s.delay_hours,
-        condition: s.condition,
-        sentCount: s.sent_count,
-        repliedCount: s.replied_count,
-        optOuts: s.opt_outs,
-      })),
+  return campaigns.map((row) => {
+    const campaignSteps = allSteps.filter((s) => s.campaign_id === row.campaign_id);
+    const positiveCount = campaignSteps.reduce((sum, s) => sum + Number(s.positive_count ?? 0), 0);
+    const reactedCount = campaignSteps.reduce((sum, s) => sum + Number(s.reacted_count ?? 0), 0);
+    const actionCount = campaignSteps.reduce((sum, s) => sum + Number(s.action_count ?? 0), 0);
+
+    return {
+      ...(deliveryCounts.get(row.campaign_id) || { sent: 0, skipped: 0, failed: 0, queued: 0, cancelled: 0 }),
+      id: row.campaign_id,
+      name: row.name,
+      status: row.status,
+      whatsappInstanceName: row.whatsapp_instance_name || null,
+      listId: row.list_id,
+      listName: row.list_name,
+      sequenceMode: row.sequence_mode,
+      gateway: row.gateway_type,
+      dailyCap: row.daily_cap,
+      sentToday: Number(row.sent_today ?? 0),
+      enrolled: Number(row.enrolled_count ?? 0),
+      sent: deliveryCounts.get(row.campaign_id)?.sent ?? Number(row.sent_count ?? 0),
+      responseRate: Number(row.response_rate ?? 0),
+      repliesCount: Number(row.replies_count ?? 0),
+      positiveCount,
+      reactedCount,
+      actionCount,
+      revenue: Number(row.realized_revenue ?? 0),
+      smartTiming: row.smart_timing ?? true,
+      aiRewriteEnabled: row.ai_rewrite_enabled,
+      autoApprove: row.auto_approve,
+      steps: campaignSteps
+        .sort((a, b) => a.step_number - b.step_number)
+        .map((s) => ({
+          id: s.step_id,
+          content: s.content,
+          media: s.media,
+          delayHours: s.delay_hours,
+          condition: s.condition,
+          sentCount: s.sent_count,
+          repliedCount: s.replied_count,
+          reactedCount: s.reacted_count ?? 0,
+          actionCount: s.action_count ?? 0,
+          positiveCount: s.positive_count ?? 0,
+          negativeCount: s.negative_count ?? 0,
+          optOuts: s.opt_outs,
+        })),
+    };
+  });
+}
+
+// Per-lead, per-step feedback for a campaign — sent -> delivery/read
+// status -> replied_at -> reacted_at/emoji -> reply_intent, straight from
+// v_campaign_message_feedback. Used by the campaign runner's per-step
+// drill-down (who responded, and how) so it can list leads and open their
+// chat directly, without another round-trip for name/phone.
+export async function fetchCampaignResponses(campaignId) {
+  if (!campaignId) return [];
+
+  const { data, error } = await supabase
+    .from('v_campaign_message_feedback')
+    .select('*')
+    .eq('campaign_id', campaignId)
+    .order('step_number', { ascending: true })
+    .order('sent_at', { ascending: true });
+  if (error) throw error;
+
+  return (data || []).map((row) => ({
+    stepEventId: row.step_event_id,
+    stepId: row.step_id,
+    stepNumber: row.step_number,
+    contactId: row.contact_id,
+    contactName: row.contact_name,
+    contactPhone: row.contact_phone,
+    deliveryStatus: row.delivery_status,
+    isRead: row.is_read,
+    sentAt: row.sent_at,
+    repliedAt: row.replied_at,
+    reactedAt: row.reacted_at,
+    reactionEmoji: row.reaction_emoji,
+    replyIntent: row.reply_intent,
+    optedOutAt: row.opted_out_at,
   }));
 }
 

@@ -35,8 +35,8 @@ export function BusinessSection({ business, updateBusiness }) {
             <label className="text-xs font-medium text-slate-600 uppercase tracking-wider">Business Type</label>
             <select 
               className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-700 focus:outline-none focus:border-[#28A745] transition-colors"
-              value={value('type')}
-              onChange={(event) => updateBusiness('type', event.target.value)}
+              value={value('industry')}
+              onChange={(event) => updateBusiness('industry', event.target.value)}
             >
               <option value="">Not set</option>
               <option value="service">Service & B2B</option>

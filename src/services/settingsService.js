@@ -21,7 +21,7 @@ export const DEFAULT_PREFERENCES = { ...mockPrefs };
 // the "business info" section. Follow-up prefs go through the backend
 // API instead (see below) — that's where the real column mapping and
 // validation for those live.
-const BUSINESS_COLUMNS = ['name', 'currency', 'timezone', 'language', 'owner_phone', 'website_url'];
+const BUSINESS_COLUMNS = ['name', 'industry', 'currency', 'timezone', 'language', 'owner_phone', 'website_url'];
 
 function getBusinessId() {
   if (typeof window === 'undefined') return null;
@@ -45,6 +45,7 @@ function mergeBusinessRow(row) {
   return row
     ? {
         name: row.name || '',
+        industry: row.industry || '',
         currency: row.currency || '',
         timezone: row.timezone || '',
         language: row.language || '',

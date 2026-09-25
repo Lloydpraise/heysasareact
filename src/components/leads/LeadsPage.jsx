@@ -199,7 +199,7 @@ export default function LeadsPage() {
 
     setAnalysisStates((current) => ids.reduce((next, id) => ({ ...next, [id]: 'analysing' }), current));
     try {
-      const result = await leadsService.analyzeContacts(ids);
+      const result = await leadsService.analyzeContacts(ids, activeBusinessId);
       if (result?.ok === false) throw new Error(result.error || 'Could not analyse contacts.');
       setAnalysisStates((current) => ids.reduce((next, id) => ({ ...next, [id]: 'completed' }), current));
       showToast(successMessage);

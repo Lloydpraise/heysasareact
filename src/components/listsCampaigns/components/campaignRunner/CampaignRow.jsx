@@ -1,3 +1,4 @@
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import CampaignActionsMenu from './CampaignActionsMenu';
 
 const STATUS_CONFIG = {
@@ -6,7 +7,7 @@ const STATUS_CONFIG = {
   completed: { label: 'Completed', className: 'bg-slate-100 text-slate-600' },
 };
 
-export default function CampaignRow({ campaign, onChanged, onEdit }) {
+export default function CampaignRow({ campaign, onChanged, onEdit, expanded, onToggleExpand }) {
   const sentPercent = campaign.enrolled ? Math.round((campaign.sent / campaign.enrolled) * 100) : 0;
   const status = STATUS_CONFIG[campaign.status] || { label: campaign.status || 'Unknown', className: 'bg-slate-100 text-slate-600' };
 
@@ -28,10 +29,24 @@ export default function CampaignRow({ campaign, onChanged, onEdit }) {
         <div className="text-[10px] text-emerald-700">{campaign.sent} sent</div>
         <div className="text-[10px] text-slate-400">{campaign.skipped ?? 0} skipped · {campaign.failed ?? 0} failed</div>
       </div>
-      <div>
-        <div className="text-[11px] font-semibold text-slate-700">{campaign.responseRate}%</div>
+      <button
+        type="button"
+        onClick={onToggleExpand}
+        className="rounded-lg px-1.5 py-1 text-left transition hover:bg-slate-50"
+        title="View per-message breakdown"
+      >
+        <div className="flex items-center gap-1 text-[11px] font-semibold text-slate-700">
+          {campaign.responseRate}%
+          {expanded ? <ChevronUp size={12} className="text-slate-400" /> : <ChevronDown size={12} className="text-slate-400" />}
+        </div>
         <div className="text-[10px] text-slate-400">{campaign.repliesCount} responses</div>
-      </div>
+        {campaign.actionCount > 0 && (
+          <div className="text-[10px] font-semibold text-indigo-700">{campaign.actionCount} need attention</div>
+        )}
+        {campaign.positiveCount > 0 && (
+          <div className="text-[10px] font-semibold text-emerald-600">{campaign.positiveCount} positive</div>
+        )}
+      </button>
       <CampaignActionsMenu campaign={campaign} onChanged={onChanged} onEdit={onEdit} />
     </div>
   );
