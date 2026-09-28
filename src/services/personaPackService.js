@@ -2,12 +2,40 @@ import { supabase } from '../lib/supabase';
 
 const UPDATE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/persona-pack-update`;
 const HISTORY_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/persona-pack-history`;
+const BACKEND_API_URL = (import.meta.env.VITE_BACKEND_API_URL || 'http://localhost:3000').replace(/\/$/, '');
 
 async function authHeaders() {
   const {
     data: { session },
   } = await supabase.auth.getSession();
   return { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` };
+}
+
+export async function generatePersonaPack(businessId) {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!businessId) {
+    throw new Error('Business context is missing.');
+  }
+
+  const res = await fetch(`${BACKEND_API_URL}/persona/generate`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${session?.access_token}`,
+      'X-Business-Id': businessId,
+    },
+    body: JSON.stringify({ force: false }),
+  });
+
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(json.message || json.error || 'Could not generate a new AI persona.');
+  }
+
+  return json;
 }
 
 export async function fetchActivePersonaPack(businessId) {

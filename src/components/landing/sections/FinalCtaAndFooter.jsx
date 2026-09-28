@@ -54,6 +54,7 @@ export function Footer({ onJoinWaitlist }) {
             </h2>
             <nav aria-label="Quick links" className="mt-5 flex flex-col items-start gap-3 text-sm text-white/70">
               <a href="/" className="transition hover:text-white">Home</a>
+              <a href="/pricing" className="transition hover:text-white">Pricing</a>
               <a href="#how-it-works" className="transition hover:text-white">How it works</a>
               <a href="#founding-offer" className="transition hover:text-white">Founding offer</a>
               <a href="#faq" className="transition hover:text-white">FAQ</a>
@@ -67,7 +68,7 @@ export function Footer({ onJoinWaitlist }) {
             <nav aria-label="Policy and contact links" className="mt-5 flex flex-col items-start gap-3 text-sm text-white/70">
               <a href="/terms" className="transition hover:text-white">Terms of service</a>
               <a href="/privacy" className="transition hover:text-white">Privacy policy</a>
-              <a href="mailto:hello@heysasa.co.ke" className="transition hover:text-white">Contact us</a>
+              <a href="/contact" className="transition hover:text-white">Contact us</a>
             </nav>
           </div>
         </div>

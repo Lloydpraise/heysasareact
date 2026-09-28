@@ -9,6 +9,8 @@ import PlaygroundPage from './components/playground/PlaygroundPage';
 import LoginPage from './components/auth/LoginPage';
 import SignupPage from './components/auth/SignupPage';
 import LandingPage from './components/landing/LandingPage';
+import PricingPage from './components/landing/PricingPage';
+import PolicyPage from './components/policies/PolicyPage';
 import { useAuth } from './context/useAuth';
 
 // Everything below is the existing logged-in app, entirely unchanged —
@@ -93,6 +95,11 @@ export default function App() {
       <Routes>
         <Route path="/login" element={user ? <Navigate to="/" replace /> : <LoginPage />} />
         <Route path="/signup" element={user ? <Navigate to="/" replace /> : <SignupPage />} />
+        <Route path="/pricing" element={<PricingPage />} />
+        <Route path="/terms" element={<PolicyPage page="terms" />} />
+        <Route path="/privacy" element={<PolicyPage page="privacy" />} />
+        <Route path="/contact" element={<PolicyPage page="contact" />} />
+        <Route path="/contact-us" element={<PolicyPage page="contact" />} />
         <Route path="*" element={user ? <AuthenticatedApp /> : <LandingPage />} />
       </Routes>
     </BrowserRouter>

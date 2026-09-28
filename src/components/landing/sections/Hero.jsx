@@ -50,14 +50,14 @@ export default function Hero({ onJoinWaitlist }) {
           </p>
 
           <p className="mx-auto mb-8 max-w-xl text-base leading-relaxed text-slate-600 lg:mx-0">
-            You spend money on ads, create content and work hard to get people
-            interested in your business. Then they message you on WhatsApp —
-            and many of those leads slowly go cold.
+            You spend money on ads, create content, and work hard to get people
+            interested in your business. Then they message you on WhatsApp — and
+            many of those leads go cold.
           </p>
 
           <p className="mx-auto mb-8 max-w-xl text-base font-medium leading-relaxed text-slate-700 lg:mx-0">
-            HeySasa helps you respond, follow up, find the leads worth your
-            attention and keep the rest warm until they're ready to buy.
+            HeySasa helps you respond faster, follow up, spot the leads worth
+            your time, and keep the rest warm until they’re ready to buy.
           </p>
 
           <button

@@ -180,7 +180,7 @@ function SentimentSection({ data, onChange }) {
   );
 }
 
-export function PersonaPackEditor({ personaPack, showToast }) {
+export function PersonaPackEditor({ businessId, personaPack, showToast }) {
   const { pack, version, updateField, saveSection, isSaving } = personaPack;
   const [activeTab, setActiveTab] = useState('persona');
   const [dirtyTabs, setDirtyTabs] = useState(new Set());

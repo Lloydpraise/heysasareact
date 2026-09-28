@@ -9,14 +9,34 @@ import { usePersonaPack } from '../../hooks/usePersonaPack';
 import { useLiveChat } from '../../hooks/useLiveChat';
 import { useToast } from '../../hooks/useToast';
 import { supabase } from '../../lib/supabase';
+import { generatePersonaPack } from '../../services/personaPackService';
 
 export default function PlaygroundPage({ businessId }) {
   const [activeSection, setActiveSection] = useState('test');
   const [productCount, setProductCount] = useState(null);
+  const [isGeneratingPersona, setIsGeneratingPersona] = useState(false);
 
   const personaPack = usePersonaPack(businessId);
   const liveChat = useLiveChat(businessId);
   const { toast, showToast } = useToast();
+
+  const handleGeneratePersona = async () => {
+    if (!businessId) {
+      showToast('Business context is missing.', 'error');
+      return;
+    }
+
+    setIsGeneratingPersona(true);
+    try {
+      const result = await generatePersonaPack(businessId);
+      await personaPack.reload();
+      showToast(result?.message || 'New AI persona generated.');
+    } catch (error) {
+      showToast(error.message || 'Could not generate a new AI persona.', 'error');
+    } finally {
+      setIsGeneratingPersona(false);
+    }
+  };
 
   useEffect(() => {
     if (!businessId) return;
@@ -50,12 +70,20 @@ export default function PlaygroundPage({ businessId }) {
 
   return (
     <div className="relative flex h-full min-w-0 w-full flex-1 flex-col overflow-hidden bg-[#F7FBF9]">
-      <PlaygroundSidebar activeSection={activeSection} setActiveSection={setActiveSection} productCount={productCount} />
+      <PlaygroundSidebar
+        activeSection={activeSection}
+        setActiveSection={setActiveSection}
+        productCount={productCount}
+        onGeneratePersona={handleGeneratePersona}
+        isGeneratingPersona={isGeneratingPersona}
+      />
 
       <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
         <div className="flex h-full min-h-0 min-w-0 flex-col p-2 sm:p-3 md:p-4">
           {!personaPack.pack && (
-            <NotificationStrip>No persona pack has been generated for this business yet — run the persona pack pipeline first, then come back here to fine-tune it.</NotificationStrip>
+            <NotificationStrip action="Generate New AI Persona" onAction={handleGeneratePersona}>
+              To personalize your AI, a detailed persona pack is needed. Generate it automatically here.
+            </NotificationStrip>
           )}
           <section className="mx-auto flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden rounded-[1.5rem] border border-white/80 bg-white/70 p-3 shadow-xl shadow-[#28A745]/5 backdrop-blur-xl sm:p-4 lg:p-5">
             {renderSection()}
