@@ -53,6 +53,8 @@ export default function MessageSequenceBuilder({
   quietEnd = 8,
   activeDays = [0, 1, 2, 3, 4, 5, 6],
   timezone = 'Africa/Nairobi',
+  hideSchedule = false,
+  hideSequenceType = false,
 }) {
   const textareaRefs = useRef([]);
   const isEducational = sequenceType === SEQUENCE_TYPE.EDUCATIONAL;
@@ -165,6 +167,7 @@ export default function MessageSequenceBuilder({
 
   return (
     <div className="space-y-6">
+      {!hideSchedule && (
       <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -209,6 +212,8 @@ export default function MessageSequenceBuilder({
           </div>
         )}
       </div>
+      )}
+      {!hideSequenceType && (
       <div>
         <div className="grid grid-cols-2 gap-2 rounded-2xl bg-slate-100 p-1">
           {[SEQUENCE_TYPE.BROADCAST, SEQUENCE_TYPE.EDUCATIONAL].map((type) => (
@@ -230,6 +235,7 @@ export default function MessageSequenceBuilder({
             : 'Announcements, offers, and one-off pushes.'}
         </p>
       </div>
+      )}
 
       {isEducational && (
         <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">

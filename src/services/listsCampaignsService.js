@@ -302,6 +302,13 @@ export async function fetchCampaigns(businessId) {
     .in('campaign_id', campaigns.map((c) => c.campaign_id));
   if (stepsError) throw stepsError;
 
+  // v_campaign_summary doesn't expose kind/rule_id; auto-campaigns are shown under the Auto tab.
+  const { data: kindRows } = await supabase
+    .from('campaigns')
+    .select('id, kind, rule_id')
+    .in('id', campaigns.map((c) => c.campaign_id));
+  const kindById = new Map((kindRows || []).map((r) => [r.id, r]));
+
   return campaigns.map((row) => {
     const campaignSteps = allSteps.filter((s) => s.campaign_id === row.campaign_id);
     const positiveCount = campaignSteps.reduce((sum, s) => sum + Number(s.positive_count ?? 0), 0);
@@ -328,6 +335,8 @@ export async function fetchCampaigns(businessId) {
       reactedCount,
       actionCount,
       revenue: Number(row.realized_revenue ?? 0),
+      kind: kindById.get(row.campaign_id)?.kind || 'manual',
+      ruleId: kindById.get(row.campaign_id)?.rule_id || null,
       smartTiming: row.smart_timing ?? true,
       aiRewriteEnabled: row.ai_rewrite_enabled,
       autoApprove: row.auto_approve,
@@ -1034,4 +1043,97 @@ export async function removeLeadFromCampaign(businessId, campaignId, leadId) {
     .eq('campaign_id', campaignId)
     .eq('lead_id', leadId);
   if (error) throw error;
+}
+
+// ── Auto-campaigns ────────────────────────────────────────────────
+// One per enabled auto-list. Defaults live in auto_campaign_defaults (platform-owned,
+// not writable by businesses); a business's edits are stored as overrides in
+// auto_campaign_configs. v_auto_campaigns returns the effective (resolved) values.
+
+export async function fetchAutoCampaigns(businessId) {
+  if (!supabase || !businessId) return [];
+  const { data, error } = await supabase
+    .from('v_auto_campaigns')
+    .select('*')
+    .eq('business_id', businessId)
+    .order('list_name', { ascending: true });
+  if (error) throw error;
+  return (data || []).map((row) => ({
+    businessId: row.business_id,
+    ruleId: row.rule_id,
+    listId: row.list_id,
+    listName: row.list_name,
+    name: row.campaign_name,
+    objective: row.objective || '',
+    playbook: row.playbook || '',
+    sequenceMode: row.sequence_mode || 'linear',
+    steps: (Array.isArray(row.steps) ? row.steps : []).map((step, index) => ({
+      content: step.content || '',
+      gapHours: index === 0 ? 0 : Number(step.delay_hours ?? 24),
+    })),
+    aiRewriteEnabled: row.ai_rewrite_enabled ?? true,
+    autoApprove: row.auto_approve ?? false,
+    whatsappInstanceName: row.whatsapp_instance_name || '',
+    dailyCap: row.daily_cap ?? 40,
+    customised: Boolean(row.customised),
+    campaignId: row.campaign_id || null,
+    campaignStatus: row.campaign_status || null,
+    readyCount: Number(row.ready_count ?? 0),
+  }));
+}
+
+function serializeAutoSteps(steps) {
+  return steps.map((step, index) => ({
+    step_number: index + 1,
+    content: step.content.trim(),
+    delay_hours: index === 0 ? 0 : Number(step.gapHours) || 0,
+  }));
+}
+
+// patch: { objective, playbook, steps, aiRewriteEnabled, autoApprove, whatsappInstanceName, dailyCap }
+// Only content fields that were actually edited are overridden; the rest keep inheriting the default.
+export async function saveAutoCampaignConfig(businessId, ruleId, patch) {
+  const row = { business_id: businessId, rule_id: ruleId, updated_at: new Date().toISOString() };
+  if (patch.objective !== undefined) row.objective = patch.objective;
+  if (patch.playbook !== undefined) row.playbook = patch.playbook;
+  if (patch.steps !== undefined) row.steps = serializeAutoSteps(patch.steps);
+  if (patch.aiRewriteEnabled !== undefined) row.ai_rewrite_enabled = patch.aiRewriteEnabled;
+  if (patch.autoApprove !== undefined) row.auto_approve = patch.autoApprove;
+  if (patch.whatsappInstanceName !== undefined) row.whatsapp_instance_name = patch.whatsappInstanceName || null;
+  if (patch.dailyCap !== undefined) row.daily_cap = patch.dailyCap || null;
+
+  const { error } = await supabase.from('auto_campaign_configs').upsert(row, { onConflict: 'business_id,rule_id' });
+  if (error) throw error;
+  // If a live campaign exists, push the new settings/steps to it.
+  const { error: applyError } = await supabase.rpc('apply_auto_campaign_config', { p_business_id: businessId, p_rule_id: ruleId });
+  if (applyError) throw applyError;
+}
+
+export async function resetAutoCampaignToDefault(businessId, ruleId) {
+  const { error } = await supabase
+    .from('auto_campaign_configs')
+    .update({ objective: null, playbook: null, steps: null, sequence_mode: null, updated_at: new Date().toISOString() })
+    .eq('business_id', businessId)
+    .eq('rule_id', ruleId);
+  if (error) throw error;
+  const { error: applyError } = await supabase.rpc('apply_auto_campaign_config', { p_business_id: businessId, p_rule_id: ruleId });
+  if (applyError) throw applyError;
+}
+
+const AUTO_CAMPAIGN_ERRORS = {
+  instance_required: 'Choose a connected WhatsApp number first.',
+  instance_not_connected: 'That WhatsApp number is not connected right now.',
+  auto_list_not_enabled: 'This auto-list is not enabled.',
+  no_steps_configured: 'Add at least one message.',
+  empty_step_content: 'Every message needs some text.',
+  invalid_steps: 'Every message needs some text.',
+};
+
+export async function activateAutoCampaign(businessId, ruleId) {
+  const { data, error } = await supabase.rpc('activate_auto_campaign', { p_business_id: businessId, p_rule_id: ruleId });
+  if (error) {
+    const key = Object.keys(AUTO_CAMPAIGN_ERRORS).find((code) => (error.message || '').includes(code));
+    throw new Error(key ? AUTO_CAMPAIGN_ERRORS[key] : error.message);
+  }
+  return data;
 }

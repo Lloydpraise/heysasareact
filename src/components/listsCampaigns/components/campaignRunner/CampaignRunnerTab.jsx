@@ -10,6 +10,7 @@ import MessageUsage from './MessageUsage';
 import SequenceStepList from './SequenceStepList';
 import CreateCampaignModal from './createCampaignModal/CreateCampaignModal';
 import CampaignActivityLog from './CampaignActivityLog';
+import AutoCampaignsPanel from './AutoCampaignsPanel';
 import AnCard from '../../../analytics/shared/AnCard';
 import ViewSwitcher from '../ViewSwitcher';
 import ChatDrawer from '../../../leads/drawers/ChatDrawer';
@@ -80,10 +81,11 @@ export default function CampaignRunnerTab({ onNeedLists }) {
   if (!campaigns) return <div className="text-sm text-slate-400">Loading campaigns...</div>;
 
   const currentCampaigns = campaigns
-    .filter((campaign) => ['active', 'paused'].includes(campaign.status))
+    .filter((campaign) => ['active', 'paused'].includes(campaign.status) && campaign.kind !== 'auto')
     .sort((a, b) => (b.actionCount ?? 0) - (a.actionCount ?? 0));
   const archivedCampaigns = campaigns.filter((campaign) => ['completed', 'failed'].includes(campaign.status));
-  const visibleCampaigns = campaignSection === 'active' ? currentCampaigns : archivedCampaigns;
+  const autoLiveCount = campaigns.filter((campaign) => campaign.kind === 'auto' && ['active', 'paused'].includes(campaign.status)).length;
+  const visibleCampaigns = campaignSection === 'active' ? currentCampaigns : campaignSection === 'archived' ? archivedCampaigns : [];
 
   const renderCampaignList = (items) => (
     <AnCard className="overflow-hidden p-0">
@@ -175,15 +177,26 @@ export default function CampaignRunnerTab({ onNeedLists }) {
           <button
             type="button"
             role="tab"
-            aria-selected={campaignSection === 'achieved'}
-            onClick={() => setCampaignSection('achieved')}
-            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${campaignSection === 'achieved' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+            aria-selected={campaignSection === 'auto'}
+            onClick={() => setCampaignSection('auto')}
+            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${campaignSection === 'auto' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
           >
-            Achieved <span className="ml-1 text-[10px] text-slate-400">{archivedCampaigns.length}</span>
+            Auto <span className="ml-1 text-[10px] text-slate-400">{autoLiveCount}</span>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={campaignSection === 'archived'}
+            onClick={() => setCampaignSection('archived')}
+            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${campaignSection === 'archived' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+          >
+            Archived <span className="ml-1 text-[10px] text-slate-400">{archivedCampaigns.length}</span>
           </button>
         </div>
         <ViewSwitcher view={view} onChange={setView} />
       </div>
+
+      {campaignSection === 'auto' && <AutoCampaignsPanel businessId={businessId} onChanged={refetch} />}
 
       {campaignSection === 'active' && currentCampaigns.length === 0 && (
         <div className="flex min-h-[280px] flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 px-6 text-center">
@@ -199,14 +212,14 @@ export default function CampaignRunnerTab({ onNeedLists }) {
         </div>
       )}
 
-      {campaignSection === 'achieved' && visibleCampaigns.length === 0 && (
+      {campaignSection === 'archived' && visibleCampaigns.length === 0 && (
         <div className="flex min-h-[220px] items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 px-6 text-center text-sm text-slate-500">
-          No achieved campaigns yet.
+          No archived campaigns yet.
         </div>
       )}
 
-      {visibleCampaigns.length > 0 && view === 'list' && renderCampaignList(visibleCampaigns)}
-      {visibleCampaigns.length > 0 && view === 'grid' && renderCampaignGrid(visibleCampaigns)}
+      {campaignSection !== 'auto' && visibleCampaigns.length > 0 && view === 'list' && renderCampaignList(visibleCampaigns)}
+      {campaignSection !== 'auto' && visibleCampaigns.length > 0 && view === 'grid' && renderCampaignGrid(visibleCampaigns)}
 
       <CreateCampaignModal
         key={editingCampaign?.id || 'new-campaign'}

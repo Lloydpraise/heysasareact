@@ -25,6 +25,7 @@ export default function WaitlistModal({ open, onClose }) {
   const [industry, setIndustry] = useState('');
   const [phone, setPhone] = useState('');
   const [website, setWebsite] = useState('');
+  const [whatsappConsent, setWhatsappConsent] = useState(false);
   const [honeypot, setHoneypot] = useState('');
   const [phoneTouched, setPhoneTouched] = useState(false);
   const [error, setError] = useState('');
@@ -56,6 +57,7 @@ export default function WaitlistModal({ open, onClose }) {
         setIndustry('');
         setPhone('');
         setWebsite('');
+        setWhatsappConsent(false);
         setPhoneTouched(false);
         setError('');
         setSubmitting(false);
@@ -87,6 +89,10 @@ export default function WaitlistModal({ open, onClose }) {
     if (!phoneIsValid) {
       setPhoneTouched(true);
       return setError("That doesn't look like a Kenyan mobile number.");
+    }
+
+    if (!whatsappConsent) {
+      return setError('Please consent to being contacted on WhatsApp.');
     }
 
     setSubmitting(true);
@@ -126,7 +132,7 @@ export default function WaitlistModal({ open, onClose }) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="waitlist-modal-title"
-        className="relative w-full max-w-md rounded-t-[2rem] border border-white/80 bg-white/95 p-6 shadow-2xl backdrop-blur-xl outline-none sm:rounded-[2rem] sm:p-8"
+        className="relative max-h-[calc(100dvh-1rem)] w-full max-w-md overflow-y-auto rounded-t-[2rem] border border-white/80 bg-white/95 p-6 shadow-2xl backdrop-blur-xl outline-none sm:max-h-[calc(100dvh-2.5rem)] sm:max-w-2xl sm:rounded-[2rem] sm:p-7"
         style={{
           paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))',
         }}
@@ -141,23 +147,23 @@ export default function WaitlistModal({ open, onClose }) {
 
         {!result ? (
           <>
-            <p className="mb-2 text-xs font-bold uppercase tracking-[0.2em] text-[#28A745]">
+            <p className="mb-1 text-xs font-bold uppercase tracking-[0.2em] text-[#28A745]">
               Get early access
             </p>
 
             <h2
               id="waitlist-modal-title"
-              className="mb-2 text-2xl font-bold tracking-tight text-slate-900"
+              className="mb-1 text-2xl font-bold tracking-tight text-slate-900"
             >
               Let's find the gold in your WhatsApp.
             </h2>
 
-            <p className="mb-6 text-sm leading-relaxed text-slate-500">
+            <p className="mb-4 text-sm leading-relaxed text-slate-500 sm:mb-5">
               Join the list and we'll contact you on WhatsApp when it's your
               turn to experience HeySasa on your business.
             </p>
 
-            <form onSubmit={handleSubmit} noValidate className="space-y-4">
+            <form onSubmit={handleSubmit} noValidate className="grid gap-3 sm:grid-cols-2 sm:gap-x-4 sm:gap-y-3">
 
               {/* Honeypot */}
               <input
@@ -250,10 +256,21 @@ export default function WaitlistModal({ open, onClose }) {
                 />
               </label>
 
+              <label className="flex items-start gap-3 rounded-xl border border-slate-200 px-3 py-3 text-sm font-medium text-slate-700 sm:col-span-2">
+                <input
+                  required
+                  type="checkbox"
+                  checked={whatsappConsent}
+                  onChange={(e) => setWhatsappConsent(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 shrink-0 accent-[#28A745]"
+                />
+                <span>You consent to be contacted on WhatsApp on this number.</span>
+              </label>
+
               {error && (
                 <p
                   role="alert"
-                  className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-600"
+                  className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-600 sm:col-span-2"
                 >
                   {error}
                 </p>
@@ -261,7 +278,7 @@ export default function WaitlistModal({ open, onClose }) {
 
               <button
                 disabled={submitting}
-                className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[#28A745] font-bold text-white shadow-lg shadow-[#28A745]/25 transition hover:bg-[#218838] disabled:cursor-wait disabled:opacity-60"
+                className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[#28A745] font-bold text-white shadow-lg shadow-[#28A745]/25 transition hover:bg-[#218838] disabled:cursor-wait disabled:opacity-60 sm:col-span-2"
               >
                 {submitting && (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -272,7 +289,7 @@ export default function WaitlistModal({ open, onClose }) {
                 {!submitting && <ArrowRight className="h-4 w-4" />}
               </button>
 
-              <p className="text-center text-xs leading-relaxed text-slate-400">
+              <p className="text-center text-xs leading-relaxed text-slate-400 sm:col-span-2">
                 We'll only use your WhatsApp number to contact you about
                 HeySasa.
               </p>
