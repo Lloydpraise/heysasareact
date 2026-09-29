@@ -1,5 +1,5 @@
 // listsCampaigns/constants.js
-import { Flame, Snowflake, ShoppingCart, Star, Ban } from 'lucide-react';
+import { Flame, Snowflake, ShoppingCart, Star, Ban, Clock, Tag } from 'lucide-react';
 
 // ---------- Status & color tokens ----------
 export const LEAD_STATUS = {
@@ -28,6 +28,25 @@ export const AUTOMATION_RULES = [
     factors: [
       { key: 'window_days', label: 'Inquiry window', type: 'number', unit: 'days', default: 7 },
       { key: 'require_price_request', label: 'Must have asked for price', type: 'boolean', default: true },
+    ],
+  },
+  {
+    id: 'unanswered',
+    name: 'Unanswered Messages',
+    icon: Clock,
+    description: 'Groups leads whose last message is still waiting on a reply from you.',
+    factors: [
+      { key: 'min_hours', label: 'Waiting for at least', type: 'number', unit: 'hours', default: 2 },
+      { key: 'max_days', label: 'Drop off list after', type: 'number', unit: 'days', default: 14 },
+    ],
+  },
+  {
+    id: 'price_hesitant',
+    name: 'Price-Hesitant Leads',
+    icon: Tag,
+    description: 'Groups leads who pushed back on price and haven’t bought yet.',
+    factors: [
+      { key: 'window_days', label: 'Objection window', type: 'number', unit: 'days', default: 30 },
     ],
   },
   {
