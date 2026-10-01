@@ -105,6 +105,7 @@ export default function WaitlistModal({ open, onClose }) {
         phone: normalizedPhone,
         website: website.trim(),
         honeypot,
+        consentWhatsapp: whatsappConsent,
       });
 
       setResult(outcome);

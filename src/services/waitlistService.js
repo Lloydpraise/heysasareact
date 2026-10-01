@@ -15,13 +15,14 @@ function readUtmParams() {
 // fills (see WaitlistModal.jsx), read by nothing but bots that fill
 // every input on a page. Any value in it and the backend silently
 // discards the submission instead of writing it.
-export async function submitWaitlistSignup({ name, business, industry, phone, website, honeypot }) {
+export async function submitWaitlistSignup({ name, business, industry, phone, website, honeypot, consentWhatsapp }) {
   const res = await fetch(`${BACKEND_API_URL}/public/waitlist`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       name, business, industry, phone, website: website || undefined,
       company_website_hp: honeypot || undefined,
+      consent_whatsapp: consentWhatsapp === true,
       ...readUtmParams(),
     }),
   });
@@ -37,6 +38,7 @@ function mapError(code) {
     case 'name_required': return 'Please enter your name.';
     case 'business_required': return 'Please enter your business name.';
     case 'industry_invalid': return 'Please choose your industry.';
+    case 'consent_required': return 'Please consent to being contacted on WhatsApp.';
     case 'phone_invalid': return "That doesn't look like a Kenyan mobile number.";
     case 'website_invalid': return "That website doesn't look right — try just the domain, e.g. mybrand.co.ke.";
     case 'too_many_requests': return 'Too many attempts — please wait a bit and try again.';

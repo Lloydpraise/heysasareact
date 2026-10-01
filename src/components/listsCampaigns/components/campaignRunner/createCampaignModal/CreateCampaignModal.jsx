@@ -4,6 +4,7 @@ import Stepper from './Stepper';
 import ListSelectionStep from './Listselectionstep';
 import MessageSequenceBuilder from './Messagesequencebuilder';
 import ScheduleGuardrails from './ScheduleGuardrails';
+import ImportCampaignPanel from './ImportCampaignPanel';
 import { SEQUENCE_TYPE, EDUCATIONAL_FREQUENCY } from '../../../constants';
 import { launchCampaign, updateCampaign } from '../../../../../services/listsCampaignsService';
 import { fetchWhatsAppSessions } from '../../../../../services/businessService';
@@ -34,7 +35,7 @@ function getDefaultSendTime(timeZone = 'UTC') {
   return formatDateTimeLocalInTimeZone(addHours(new Date(), 5 / 60), timeZone);
 }
 
-export default function CreateCampaignModal({ open, campaign, onClose, businessId, onLaunched }) {
+export default function CreateCampaignModal({ open, campaign, onClose, businessId, onLaunched, startWithImport = false }) {
   const [stepIndex, setStepIndex] = useState(() => (campaign ? 1 : 0));
   const [campaignName, setCampaignName] = useState(() => campaign?.name || '');
   const [whatsappSessions, setWhatsappSessions] = useState([]);
@@ -64,6 +65,7 @@ export default function CreateCampaignModal({ open, campaign, onClose, businessI
   const [autoApprove, setAutoApprove] = useState(() => campaign?.autoApprove ?? true);
   const [launching, setLaunching] = useState(false);
   const [error, setError] = useState('');
+  const [importedName, setImportedName] = useState('');
 
   useEffect(() => {
     let isMounted = true;
@@ -123,7 +125,22 @@ export default function CreateCampaignModal({ open, campaign, onClose, businessI
     return () => { isMounted = false; };
   }, [businessId, campaign]);
 
+  // Fills the form from an uploaded file. Lists and the WhatsApp number are still chosen here.
+  const applyImported = (imported) => {
+    setCampaignName(imported.name);
+    setSequenceType(imported.sequenceType);
+    setEducationalTopic(imported.educationalTopic || '');
+    setFrequency(imported.frequency || (EDUCATIONAL_FREQUENCY[1]?.value || 'weekly'));
+    setSteps(imported.steps.map((st, i) => ({ content: st.content, gapHours: i === 0 ? 0 : st.gapHours, media: null })));
+    setAiRewriteEnabled(imported.aiRewriteEnabled);
+    setAutoApprove(imported.autoApprove);
+    setSmartTiming(imported.smartTiming);
+    setImportedName(imported.name);
+    setError('');
+  };
+
   const reset = () => {
+    setImportedName('');
     setStepIndex(0);
     setCampaignName('');
     setSelectedInstanceId('');
@@ -280,6 +297,20 @@ export default function CreateCampaignModal({ open, campaign, onClose, businessI
                   {audience?.sendableCount ?? '—'} leads will be sent to · from {selectedListIds.length} list{selectedListIds.length === 1 ? '' : 's'}
                 </p>
               </div>
+            )}
+
+            {stepIndex === 0 && !campaign && (startWithImport || importedName) && (
+              <ImportCampaignPanel onApply={applyImported} appliedName={importedName} />
+            )}
+
+            {stepIndex === 0 && !campaign && !startWithImport && !importedName && (
+              <button
+                type="button"
+                onClick={() => setImportedName(' ')}
+                className="text-xs font-semibold text-[#1F7A3E] hover:underline"
+              >
+                Have a campaign file? Upload / create
+              </button>
             )}
 
             {stepIndex === 0 && (

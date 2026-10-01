@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Activity, Plus } from 'lucide-react';
+import { Activity, Plus, Upload } from 'lucide-react';
 import { useListsCampaigns } from '../../ListsCampaignsContext';
 import { MOCK_CAMPAIGNS } from '../../constants';
 import { fetchCampaigns, subscribeToCampaigns } from '../../../../services/listsCampaignsService';
@@ -24,6 +24,7 @@ export default function CampaignRunnerTab({ onNeedLists }) {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showActivityLog, setShowActivityLog] = useState(false);
   const [editingCampaign, setEditingCampaign] = useState(null);
+  const [startWithImport, setStartWithImport] = useState(false);
   const [activeChatLead, setActiveChatLead] = useState(null);
   const hasLists = (lists || []).length > 0;
 
@@ -58,7 +59,14 @@ export default function CampaignRunnerTab({ onNeedLists }) {
     refetch();
   }, [businessId, refetch]);
 
+  const openImportCampaign = () => {
+    setEditingCampaign(null);
+    setStartWithImport(true);
+    setShowCreateModal(true);
+  };
+
   const openCreateCampaign = () => {
+    setStartWithImport(false);
     setEditingCampaign(null);
     setShowCreateModal(true);
   };
@@ -144,6 +152,18 @@ export default function CampaignRunnerTab({ onNeedLists }) {
             <Plus size={14} />
             {hasLists ? 'Create' : 'Create Lists first'}
           </button>
+          {hasLists && (
+            <button
+              type="button"
+              onClick={openImportCampaign}
+              className="flex h-7 flex-shrink-0 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 text-[11px] font-semibold text-slate-600 hover:bg-slate-50"
+              aria-label="Import campaign from a file"
+              title="Import a campaign from an Excel or JSON file"
+            >
+              <Upload size={13} />
+              Import
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setShowActivityLog((current) => !current)}
@@ -222,9 +242,10 @@ export default function CampaignRunnerTab({ onNeedLists }) {
       {campaignSection !== 'auto' && visibleCampaigns.length > 0 && view === 'grid' && renderCampaignGrid(visibleCampaigns)}
 
       <CreateCampaignModal
-        key={editingCampaign?.id || 'new-campaign'}
+        key={`${editingCampaign?.id || 'new-campaign'}-${startWithImport ? 'import' : 'create'}`}
         open={showCreateModal}
         campaign={editingCampaign}
+        startWithImport={startWithImport}
         onClose={() => {
           setShowCreateModal(false);
           setEditingCampaign(null);
