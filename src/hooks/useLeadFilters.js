@@ -31,7 +31,7 @@ export function useLeadFilters(leads) {
         const matchesType = typeFilter === 'personal'
           ? isPersonalChat(lead)
           : typeFilter === 'all'
-            ? true
+            ? !isPersonalChat(lead)
             : lead.lead_type === typeFilter || (typeFilter === 'ad' && lead.is_ad_lead);
         const matchesInstance = instanceFilter === 'all'
           || (lead.whatsappSessionIds || []).includes(instanceFilter);

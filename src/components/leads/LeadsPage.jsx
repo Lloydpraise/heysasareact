@@ -193,6 +193,16 @@ export default function LeadsPage() {
     }
   };
 
+  const handleMarkPersonal = async (lead) => {
+    if (lead.lead_type === 'personal') return;
+    try {
+      await updateLead(lead.id, { lead_type: 'personal' });
+      showToast(`${lead.name} marked as personal.`);
+    } catch (updateError) {
+      showToast(updateError.message || 'Could not mark lead as personal.', 'error');
+    }
+  };
+
   const runAnalysis = async (contactIds, successMessage) => {
     const ids = [...new Set(contactIds)].filter(Boolean);
     if (!ids.length) return;
@@ -264,7 +274,6 @@ export default function LeadsPage() {
         const lead = leads.find((item) => item.id === leadId);
         return updateLead(leadId, {
           lead_type: 'business',
-          is_business_chat: true,
           name: lead?.name,
           phone: lead?.phone,
           lead_state: lead?.lead_state,
@@ -322,7 +331,7 @@ export default function LeadsPage() {
       {(isDisconnected || showHistoryPrompt) && <div className="absolute left-0 right-0 top-0 z-20 px-3 pt-3 md:px-4"><NotificationStrip action={isDisconnected ? <><MessageCircleMore className="mr-1.5 inline h-3.5 w-3.5" />Connect now</> : <><LoaderCircle className={`mr-1.5 inline h-3.5 w-3.5 ${historyLoading ? 'animate-spin' : ''}`} />{historyLoading ? 'Loading...' : 'Load History'}</>} onAction={isDisconnected ? () => setIsConnectionOpen(true) : loadHistory}><span>{isDisconnected ? 'No WhatsApp connected for this business.' : 'Load your chat history for the last 90 days to start seeing data here!'}</span></NotificationStrip>{historyError && <p className="mt-1 text-xs text-red-500">{historyError}</p>}</div>}
       {/* ── List panel ─────────────────────────────── */}
       <div className={`flex min-h-0 w-full shrink-0 flex-col overflow-hidden border-b border-slate-200 bg-white/70 backdrop-blur-xl ${isDisconnected || showHistoryPrompt ? 'pt-16' : ''} md:w-[340px] md:min-w-[280px] md:max-w-[340px] md:border-b-0 md:border-r ${mobileDetailOpen ? 'hidden md:flex' : 'flex'}`}>
-        <div className="flex-shrink-0 px-0 pt-3 md:px-3.5 md:pt-4">
+        <div className="min-h-0 flex-1 overflow-y-auto px-0 pt-3 md:px-3.5 md:pt-4">
           <div className="mb-3 flex items-center justify-between px-3 md:px-0">
             <h2 className="text-lg font-bold tracking-tight text-slate-900">Leads</h2>
             <div className="flex items-center gap-2">
@@ -437,9 +446,8 @@ export default function LeadsPage() {
               </div>
             )}
           </div>
-        </div>
 
-        <div className="flex-1 overflow-y-auto px-0 pb-3 md:px-2 md:pb-4">
+        <div className="px-0 pb-3 md:px-2 md:pb-4">
           {error && (
             <div className="mx-1.5 mt-2 rounded-lg bg-red-50 px-3 py-2 text-[11.5px] font-medium text-red-600">
               {error}
@@ -462,10 +470,12 @@ export default function LeadsPage() {
                 selected={selectedIds.has(lead.id)}
                 onToggleSelect={toggleSelected}
                 onEdit={() => setEditingLead(lead)}
+                onMarkPersonal={() => handleMarkPersonal(lead)}
                 onDelete={() => handleDeleteLead(lead.id)}
               />
             ))}
           </div>
+        </div>
         </div>
       </div>
 

@@ -126,10 +126,10 @@ export default function Market() {
           )}
         </AnCard>
 
-        {/* ── Price objection rate ── */}
+        {/* ── Top objection ── */}
         <AnCard cacheUpdatedAt={cacheUpdatedAt}>
-          <SectionLabel info="Share of lost leads whose most cited blocker was price.">
-            <AlertTriangle size={13} /> Price objection rate
+          <SectionLabel info="This is the objection most people cited in chats. It's your biggest lever to pull.">
+            <AlertTriangle size={13} /> Top Objection
           </SectionLabel>
           {!topObjection ? (
             <EmptyNote>No objection data available yet.</EmptyNote>
@@ -138,12 +138,11 @@ export default function Market() {
               <div className="flex items-center gap-4 py-2 pb-4">
                 <div>
                   <div className="text-[42px] font-bold leading-none tracking-tight text-red-500">{topObjection.pct}%</div>
-                  <div className="mt-1 text-[12px] text-slate-400">of lost leads cite {topObjection.label.toLowerCase()}</div>
+                  <div className="mt-1 text-[12px] text-slate-400">of cited objections were about {topObjection.label.toLowerCase()}</div>
                 </div>
                 <div className="flex-1 pl-2">
                   <p className="text-[12px] leading-relaxed text-slate-600">
-                    {topObjection.count} leads dropped off citing this. This is your single largest lever for
-                    conversion improvement.
+                    Cited in {topObjection.count} chats. This is your biggest lever to pull for improving conversion.
                   </p>
                   <div className="mt-2.5 flex flex-wrap gap-1.5">
                     <Pill>Consider payment plans</Pill>

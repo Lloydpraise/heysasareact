@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { CheckCircle2, LoaderCircle, X } from 'lucide-react';
 import { fetchListContacts } from '../../../../services/listsCampaignsService';
 import { getLeadDisplayName, isLikelyWhatsAppIdentifier, isValidPhoneNumber } from '../../../../utils/leadHelpers';
@@ -28,9 +29,9 @@ export default function ListContactsModal({ open, list, businessId, onClose }) {
 
   if (!open || !list) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-sm" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <div className="flex max-h-[min(680px,calc(100vh-2rem))] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-white/80 bg-white shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="list-contacts-title">
+  return createPortal(
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center overflow-y-auto bg-slate-950/45 p-4 backdrop-blur-sm" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+      <div className="flex max-h-[min(680px,calc(100dvh-2rem))] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-white/80 bg-white shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="list-contacts-title">
         <div className="flex items-start justify-between border-b border-slate-100 px-5 py-4">
           <div className="min-w-0 pr-4">
             <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#218c3a]">{list.type === 'manual' ? 'Manual list' : 'Audience list'}</p>
@@ -64,6 +65,7 @@ export default function ListContactsModal({ open, list, businessId, onClose }) {
           })}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

@@ -71,7 +71,10 @@ export function isLikelyWhatsAppIdentifier(phone) {
 }
 
 export function getLeadDisplayName(name, phone) {
-  return String(name || '').trim() || String(phone || '').trim() || 'Unknown contact';
+  const displayName = String(name || '').trim();
+  const normalizedName = displayName.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  if (displayName && !['voce', 'you', 'unknown', 'unknown contact', 'whatsapp user/no name'].includes(normalizedName)) return displayName;
+  return String(phone || '').trim() || 'WhatsApp user/no name';
 }
 
 // read_receipt -> glyph + color. Kept as text glyphs (not icons) since

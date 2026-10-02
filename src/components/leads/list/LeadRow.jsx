@@ -12,7 +12,7 @@ import {
   isLikelyWhatsAppIdentifier,
 } from '../../../utils/leadHelpers';
 
-function LeadRow({ lead, isActive, onClick, selectMode, selected, onToggleSelect, onEdit, onDelete }) {
+function LeadRow({ lead, isActive, onClick, selectMode, selected, onToggleSelect, onEdit, onMarkPersonal, onDelete }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const sc = stateConfig(lead.lead_state);
   const ql = qualityLabel(lead.lead_quality);
@@ -107,7 +107,8 @@ function LeadRow({ lead, isActive, onClick, selectMode, selected, onToggleSelect
           <MoreVertical size={16} />
         </button>
         {menuOpen && (
-          <div className="absolute right-0 top-8 z-20 w-28 rounded-lg border border-slate-200 bg-white p-1 shadow-lg">
+          <div className="absolute right-0 top-8 z-20 w-32 rounded-lg border border-slate-200 bg-white p-1 shadow-lg">
+            {!isPersonal && <button type="button" onClick={() => { setMenuOpen(false); onMarkPersonal?.(); }} className="block w-full rounded-md px-2 py-1.5 text-left text-[11px] font-semibold text-slate-700 hover:bg-slate-100">Personal</button>}
             <button type="button" onClick={() => { setMenuOpen(false); onEdit?.(); }} className="block w-full rounded-md px-2 py-1.5 text-left text-[11px] font-semibold text-slate-700 hover:bg-slate-100">Edit lead</button>
             <button type="button" onClick={() => { setMenuOpen(false); onDelete?.(); }} className="block w-full rounded-md px-2 py-1.5 text-left text-[11px] font-semibold text-red-600 hover:bg-red-50">Delete lead</button>
           </div>

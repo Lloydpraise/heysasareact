@@ -455,11 +455,27 @@ function getChatPhone(chat) {
   return phone || null;
 }
 
-function getEvolutionChatName(chat, fallback) {
-  return chat?.name || chat?.pushName || chat?.profileName || chat?.profile_name || chat?.username || chat?.notify || fallback || 'Unknown contact';
+const GENERIC_CHAT_NAMES = new Set(['voce', 'you', 'unknown', 'unknown contact', 'whatsapp user/no name']);
+
+function normalizeContactName(name) {
+  return String(name || '').trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').toLowerCase();
 }
 
-function normalizeEvolutionChat(chat) {
+function isUsableContactName(name, businessName = '') {
+  const normalizedName = normalizeContactName(name);
+  return !!normalizedName
+    && !GENERIC_CHAT_NAMES.has(normalizedName)
+    && normalizedName !== normalizeContactName(businessName);
+}
+
+function getEvolutionChatName(chat, fallback, businessName = '') {
+  const name = [chat?.name, chat?.pushName, chat?.profileName, chat?.profile_name, chat?.username, chat?.notify]
+    .map((value) => String(value || '').trim())
+    .find((value) => isUsableContactName(value, businessName) && normalizeContactName(value) !== normalizeContactName(fallback));
+  return name || fallback || 'WhatsApp user/no name';
+}
+
+function normalizeEvolutionChat(chat, businessName = '') {
   const phone = getChatPhone(chat);
   const lastMessage = chat?.lastMessage || chat?.messages?.[0] || {};
   const normalizedLastMessage = normalizeEvolutionMessage(lastMessage);
@@ -469,7 +485,7 @@ function normalizeEvolutionChat(chat) {
 
   return normalizeLead({
     id: phone ? `evolution-${phone}` : null,
-    name: getEvolutionChatName(chat, phone),
+    name: getEvolutionChatName(chat, phone, businessName),
     phone,
     unread_count: Number(chat?.unreadCount || chat?.unreadMessages || 0),
     last_seen: Number.isNaN(parsedLastSeen.getTime()) ? new Date().toISOString() : parsedLastSeen.toISOString(),
@@ -479,7 +495,7 @@ function normalizeEvolutionChat(chat) {
   });
 }
 
-async function loadEvolutionChats(instanceName = null) {
+async function loadEvolutionChats(instanceName = null, businessName = '') {
   const businessId = getBusinessId();
   if (!businessId) throw new Error('No business selected.');
 
@@ -504,7 +520,7 @@ async function loadEvolutionChats(instanceName = null) {
       const remoteJid = String(chat?.remoteJid || chat?.id || chat?.jid || chat?.key?.remoteJid || '');
       return remoteJid.endsWith('@s.whatsapp.net') && !remoteJid.includes('-');
     })
-    .map(normalizeEvolutionChat)
+    .map((chat) => normalizeEvolutionChat(chat, businessName))
     .filter((chat) => chat.phone);
 }
 
@@ -512,12 +528,26 @@ async function syncEvolutionChats(existingLeads = [], instanceName = null, chats
   const businessId = getBusinessId();
   if (!businessId) throw new Error('No business selected.');
 
-  const chats = chatsOverride || await loadEvolutionChats(instanceName);
+  let businessName = '';
+  if (supabase) {
+    const { data: business, error: businessError } = await supabase
+      .from('businesses')
+      .select('name')
+      .eq('business_id', businessId)
+      .maybeSingle();
+    if (businessError) throw businessError;
+    businessName = business?.name || '';
+  }
+
+  const chats = chatsOverride || await loadEvolutionChats(instanceName, businessName);
   const sessions = await fetchWhatsAppSessions(businessId);
   const targetSession = sessions.find((session) => session.instance_name === instanceName)
     || sessions.find((session) => session.status === 'connected' && session.instance_name);
   if (!targetSession?.id) throw new Error('The WhatsApp instance could not be matched to a saved session.');
-  const uniqueChats = [...new Map(chats.map((chat) => [chat.phone, chat])).values()];
+  const uniqueChats = [...new Map(chats.map((chat) => [chat.phone, {
+    ...chat,
+    name: getEvolutionChatName(chat, chat.phone, businessName),
+  }])).values()];
   if (!supabase) return { leads: uniqueChats, newConversations: uniqueChats.length };
 
   const { data: storedContacts, error: contactsError } = await supabase
@@ -532,7 +562,7 @@ async function syncEvolutionChats(existingLeads = [], instanceName = null, chats
   const localPhones = new Set(existingLeads.map((lead) => String(lead.phone || '').replace(/\D/g, '')).filter(Boolean));
   const newContactInputs = uniqueChats
     .filter((chat) => !contactByPhone.has(chat.phone))
-    .map((chat) => ({ ...chat, name: getEvolutionChatName(chat, chat.phone) }));
+    .map((chat) => ({ ...chat, name: getEvolutionChatName(chat, chat.phone, businessName) }));
 
   let createdLeads = [];
   if (newContactInputs.length) {
@@ -544,8 +574,8 @@ async function syncEvolutionChats(existingLeads = [], instanceName = null, chats
 
   await Promise.all(uniqueChats.map(async (chat) => {
     const contact = contactByPhone.get(chat.phone);
-    const profileName = chat.name && chat.name !== chat.phone ? chat.name : null;
-    if (!contact || !profileName || !(!contact.name || !String(contact.name).trim())) return;
+    const profileName = getEvolutionChatName(chat, chat.phone, businessName);
+    if (!contact || isUsableContactName(contact.name, businessName) || contact.name === profileName) return;
 
     const { error } = await supabase
       .from('contacts')
@@ -809,7 +839,7 @@ async function updateLeadState(leadId, newState) {
   }
 }
 
-async function updateLead(leadId, { name, phone, lead_state: leadState, lead_type: leadType, is_business_chat: isBusinessChat }) {
+async function updateLead(leadId, { name, phone, lead_state: leadState, lead_type: leadType }) {
   if (!supabase) return { ok: true };
   const validStates = ['new', 'engaged', 'warm', 'stalled', 'ghosted', 'won', 'lost', 'do_not_contact'];
   if (leadState && !validStates.includes(leadState)) return { ok: false, error: 'invalid state' };
@@ -820,7 +850,6 @@ async function updateLead(leadId, { name, phone, lead_state: leadState, lead_typ
       ...(phone !== undefined ? { phone: phone.trim() } : {}),
       ...(leadState !== undefined ? { lead_state: leadState } : {}),
       ...(leadType !== undefined ? { lead_type: leadType } : {}),
-      ...(isBusinessChat !== undefined ? { is_business_chat: isBusinessChat } : {}),
     };
     const { error } = await supabase
       .from('contacts')
