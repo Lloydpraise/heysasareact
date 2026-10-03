@@ -68,7 +68,7 @@ export function FollowupSection({ prefs, updatePref }) {
             </div>
 
             <div className="pt-4 border-t border-slate-200/80">
-              <label className="text-sm text-slate-600 block mb-3">Active Sending Days</label>
+              <label className="text-sm text-slate-600 block mb-3">Active on these days</label>
               <DayPicker 
                 activeDays={prefs.active_days} 
                 onChange={(days) => updatePref('active_days', days)} 

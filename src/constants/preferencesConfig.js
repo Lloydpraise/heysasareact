@@ -40,7 +40,7 @@ export const PREF_SECTIONS = [
 
 export const ECOM_STAGES    = ['discovery','browsing','selection','intent','checkout','awaiting_payment','paid','fulfilled','post_purchase'];
 export const SERVICE_STAGES = ['discovery','qualified','proposal','negotiation','committed','active','completed','retention'];
-export const DAYS           = ['S','M','T','W','T','F','S'];
+export const DAYS           = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export const MAT_CONFIG = {
   testimonial: { icon: ICONS.star,  label: 'Testimonials',  sub: 'Customer quotes and success stories',  color: '#FF8C00' },

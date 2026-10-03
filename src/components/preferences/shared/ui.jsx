@@ -128,12 +128,14 @@ export const DayPicker = ({ activeDays, onChange }) => {
           const isActive = activeDays.includes(idx);
           return (
             <button
+              type="button"
               key={idx}
               onClick={() => toggleDay(idx)}
-              className={`h-10 w-10 shrink-0 rounded-xl text-sm font-medium transition-all ${
+              aria-pressed={isActive}
+              className={`h-10 min-w-[3.5rem] shrink-0 rounded-xl px-2 text-sm font-medium transition-all ${
                 isActive 
                   ? 'bg-[#28A745] text-white shadow-lg shadow-[#28A745]/20' 
-                  : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                  : 'bg-slate-200 text-slate-500 hover:bg-slate-300'
               }`}
             >
               {day}
