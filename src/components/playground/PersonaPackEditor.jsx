@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { X, Plus, Save } from 'lucide-react';
+import { FileDown, X, Plus, Save } from 'lucide-react';
+import { downloadPersonaPackPdf } from '../../utils/downloadPersonaPackPdf';
 
 const SENTIMENT_KEYS = ['positive', 'neutral', 'hesitant', 'price_resistant', 'time_poor', 'trust_deficit', 'negative', 'aggressive'];
 
@@ -180,7 +181,7 @@ function SentimentSection({ data, onChange }) {
   );
 }
 
-export function PersonaPackEditor({ businessId, personaPack, showToast }) {
+export function PersonaPackEditor({ businessId, personaPack, showToast, isAuthenticated }) {
   const { pack, version, updateField, saveSection, isSaving } = personaPack;
   const [activeTab, setActiveTab] = useState('persona');
   const [dirtyTabs, setDirtyTabs] = useState(new Set());
@@ -210,6 +211,19 @@ export function PersonaPackEditor({ businessId, personaPack, showToast }) {
 
   const isDirty = dirtyTabs.has(activeTab);
 
+  const handleDownloadPdf = () => {
+    if (!isAuthenticated || !businessId) {
+      showToast(!isAuthenticated ? 'Sign in to download the persona pack.' : 'Business context is missing.', 'error');
+      return;
+    }
+    try {
+      downloadPersonaPackPdf(pack, businessId);
+      showToast('Persona pack PDF downloaded.');
+    } catch (error) {
+      showToast(error.message || 'Could not download the persona pack.', 'error');
+    }
+  };
+
   return (
     <div className="flex h-full min-h-0 flex-col rounded-[1.25rem] border border-white/80 bg-white/70 shadow-lg shadow-[#28A745]/5 backdrop-blur-xl">
       <div className="flex min-w-0 items-center justify-between px-4 pt-3">
@@ -229,7 +243,19 @@ export function PersonaPackEditor({ businessId, personaPack, showToast }) {
           ))}
           </div>
         </div>
-        <span className="shrink-0 whitespace-nowrap pl-3 text-xs text-[#94A3B8]">v{version}</span>
+        <div className="flex shrink-0 items-center gap-2 pl-3">
+          <button
+            type="button"
+            onClick={handleDownloadPdf}
+            disabled={!isAuthenticated || !businessId}
+            title="Download this business persona pack as PDF"
+            className="inline-flex items-center gap-1 rounded-lg border border-[#28A745]/30 px-2 py-1.5 text-xs font-semibold text-[#218c3a] transition hover:bg-[#28A745]/5 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <FileDown size={14} />
+            PDF
+          </button>
+          <span className="whitespace-nowrap text-xs text-[#94A3B8]">v{version}</span>
+        </div>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-4">

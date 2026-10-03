@@ -1,5 +1,5 @@
 ﻿import { useMemo, useState } from 'react';
-import { STATE_PRIORITY } from '../utils/leadHelpers';
+import { hasUnrepliedCustomerMessage, STATE_PRIORITY } from '../utils/leadHelpers';
 
 export function isPersonalChat(lead) {
   return lead.lead_type === 'personal' || lead.is_business_chat === false;
@@ -27,7 +27,7 @@ export function useLeadFilters(leads) {
           adHeadline.includes(q) ||
           (lead.product_interests || []).some((product) => String(product || '').toLowerCase().includes(q));
         const matchesState = stateFilter === 'all'
-          || (stateFilter === 'unread' ? lead.unread_count > 0 : lead.lead_state === stateFilter);
+          || (stateFilter === 'unread' ? hasUnrepliedCustomerMessage(lead) : lead.lead_state === stateFilter);
         const matchesType = typeFilter === 'personal'
           ? isPersonalChat(lead)
           : typeFilter === 'all'
@@ -55,7 +55,7 @@ export function useLeadFilters(leads) {
   const stats = useMemo(() => {
     const business = leads.filter((l) => l.lead_type === 'business');
     const adLeads = leads.filter((l) => l.is_ad_lead);
-    const unread = leads.filter((l) => l.unread_count > 0);
+    const unread = leads.filter(hasUnrepliedCustomerMessage);
     const urgent = leads.filter((l) => ['stalled', 'ghosted'].includes(l.lead_state) && l.lead_type === 'business');
     const ready = leads.filter((l) => l.lead_quality === 'hot' && l.lead_state === 'engaged');
     const pending = leads.filter((l) => l.followup?.pending_approval);

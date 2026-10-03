@@ -4,6 +4,12 @@ import Drawer from './Drawer';
 import { readReceiptIcon, timeAgo } from '../../../utils/leadHelpers';
 import leadsService from '../../../services/leadsService';
 
+function mergeMessages(current, incoming) {
+  const messagesById = new Map(current.map((message) => [message.id, message]));
+  incoming.forEach((message) => messagesById.set(message.id, message));
+  return [...messagesById.values()].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+}
+
 export default function ChatDrawer({ lead, open, onClose, onSend, onMessagesRead }) {
   const [draft, setDraft] = useState('');
   const [transcript, setTranscript] = useState([]);
@@ -11,8 +17,12 @@ export default function ChatDrawer({ lead, open, onClose, onSend, onMessagesRead
   const [sending, setSending] = useState(false);
   const [loadingPast, setLoadingPast] = useState(false);
   const [error, setError] = useState('');
+  const [realtimeConnection, setRealtimeConnection] = useState(null);
   const messagesEndRef = useRef(null);
   const leadId = lead?.id;
+  const realtimeStatus = realtimeConnection?.leadId === leadId && realtimeConnection?.open === open
+    ? realtimeConnection.status
+    : 'connecting';
 
   const hydrateMedia = (messages) => {
     const mediaMessages = messages.filter((message) => message.mediaType === 'image' && !message.mediaUrl && !message.mediaThumbnail);
@@ -68,14 +78,29 @@ export default function ChatDrawer({ lead, open, onClose, onSend, onMessagesRead
     const refreshTranscript = () => {
       leadsService.fetchChatTranscript(leadId).then((messages) => {
         if (!mounted) return;
-        setTranscript(messages);
+        setTranscript((current) => mergeMessages(current, messages));
         hydrateMedia(messages);
       }).catch((loadError) => {
         if (mounted) setError(loadError.message || 'Could not refresh this chat.');
       });
     };
 
-    return leadsService.subscribeToChatMessages(leadId, refreshTranscript);
+    const unsubscribe = leadsService.subscribeToChatMessages(leadId, refreshTranscript, (status, subscriptionError) => {
+      if (!mounted) return;
+      if (status === 'SUBSCRIBED') {
+        setRealtimeConnection({ leadId, open, status: 'live' });
+        refreshTranscript();
+      } else if (['CHANNEL_ERROR', 'TIMED_OUT', 'CLOSED'].includes(status)) {
+        setRealtimeConnection({ leadId, open, status: 'error' });
+        if (subscriptionError) {
+          console.error('[ChatDrawer] Realtime message subscription failed:', subscriptionError.message || subscriptionError);
+        }
+      }
+    });
+    return () => {
+      mounted = false;
+      unsubscribe();
+    };
   }, [leadId, open]);
 
   useEffect(() => {
@@ -130,15 +155,23 @@ export default function ChatDrawer({ lead, open, onClose, onSend, onMessagesRead
       <div className="flex h-full flex-col">
         <div className="flex flex-shrink-0 items-center justify-between border-b border-slate-100 px-4 py-2">
           <span className="text-[11px] text-slate-400">Recent messages</span>
-          <button
-            type="button"
-            onClick={handleLoadPast}
-            disabled={loadingPast}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-[11px] font-semibold text-slate-600 hover:border-[#28A745] hover:text-[#28A745] disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {loadingPast ? <LoaderCircle size={13} className="animate-spin" /> : <History size={13} />}
-            {loadingPast ? 'Loading...' : 'Load past'}
-          </button>
+          <div className="flex items-center gap-2">
+            <span
+              className={`text-[10px] font-medium ${realtimeStatus === 'live' ? 'text-[#28A745]' : realtimeStatus === 'error' ? 'text-red-500' : 'text-slate-400'}`}
+              role="status"
+            >
+              {realtimeStatus === 'live' ? 'Live' : realtimeStatus === 'error' ? 'Realtime unavailable' : 'Connecting'}
+            </span>
+            <button
+              type="button"
+              onClick={handleLoadPast}
+              disabled={loadingPast}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-[11px] font-semibold text-slate-600 hover:border-[#28A745] hover:text-[#28A745] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {loadingPast ? <LoaderCircle size={13} className="animate-spin" /> : <History size={13} />}
+              {loadingPast ? 'Loading...' : 'Load past'}
+            </button>
+          </div>
         </div>
         <div className="flex-1 overflow-y-auto px-5 py-4">
           {loading ? (

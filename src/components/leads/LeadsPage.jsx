@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ArrowLeft, BriefcaseBusiness, CheckSquare, LoaderCircle, MessageCircleMore, Plus, Search, RefreshCw, Sparkles, Trash2, User } from 'lucide-react';
+import { ArrowLeft, BriefcaseBusiness, CheckSquare, Download, LoaderCircle, MessageCircleMore, Plus, Search, RefreshCw, Sparkles, Trash2, User } from 'lucide-react';
 import { useLeads } from '../../hooks/useLeads';
 import { useLeadFilters } from '../../hooks/useLeadFilters';
 import { useToast } from '../../hooks/useToast';
@@ -30,10 +30,37 @@ import AddToCampaignModal from './modals/AddToCampaignModal';
 // closeAllDrawers-before-open behavior from leads.js.
 const DRAWER = { NONE: null, FOLLOWUPS: 'followups', CHAT: 'chat', APPROVALS: 'approvals' };
 
+function csvCell(value) {
+  let text = value === null || value === undefined
+    ? ''
+    : typeof value === 'object' ? JSON.stringify(value) : String(value);
+
+  if (typeof value === 'string' && /^\s*[=+\-@]/.test(text)) {
+    text = `'${text}`;
+  }
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+function downloadLeadsCsv(rows) {
+  const columns = [...new Set(rows.flatMap((row) => Object.keys(row)))];
+  const csv = [
+    columns.map(csvCell).join(','),
+    ...rows.map((row) => columns.map((column) => csvCell(row[column])).join(',')),
+  ].join('\r\n');
+  const url = URL.createObjectURL(new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `leads-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
 export default function LeadsPage() {
   const { leads, loading, error, refetch, patchLead, addLead, addBulkLeads, getChats, approveDraft, skipDraft, sendConsentMessage, updateLead, deleteLead, markAsBought } = useLeads();
   const { business, loading: businessLoading, refetch: refetchBusiness } = useBusinessConnection();
-  const { activeBusinessId } = useAuth();
+  const { user, activeBusinessId } = useAuth();
   const { loading: historyLoading, error: historyError, loadHistory } = useWhatsAppHistory(refetch);
   const { toast, showToast } = useToast();
   const {
@@ -75,6 +102,7 @@ export default function LeadsPage() {
   const [editingLead, setEditingLead] = useState(null);
   const [analysisStates, setAnalysisStates] = useState({});
   const [analysingAll, setAnalysingAll] = useState(false);
+  const [isExportingLeads, setIsExportingLeads] = useState(false);
 
   const activeLead = leads.find((l) => l.id === activeLeadId) || null;
   const isDisconnected = !businessLoading && business?.whatsapp_connected === false;
@@ -101,10 +129,11 @@ export default function LeadsPage() {
     setMobileDetailOpen(false);
   };
 
-  const handleChatSend = useCallback((text) => {
+  const handleChatSend = useCallback(async (text) => {
     if (!activeLead) return Promise.reject(new Error('No lead selected.'));
-    return leadsService.sendChatMessage({ leadId: activeLead.id, phone: activeLead.phone, text });
-  }, [activeLead]);
+    await leadsService.sendChatMessage({ leadId: activeLead.id, phone: activeLead.phone, text });
+    patchLead(activeLead.id, { awaiting_business_reply: false, unread_count: 0 });
+  }, [activeLead, patchLead]);
 
   const handleMessagesRead = useCallback((leadId) => {
     patchLead(leadId, { unread_count: 0 });
@@ -267,6 +296,28 @@ export default function LeadsPage() {
     setAnalysingAll(false);
   };
 
+  const handleExportLeads = async () => {
+    if (!user || !activeBusinessId) {
+      showToast('Sign in and select a business to export leads.', 'error');
+      return;
+    }
+
+    setIsExportingLeads(true);
+    try {
+      const rows = await leadsService.fetchLeadExportRows(activeBusinessId);
+      if (!rows.length) {
+        showToast('No leads are available to export.', 'error');
+        return;
+      }
+      downloadLeadsCsv(rows);
+      showToast(`${rows.length} lead${rows.length === 1 ? '' : 's'} exported.`);
+    } catch (exportError) {
+      showToast(exportError.message || 'Could not export leads.', 'error');
+    } finally {
+      setIsExportingLeads(false);
+    }
+  };
+
   const handleBulkMarkBusiness = async () => {
     if (!selectedIds.size) return;
     try {
@@ -352,6 +403,16 @@ export default function LeadsPage() {
               >
                 {analysingAll ? <LoaderCircle size={13} className="animate-spin" /> : <Sparkles size={13} />}
                 {analysingAll ? 'Analysing...' : 'Analyse'}
+              </button>
+              <button
+                type="button"
+                onClick={handleExportLeads}
+                disabled={!user || !activeBusinessId || loading || isExportingLeads}
+                title="Export all leads and analysed fields as CSV"
+                className="inline-flex h-7 items-center gap-1 rounded-lg border border-[#28A745]/30 px-2 text-[11px] font-semibold text-[#218c3a] transition hover:bg-[#28A745]/5 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isExportingLeads ? <LoaderCircle size={13} className="animate-spin" /> : <Download size={13} />}
+                CSV
               </button>
               <button
                 type="button"

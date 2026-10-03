@@ -47,6 +47,12 @@ export function stateConfig(state) {
 // Priority order used to sort the lead list — lower number sorts first.
 export const STATE_PRIORITY = { engaged: 0, new: 1, warm: 2, stalled: 3, ghosted: 4, won: 5, lost: 6, personal: 7 };
 
+export function hasUnrepliedCustomerMessage(lead) {
+  return lead?.lead_type === 'business'
+    && lead?.is_business_chat !== false
+    && lead?.awaiting_business_reply === true;
+}
+
 export function qualityLabel(q) {
   if (!q) return null;
   const map = { hot: 'Hot', warm: 'Warm', cold: 'Cold' };

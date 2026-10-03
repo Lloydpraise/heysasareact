@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase';
 import { fetchWhatsAppSessions } from './businessService';
 import { fetchManualListLeadIds, fetchLeadCampaignEnrollment } from './listsCampaignsService';
+import { hasUnrepliedCustomerMessage } from '../utils/leadHelpers';
 
 const EVOLUTION_API_URL = (import.meta.env.VITE_EVOLUTION_API_URL || 'http://localhost:8080').replace(/\/$/, '');
 const EVOLUTION_API_KEY = import.meta.env.VITE_EVOLUTION_API_KEY || '';
@@ -14,9 +15,9 @@ const PRIORITY_TABS = {
     sort: (a, b) => (b.intent_score || 0) - (a.intent_score || 0),
   },
   unread: {
-    label: '📬 Unread',
+    label: '📬 Unreplied',
     description: 'Waiting for your reply',
-    filter: (lead) => (lead.unread_count || 0) > 0,
+    filter: hasUnrepliedCustomerMessage,
     sort: (a, b) => new Date(b.last_seen) - new Date(a.last_seen),
   },
   stalled: {
@@ -80,6 +81,7 @@ function normalizeLead(lead) {
     ad_thumbnail_url: lead.ad_thumbnail_url || null,
     original_ad_id: lead.original_ad_id || null,
     unread_count: lead.unread_count || 0,
+    awaiting_business_reply: lead.awaiting_business_reply === true,
     last_seen: lead.last_seen || new Date().toISOString(),
     context_summary: lead.context_summary || '',
     customer_intent: lead.customer_intent || '',
@@ -218,6 +220,25 @@ async function fetchLiveLeads(businessId) {
     const contactIds = leadsWithCampaigns.map((lead) => lead.id).filter(Boolean);
     if (!contactIds.length) return leadsWithCampaigns;
 
+    const latestMessageDirectionByContact = new Map();
+    const messagePageSize = 1000;
+    for (let offset = 0; ; offset += messagePageSize) {
+      const { data: messages, error: messagesError } = await supabase
+        .from('messages')
+        .select('contact_id, direction')
+        .in('contact_id', contactIds)
+        .order('created_at', { ascending: false })
+        .range(offset, offset + messagePageSize - 1);
+      if (messagesError) throw messagesError;
+
+      (messages || []).forEach((message) => {
+        if (!latestMessageDirectionByContact.has(message.contact_id)) {
+          latestMessageDirectionByContact.set(message.contact_id, message.direction);
+        }
+      });
+      if (!messages || messages.length < messagePageSize) break;
+    }
+
     const { data: contacts, error: contactsError } = await supabase
       .from('contacts')
       .select('id, presence_status, presence_updated_at')
@@ -242,17 +263,47 @@ async function fetchLiveLeads(businessId) {
       return presence
         ? {
             ...lead,
+            awaiting_business_reply: latestMessageDirectionByContact.get(lead.id) === 'in',
             whatsappSessionIds: sessionIdsByContact.get(lead.id) || [],
             presence_status: presence.presence_status || null,
             presence_updated_at: presence.presence_updated_at || null,
             last_seen_online: presence.presence_updated_at || null,
           }
-        : { ...lead, whatsappSessionIds: sessionIdsByContact.get(lead.id) || [] };
+        : {
+            ...lead,
+            awaiting_business_reply: latestMessageDirectionByContact.get(lead.id) === 'in',
+            whatsappSessionIds: sessionIdsByContact.get(lead.id) || [],
+          };
     });
   } catch (error) {
     console.error('[leadsService] fetchLiveLeads failed:', error.message);
     return null;
   }
+}
+
+async function fetchLeadExportRows(businessId) {
+  if (!supabase) throw new Error('Supabase is not configured.');
+  if (!businessId) throw new Error('Business context is missing.');
+
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError) throw authError;
+  if (!user) throw new Error('Sign in to export leads.');
+
+  const pageSize = 1000;
+  const rows = [];
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await supabase
+      .from('v_lead_summary')
+      .select('*')
+      .eq('business_id', businessId)
+      .order('id', { ascending: true })
+      .range(offset, offset + pageSize - 1);
+    if (error) throw error;
+
+    rows.push(...(data || []));
+    if (!data || data.length < pageSize) break;
+  }
+  return rows;
 }
 
 async function fetchChatTranscript(leadId) {
@@ -263,12 +314,12 @@ async function fetchChatTranscript(leadId) {
       .from('messages')
       .select('id, direction, role, type, content, raw_payload, created_at, status, is_read')
       .eq('contact_id', leadId)
-      .order('created_at', { ascending: true })
+      .order('created_at', { ascending: false })
       .limit(100);
 
     if (error) throw error;
 
-    return (data || []).map(normalizeStoredMessage);
+    return (data || []).reverse().map(normalizeStoredMessage);
   } catch (error) {
     console.error('[leadsService] fetchChatTranscript failed:', error.message);
     return [];
@@ -296,8 +347,12 @@ export function subscribeToLeadData(businessId, onChange) {
   return () => supabase.removeChannel(channel);
 }
 
-export function subscribeToChatMessages(leadId, onChange) {
-  if (!supabase || !leadId) return () => {};
+export function subscribeToChatMessages(leadId, onChange, onStatusChange) {
+  if (!leadId) return () => {};
+  if (!supabase) {
+    onStatusChange?.('CHANNEL_ERROR', new Error('Supabase realtime is not configured.'));
+    return () => {};
+  }
 
   const channel = supabase
     .channel(`chat-messages-${leadId}`)
@@ -306,7 +361,7 @@ export function subscribeToChatMessages(leadId, onChange) {
       { event: '*', schema: 'public', table: 'messages', filter: `contact_id=eq.${leadId}` },
       onChange
     )
-    .subscribe();
+    .subscribe(onStatusChange);
 
   return () => supabase.removeChannel(channel);
 }
@@ -488,6 +543,7 @@ function normalizeEvolutionChat(chat, businessName = '') {
     name: getEvolutionChatName(chat, phone, businessName),
     phone,
     unread_count: Number(chat?.unreadCount || chat?.unreadMessages || 0),
+    awaiting_business_reply: (lastMessage?.key?.fromMe ?? lastMessage?.fromMe) === false,
     last_seen: Number.isNaN(parsedLastSeen.getTime()) ? new Date().toISOString() : parsedLastSeen.toISOString(),
     context_summary: normalizedLastMessage.text,
     is_business_chat: true,
@@ -963,6 +1019,7 @@ export const leadsService = {
   createLead,
   createBulkLeads,
   fetchLiveLeads,
+  fetchLeadExportRows,
   fetchChatTranscript,
   subscribeToLeadData,
   subscribeToChatMessages,

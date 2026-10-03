@@ -4,7 +4,7 @@
       <Chip label="Business" value={stats.business} onClick={() => onSetTypeFilter('business')} />
       <Chip label="Ad leads" value={stats.adLeads} onClick={() => onSetTypeFilter('ad')} />
       <Chip
-        label="Unread"
+        label="Unreplied"
         value={stats.unread}
         tone={stats.unread > 0 ? 'warn' : 'default'}
         onClick={() => onSetStateFilter('unread')}

@@ -8,10 +8,12 @@ import NotificationStrip from '../shared/NotificationStrip';
 import { usePersonaPack } from '../../hooks/usePersonaPack';
 import { useLiveChat } from '../../hooks/useLiveChat';
 import { useToast } from '../../hooks/useToast';
+import { useAuth } from '../../context/useAuth';
 import { supabase } from '../../lib/supabase';
 import { generatePersonaPack } from '../../services/personaPackService';
 
 export default function PlaygroundPage({ businessId }) {
+  const { user } = useAuth();
   const [activeSection, setActiveSection] = useState('test');
   const [productCount, setProductCount] = useState(null);
   const [isGeneratingPersona, setIsGeneratingPersona] = useState(false);
@@ -50,7 +52,7 @@ export default function PlaygroundPage({ businessId }) {
   const renderSection = () => {
     switch (activeSection) {
       case 'test':
-        return <TestSection businessId={businessId} personaPack={personaPack} liveChat={liveChat} showToast={showToast} />;
+        return <TestSection businessId={businessId} personaPack={personaPack} liveChat={liveChat} showToast={showToast} isAuthenticated={Boolean(user)} />;
       case 'replay':
         return <ReplaySection businessId={businessId} liveChat={liveChat} />;
       case 'history':
@@ -64,7 +66,7 @@ export default function PlaygroundPage({ businessId }) {
           />
         );
       default:
-        return <TestSection businessId={businessId} personaPack={personaPack} liveChat={liveChat} showToast={showToast} />;
+        return <TestSection businessId={businessId} personaPack={personaPack} liveChat={liveChat} showToast={showToast} isAuthenticated={Boolean(user)} />;
     }
   };
 

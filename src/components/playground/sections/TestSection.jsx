@@ -38,10 +38,10 @@ function PersonaPackScaffold() {
   );
 }
 
-export function TestSection({ businessId, personaPack, liveChat, showToast }) {
+export function TestSection({ businessId, personaPack, liveChat, showToast, isAuthenticated }) {
   return (
     <div className="grid min-h-0 flex-1 grid-cols-1 items-stretch gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(18rem,1fr)]">
-      {personaPack.pack ? <PersonaPackEditor businessId={businessId} personaPack={personaPack} showToast={showToast} /> : <PersonaPackScaffold />}
+      {personaPack.pack ? <PersonaPackEditor businessId={businessId} personaPack={personaPack} showToast={showToast} isAuthenticated={isAuthenticated} /> : <PersonaPackScaffold />}
       <LiveChatPlayground liveChat={liveChat} />
     </div>
   );
