@@ -5,7 +5,7 @@ import { useProducts } from '../../hooks/useProducts';
 import { useToast } from '../../hooks/useToast';
 import { Toast } from '../preferences/shared/Toast';
 import { uploadProductImage } from '../../services/productsService';
-import { confidenceLabel, isActiveForAi } from '../../utils/productHelpers';
+import { confidenceLabel, isActiveForAi, parsePrice } from '../../utils/productHelpers';
 import ProductCard from './ProductCard';
 import ProductRow from './ProductRow';
 import ProductDrawer from './ProductDrawer';
@@ -109,6 +109,11 @@ export default function ProductsPage() {
   }), [products]);
 
   const status = tab === 'active' ? 'approved' : showDismissed ? 'dismissed' : 'discovered';
+  const completedScanStates = ['ready', 'completed', 'complete', 'succeeded'];
+  const scanComplete = counts.discovered > 0
+    || (store.discovery.state !== 'running'
+      && store.discovery.state !== 'failed'
+      && completedScanStates.includes(store.discovery.state));
 
   const changeTab = (next) => {
     setTab(next); setSelected(new Set()); setCategory('all'); setAiFilter('all'); setShowDismissed(false);
@@ -160,6 +165,25 @@ export default function ProductsPage() {
   const onRestore = (p) => act(() => store.restore([p.id]), `${p.title} is back in Discovered.`);
   const onToggleAi = (p) => act(() => store.setAi([p.id], !isActiveForAi(p)));
   const onAddPhoto = async (p, file) => { await act(() => store.addPhoto(p, file), 'Photo added.'); };
+  const onInlineSave = async (product, field, value) => {
+    try {
+      let edits;
+      if (field === 'name') {
+        if (!value.trim()) throw new Error('A product needs a name.');
+        edits = { title: value };
+      } else {
+        const price = parsePrice(value);
+        if (value.trim() && price === null) throw new Error('The price is not a number. Use digits such as 2500.');
+        edits = { price };
+      }
+      await store.save(product, edits);
+      showToast('Changes saved.');
+      return true;
+    } catch (e) {
+      showToast(e.message || 'That did not save. Try again.', 'error');
+      return false;
+    }
+  };
 
   const bulk = {
     approve: () => act(async () => { await store.approve(selectedIds); setSelected(new Set()); }, `Approved ${word(selectedIds.length, 'product', 'products')}.`),
@@ -188,7 +212,7 @@ export default function ProductsPage() {
 
   const cardProps = (p) => ({
     product: p, currency, selected: selected.has(p.id), selectMode: selectedIds.length > 0,
-    onSelect: toggleSelect, onOpen: openProduct, onToggleAi, onAddPhoto, onApprove, onDismiss, onRestore,
+    onSelect: toggleSelect, onOpen: openProduct, onInlineSave, onToggleAi, onAddPhoto, onApprove, onDismiss, onRestore,
   });
 
   const renderItems = (items) => (view === 'grid' ? (
@@ -228,7 +252,8 @@ export default function ProductsPage() {
     <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
       <Toast toast={toast} />
 
-      <div className="shrink-0 space-y-4 px-4 pb-3 pt-5 md:px-6">
+      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="shrink-0 space-y-3 px-4 pb-3 pt-3 md:px-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="text-xl font-bold text-slate-900">Products</h1>
@@ -239,6 +264,12 @@ export default function ProductsPage() {
               <button type="button" onClick={() => setView('grid')} aria-pressed={view === 'grid'} aria-label="Photo grid" className={`flex h-8 w-8 items-center justify-center rounded-lg transition ${view === 'grid' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}><LayoutGrid className="h-4 w-4" /></button>
               <button type="button" onClick={() => setView('list')} aria-pressed={view === 'list'} aria-label="List" className={`flex h-8 w-8 items-center justify-center rounded-lg transition ${view === 'list' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}><ListIcon className="h-4 w-4" /></button>
             </div>
+            {tab === 'discovered' && scanComplete && (
+              <button type="button" onClick={scan} disabled={scanning} className="flex items-center gap-1.5 rounded-xl border border-[#28A745]/30 bg-white px-3 py-2 text-sm font-semibold text-[#1f8d3d] transition hover:bg-[#28A745]/5 disabled:opacity-60">
+                {scanning ? <Loader2 className="h-4 w-4 animate-spin" /> : <ScanSearch className="h-4 w-4" />}
+                <span className="hidden sm:inline">Scan chats</span>
+              </button>
+            )}
             <button type="button" onClick={() => setImportOpen(true)} className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"><FileUp className="h-4 w-4" /> <span className="hidden sm:inline">Import</span></button>
             <button type="button" onClick={() => setDrawer({ open: true, id: null })} className="flex items-center gap-1.5 rounded-xl bg-[#28A745] px-3.5 py-2 text-sm font-semibold text-white shadow-lg shadow-[#28A745]/20 transition hover:bg-[#23913d]"><Plus className="h-4 w-4" /> Add product</button>
           </div>
@@ -249,7 +280,7 @@ export default function ProductsPage() {
           <Tab active={tab === 'discovered'} onClick={() => changeTab('discovered')} count={counts.discovered} hot>Discovered</Tab>
         </div>
 
-        {tab === 'discovered' && <ScanBanner discovery={store.discovery} onScan={scan} scanning={scanning} />}
+        {tab === 'discovered' && !scanComplete && <ScanBanner discovery={store.discovery} onScan={scan} scanning={scanning} />}
 
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative min-w-[12rem] flex-1 sm:max-w-xs">
@@ -298,7 +329,7 @@ export default function ProductsPage() {
         )}
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-28 md:px-6">
+      <div className="px-4 pb-28 md:px-6">
         {loading ? (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
             {Array.from({ length: 10 }, (_, i) => <div key={i} className="aspect-[4/5] animate-pulse rounded-2xl bg-slate-100" />)}
@@ -324,6 +355,7 @@ export default function ProductsPage() {
             ))}
           </div>
         )}
+      </div>
       </div>
 
       {selectedIds.length > 0 && (

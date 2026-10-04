@@ -134,9 +134,8 @@ export function useProducts(businessId) {
   const scanChats = useCallback(async () => {
     const result = await api.startDiscovery(businessId);
     setDiscovery((d) => ({ ...d, state: 'running', running: true }));
-    refreshDiscovery();
     return result;
-  }, [businessId, refreshDiscovery]);
+  }, [businessId]);
 
   const categories = useMemo(() => {
     const counts = new Map();

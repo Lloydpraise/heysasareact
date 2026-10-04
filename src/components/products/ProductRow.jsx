@@ -1,8 +1,8 @@
 import { Check, X, Undo2 } from 'lucide-react';
-import { AiDot, CategoryChip, PhotoTile } from './shared';
+import { AiDot, CategoryChip, InlineProductField, PhotoTile } from './shared';
 import { confidenceLabel, formatMoney, isActiveForAi, sourceLabel } from '../../utils/productHelpers';
 
-export default function ProductRow({ product, currency, selected, onSelect, onOpen, onToggleAi, onAddPhoto, onApprove, onDismiss, onRestore }) {
+export default function ProductRow({ product, currency, selected, onSelect, onOpen, onInlineSave, onToggleAi, onAddPhoto, onApprove, onDismiss, onRestore }) {
   const discovered = product.status === 'discovered';
   const dismissed = product.status === 'dismissed';
   const price = formatMoney(product.price, currency);
@@ -14,14 +14,28 @@ export default function ProductRow({ product, currency, selected, onSelect, onOp
     >
       <input type="checkbox" checked={selected} onChange={() => onSelect(product.id)} className="h-4 w-4 shrink-0 accent-[#28A745]" aria-label={`Select ${product.title}`} />
 
-      <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-slate-100">
+      <div
+        className="h-12 w-12 shrink-0 cursor-pointer overflow-hidden rounded-xl bg-slate-100"
+        onClick={() => onOpen(product)}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(event) => { if (event.key === 'Enter') onOpen(product); }}
+        aria-label={`Open ${product.title}`}
+      >
         <PhotoTile product={product} onAddPhoto={onAddPhoto} compact />
       </div>
 
       {product.status === 'approved' && <AiDot active={isActiveForAi(product)} onToggle={() => onToggleAi(product)} size="sm" className="-mr-1 shrink-0" />}
 
-      <button type="button" onClick={() => onOpen(product)} className="min-w-0 flex-1 text-left focus-visible:outline-none">
-        <span className="block truncate text-sm font-semibold text-slate-900 group-hover:text-[#1f8d3d]">{product.title}</span>
+      <div className="min-w-0 flex-1">
+        <InlineProductField
+          product={product}
+          field="name"
+          value={product.title}
+          displayValue={product.title}
+          onSave={onInlineSave}
+          className="block w-full truncate text-sm font-semibold text-slate-900 group-hover:text-[#1f8d3d]"
+        />
         <span className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1">
           <CategoryChip name={product.category} />
           {discovered && (
@@ -32,10 +46,18 @@ export default function ProductRow({ product, currency, selected, onSelect, onOp
           )}
           {!discovered && product.description_short && <span className="hidden truncate text-[11px] text-slate-400 sm:inline">{product.description_short}</span>}
         </span>
-      </button>
+      </div>
 
-      <div className="hidden w-28 shrink-0 text-right sm:block">
-        <div className={`text-sm font-bold ${price ? 'text-slate-900' : 'text-slate-400'}`}>{price || 'No price yet'}</div>
+      <div className="w-20 shrink-0 text-right sm:w-28">
+        <InlineProductField
+          product={product}
+          field="price"
+          value={product.price == null ? '' : String(product.price)}
+          displayValue={price}
+          placeholder="No price yet"
+          onSave={onInlineSave}
+          className={`text-sm font-bold ${price ? 'text-slate-900' : 'text-slate-400'}`}
+        />
         {product.status === 'approved' && product.type !== 'service' && (
           <div className="text-[11px] text-slate-400">{product.stock_quantity > 0 ? `${product.stock_quantity} in stock` : ''}</div>
         )}

@@ -1,5 +1,5 @@
 import { Check, X, Undo2 } from 'lucide-react';
-import { AiDot, CategoryChip, PhotoTile } from './shared';
+import { AiDot, CategoryChip, InlineProductField, PhotoTile } from './shared';
 import { confidenceLabel, formatMoney, isActiveForAi } from '../../utils/productHelpers';
 
 function evidenceLine(p) {
@@ -13,7 +13,7 @@ function evidenceLine(p) {
 
 const CONFIDENCE_TONE = { high: 'text-[#1f8d3d]', mid: 'text-slate-500', low: 'text-[#B45F00]' };
 
-export default function ProductCard({ product, currency, selected, selectMode, onSelect, onOpen, onToggleAi, onAddPhoto, onApprove, onDismiss, onRestore }) {
+export default function ProductCard({ product, currency, selected, selectMode, onSelect, onOpen, onInlineSave, onToggleAi, onAddPhoto, onApprove, onDismiss, onRestore }) {
   const discovered = product.status === 'discovered';
   const dismissed = product.status === 'dismissed';
   const price = formatMoney(product.price, currency);
@@ -41,9 +41,26 @@ export default function ProductCard({ product, currency, selected, selectMode, o
       </div>
 
       <div className="flex flex-1 flex-col gap-1.5 p-3">
-        <h3 className="line-clamp-2 min-h-[2.5rem] text-sm font-semibold leading-tight text-slate-900">{product.title}</h3>
+        <h3 className="min-h-[2.5rem] text-sm font-semibold leading-tight text-slate-900">
+          <InlineProductField
+            product={product}
+            field="name"
+            value={product.title}
+            displayValue={product.title}
+            onSave={onInlineSave}
+            className="line-clamp-2 w-full"
+          />
+        </h3>
         <div className="flex items-baseline justify-between gap-2">
-          <span className={`text-sm font-bold ${price ? 'text-slate-900' : 'text-slate-400'}`}>{price || 'No price yet'}</span>
+          <InlineProductField
+            product={product}
+            field="price"
+            value={product.price == null ? '' : String(product.price)}
+            displayValue={price}
+            placeholder="No price yet"
+            onSave={onInlineSave}
+            className={`text-sm font-bold ${price ? 'text-slate-900' : 'text-slate-400'}`}
+          />
           {product.old_price && Number(product.old_price) > Number(product.price) && (
             <span className="text-xs text-slate-400 line-through">{formatMoney(product.old_price, currency)}</span>
           )}

@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Camera, Loader2 } from 'lucide-react';
+import { Camera, Loader2, Save } from 'lucide-react';
 import { tileTone } from '../../utils/productHelpers';
 
 // The green dot: this product is approved AND switched on for the AI.
@@ -84,6 +84,73 @@ export function PhotoTile({ product, onAddPhoto, compact = false, className = ''
         </>
       )}
     </div>
+  );
+}
+
+export function InlineProductField({ product, field, value, displayValue, placeholder, onSave, className = '' }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const begin = (event) => {
+    event.stopPropagation();
+    setDraft(value ?? '');
+    setEditing(true);
+  };
+
+  const save = async (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (saving) return;
+    setSaving(true);
+    try {
+      if (await onSave(product, field, draft)) setEditing(false);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const cancel = (event) => {
+    event.stopPropagation();
+    setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <form onSubmit={save} className={`flex min-w-0 items-center gap-1 ${className}`} onClick={(event) => event.stopPropagation()}>
+        <input
+          autoFocus
+          type="text"
+          inputMode={field === 'price' ? 'decimal' : undefined}
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          onKeyDown={(event) => { if (event.key === 'Escape') cancel(event); }}
+          aria-label={`Edit product ${field}`}
+          className="min-w-0 flex-1 rounded-lg border border-[#28A745]/40 bg-white px-2 py-1 text-sm text-slate-800 focus:border-[#28A745] focus:outline-none focus:ring-2 focus:ring-[#28A745]/20"
+        />
+        <button
+          type="submit"
+          disabled={saving}
+          aria-label={`Save product ${field}`}
+          title="Save"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[#1f8d3d] hover:bg-[#28A745]/10 disabled:opacity-50"
+        >
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+        </button>
+      </form>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={begin}
+      aria-label={`Edit product ${field}: ${displayValue || placeholder}`}
+      title={`Click to edit ${field}`}
+      className={`min-w-0 cursor-text rounded-md text-left hover:text-[#1f8d3d] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#28A745]/40 ${className}`}
+    >
+      {displayValue || placeholder}
+    </button>
   );
 }
 
