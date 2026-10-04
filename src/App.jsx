@@ -6,6 +6,7 @@ import ListsCampaignsPage from './components/listsCampaigns/ListsCampaignsPage';
 import PreferencesPage from './components/preferences/PreferencesPage';
 import AnalyticsPage from './components/analytics/AnalyticsPage';
 import PlaygroundPage from './components/playground/PlaygroundPage';
+import ProductsPage from './components/products/ProductsPage';
 import LoginPage from './components/auth/LoginPage';
 import SignupPage from './components/auth/SignupPage';
 import LandingPage from './components/landing/LandingPage';
@@ -25,6 +26,7 @@ function AuthenticatedApp() {
     if (path.includes('/lists-campaigns')) return 'lists-campaigns';
     if (path.includes('/preferences')) return 'preferences';
     if (path.includes('/playground')) return 'playground';
+    if (path.includes('/products')) return 'products';
     return 'analytics';
   });
 
@@ -46,6 +48,8 @@ function AuthenticatedApp() {
         return <PreferencesPage key={preferencesSection} initialSection={preferencesSection} />;
       case 'playground':
         return <PlaygroundPage businessId={activeBusinessId} />;
+      case 'products':
+        return <ProductsPage />;
       default:
         return <AnalyticsPage />;
     }

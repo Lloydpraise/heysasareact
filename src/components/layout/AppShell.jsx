@@ -6,6 +6,7 @@ import {
   Megaphone,
   Sliders, 
   FlaskConical,
+  Package,
   MoreVertical, 
   X, 
 } from 'lucide-react';
@@ -39,6 +40,7 @@ export default function AppShell({ activeTab, setActiveTab, onBusinessClick, chi
     { id: 'leads', label: 'Leads', icon: Users },
     { id: 'lists-campaigns', label: 'Campaigns', icon: Megaphone },
     { id: 'playground', label: 'Playground', icon: FlaskConical },
+    { id: 'products', label: 'Products', icon: Package },
     { id: 'preferences', label: 'Preferences', icon: Sliders },
   ];
 
