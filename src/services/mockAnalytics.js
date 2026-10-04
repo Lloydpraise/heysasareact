@@ -63,7 +63,7 @@ export const MOCK_ANALYTICS = {
     { a: 'classic_lashes', b: 'lash_lift', count: 8 },
     { a: 'volume_lashes', b: 'gift_voucher', count: 4 },
   ],
-  heatmap: Array.from({ length: 7 }, () => Array.from({ length: 24 }, () => Math.floor(Math.random() * 6))),
+  activityByDay: Array.from({ length: 7 }, () => Array.from({ length: 24 }, () => Math.floor(Math.random() * 6))),
   intentPeakHour: 17,
   intentPeakDay: 'Saturday',
   leadResponseDist: [

@@ -31,7 +31,9 @@ export function usePreferences() {
   const [savedPrefs, setSavedPrefs] = useState(mockPrefs);
   const [savedBusiness, setSavedBusiness] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
+  const [initialLoadError, setInitialLoadError] = useState(null);
 
   const isDirty = !areValuesEqual(prefs, savedPrefs) || !areValuesEqual(business, savedBusiness);
 
@@ -44,10 +46,15 @@ export function usePreferences() {
           setBusiness(settings.business);
           setSavedPrefs(cloneValue(settings.prefs));
           setSavedBusiness(cloneValue(settings.business));
+          setIsLoading(false);
         }
       })
       .catch((error) => {
-        if (mounted) setLoadError(error);
+        if (mounted) {
+          setLoadError(error);
+          setInitialLoadError(error);
+          setIsLoading(false);
+        }
       });
 
     return () => { mounted = false; };
@@ -78,5 +85,5 @@ export function usePreferences() {
     }
   }, [business, prefs]);
 
-  return { prefs, business, updatePref, updateBusiness, savePrefs, isSaving, loadError, isDirty };
+  return { prefs, business, updatePref, updateBusiness, savePrefs, isSaving, isLoading, loadError, initialLoadError, isDirty };
 }

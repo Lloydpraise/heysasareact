@@ -7,6 +7,8 @@ import {
   Sliders, 
   FlaskConical,
   Package,
+  Building2,
+  ChevronDown,
   MoreVertical, 
   X, 
 } from 'lucide-react';
@@ -16,24 +18,48 @@ import { getBusinessDisplayName } from '../../utils/businessHelpers';
 
 export default function AppShell({ activeTab, setActiveTab, onBusinessClick, children }) {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
-  const { user, activeBusinessId, getBusinesses } = useAuth();
-  const [businessName, setBusinessName] = useState('');
+  const { user, activeBusinessId, getBusinesses, switchBusiness } = useAuth();
+  const [businesses, setBusinesses] = useState([]);
+  const [businessesLoading, setBusinessesLoading] = useState(true);
+  const [businessesError, setBusinessesError] = useState('');
+  const [businessMenuOpen, setBusinessMenuOpen] = useState(false);
 
   useEffect(() => {
     let mounted = true;
     getBusinesses()
-      .then((businesses) => {
+      .then((rows) => {
         if (!mounted) return;
-        const activeBusinessIndex = businesses.findIndex((business) => business.business_id === activeBusinessId);
-        setBusinessName(activeBusinessIndex >= 0 ? getBusinessDisplayName(businesses[activeBusinessIndex], activeBusinessIndex) : '');
+        setBusinesses(rows);
+        setBusinessesError('');
       })
-      .catch(() => {
-        if (mounted) setBusinessName('');
+      .catch((error) => {
+        if (mounted) setBusinessesError(error.message || 'Could not load businesses.');
+      })
+      .finally(() => {
+        if (mounted) setBusinessesLoading(false);
       });
     return () => { mounted = false; };
   }, [activeBusinessId, getBusinesses]);
 
-  const displayedBusinessName = businessName || user?.user_metadata?.business_name || 'Business name - 1';
+  useEffect(() => {
+    const handleBusinessLogoUpdate = (event) => {
+      const { businessId, logoUrl } = event.detail || {};
+      if (!businessId || !logoUrl) return;
+      setBusinesses((current) => current.map((business) => (
+        business.business_id === businessId
+          ? { ...business, business_logo_url: logoUrl }
+          : business
+      )));
+    };
+    window.addEventListener('heysasa:business-logo-updated', handleBusinessLogoUpdate);
+    return () => window.removeEventListener('heysasa:business-logo-updated', handleBusinessLogoUpdate);
+  }, []);
+
+  const activeBusinessIndex = businesses.findIndex((business) => business.business_id === activeBusinessId);
+  const activeBusiness = activeBusinessIndex >= 0 ? businesses[activeBusinessIndex] : null;
+  const displayedBusinessName = activeBusiness
+    ? getBusinessDisplayName(activeBusiness, activeBusinessIndex)
+    : user?.user_metadata?.business_name || 'Business name - 1';
 
   const navItems = [
     { id: 'analytics', label: 'Analytics', icon: BarChart3 },
@@ -133,10 +159,66 @@ export default function AppShell({ activeTab, setActiveTab, onBusinessClick, chi
 
       {/* Main Content Area */}
       <main className="z-10 flex min-h-0 min-w-0 flex-1 flex-col md:h-full">
-        <header className="flex shrink-0 items-center justify-end px-2 pb-1 pt-1 sm:px-3 md:px-1 md:pt-0">
-          <button type="button" onClick={onBusinessClick} className="max-w-[70%] truncate text-right text-sm font-bold text-[#0F172A] transition hover:text-[#28A745]" title="Open business settings">
-            {displayedBusinessName}
-          </button>
+        <header className="shrink-0 px-1 pb-2 pt-1 sm:px-2 md:px-0 md:pt-0">
+          <div className="flex min-h-[58px] w-full items-center justify-between gap-3 rounded-2xl border border-white/80 bg-white/65 px-3 shadow-[0_8px_24px_rgba(15,23,42,0.06)] backdrop-blur-xl sm:px-4">
+            <div className="relative flex min-w-0 items-center gap-2.5">
+              <button
+                type="button"
+                onClick={onBusinessClick}
+                className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white bg-white/80 text-[#28A745] shadow-sm transition hover:border-[#28A745]/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#28A745]/50"
+                title="Add or update business logo in business settings"
+                aria-label="Open business settings to add or update the business logo"
+              >
+                {activeBusiness?.business_logo_url
+                  ? <img src={activeBusiness.business_logo_url} alt={`${displayedBusinessName} logo`} className="h-full w-full object-contain p-0.5" />
+                  : <Building2 className="h-5 w-5" />}
+              </button>
+              <button
+                type="button"
+                onClick={() => setBusinessMenuOpen((open) => !open)}
+                className="group flex min-w-0 items-center gap-2 rounded-xl px-1.5 py-1 text-left transition hover:bg-white/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#28A745]/50"
+                title="Switch business"
+                aria-expanded={businessMenuOpen}
+                aria-haspopup="menu"
+              >
+                <span className="flex min-w-0 flex-col">
+                  <span className="text-[8px] font-bold uppercase leading-none tracking-[0.14em] text-slate-400">Active business</span>
+                  <span className="mt-1 max-w-[min(48vw,360px)] truncate text-xs font-bold leading-tight text-[#0F172A] sm:text-[13px]">{displayedBusinessName}</span>
+                </span>
+                <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-slate-400 transition group-hover:text-[#28A745] ${businessMenuOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {businessMenuOpen && (
+                <div role="menu" aria-label="Switch business" className="absolute left-0 top-full z-[120] mt-2 w-64 max-w-[calc(100vw-2rem)] rounded-2xl border border-white/80 bg-white/95 p-2 shadow-xl backdrop-blur-xl">
+                  <p className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Switch business</p>
+                  {businessesLoading && <p role="status" className="px-2 py-2 text-xs text-slate-500">Loading businesses...</p>}
+                  {businessesError && <p role="alert" className="px-2 py-2 text-xs text-red-600">{businessesError}</p>}
+                  {!businessesLoading && !businessesError && businesses.map((business, index) => (
+                    <button
+                      key={business.business_id}
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setBusinessMenuOpen(false);
+                        switchBusiness(business.business_id);
+                      }}
+                      className={`flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left transition hover:bg-green-50 ${business.business_id === activeBusinessId ? 'bg-green-50/70' : ''}`}
+                    >
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-100 bg-white text-[#28A745]">
+                        {business.business_logo_url
+                          ? <img src={business.business_logo_url} alt="" className="h-full w-full object-contain p-0.5" />
+                          : <Building2 className="h-4 w-4" />}
+                      </span>
+                      <span className="min-w-0 truncate text-xs font-semibold text-slate-700">{getBusinessDisplayName(business, index)}</span>
+                      {business.business_id === activeBusinessId && <span className="ml-auto shrink-0 text-[10px] font-bold text-[#28A745]">Active</span>}
+                    </button>
+                  ))}
+                  {!businessesLoading && !businessesError && businesses.length === 0 && <p className="px-2 py-2 text-xs text-slate-500">No connected businesses yet.</p>}
+                  <button type="button" onClick={() => { setBusinessMenuOpen(false); onBusinessClick?.(); }} className="mt-1 w-full rounded-xl border-t border-slate-100 px-2 py-2.5 text-left text-xs font-semibold text-[#28A745] hover:bg-green-50">Business settings</button>
+                </div>
+              )}
+            </div>
+            <img src={logo} alt="HeySasa" className="h-8 w-24 shrink-0 object-contain sm:h-9 sm:w-28" />
+          </div>
         </header>
         {/* Dynamic Page Content Rendered Here */}
         <div className="flex min-h-0 flex-1 overflow-hidden rounded-[2rem] border border-white/80 bg-white/70 shadow-xl shadow-[#28A745]/5 backdrop-blur-xl">

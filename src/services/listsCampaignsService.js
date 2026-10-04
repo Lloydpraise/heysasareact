@@ -931,9 +931,11 @@ export function subscribeToCampaigns(businessId, onChange) {
   return () => supabase.removeChannel(channel);
 }
 
+let capacityChannelId = 0;
+
 export function subscribeToCapacity(businessId, onChange) {
   const channel = supabase
-    .channel(`capacity-${businessId}`)
+    .channel(`capacity-${businessId}-${++capacityChannelId}`)
     .on(
       'postgres_changes',
       { event: '*', schema: 'public', table: 'daily_send_counters', filter: `business_id=eq.${businessId}` },

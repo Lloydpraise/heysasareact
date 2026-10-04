@@ -219,7 +219,7 @@ async function getSentimentTrend(businessId, weeks = 8) {
     });
 }
 
-// ── Heatmap + intent peak hour/day, from inbound messages + intent scores ─
+// ── Message activity by weekday/hour + intent peak hour/day ────────────────
 async function getTimingMetrics(businessId, intentByContact) {
   const { data, error } = await supabase
     .from('messages')
@@ -229,7 +229,7 @@ async function getTimingMetrics(businessId, intentByContact) {
 
   if (error || !data) {
     reportMetricError('timing metrics', error || new Error('No rows returned'));
-    return { heatmap: Array.from({ length: 7 }, () => Array(24).fill(0)), intentPeakHour: null, intentPeakDay: null };
+    return { activityByDay: Array.from({ length: 7 }, () => Array(24).fill(0)), intentPeakHour: null, intentPeakDay: null };
   }
 
   const grid = Array.from({ length: 7 }, () => Array(24).fill(0));
@@ -254,7 +254,7 @@ async function getTimingMetrics(businessId, intentByContact) {
   const peakHour = hourWeights.some((v) => v > 0) ? hourWeights.indexOf(Math.max(...hourWeights)) : null;
   const peakDayIdx = dayWeights.some((v) => v > 0) ? dayWeights.indexOf(Math.max(...dayWeights)) : null;
 
-  return { heatmap: grid, intentPeakHour: peakHour, intentPeakDay: peakDayIdx !== null ? DOW[peakDayIdx] : null };
+  return { activityByDay: grid, intentPeakHour: peakHour, intentPeakDay: peakDayIdx !== null ? DOW[peakDayIdx] : null };
 }
 
 // ── Lead response time distribution: time from business's first outbound
@@ -460,7 +460,7 @@ export const getDashboardMetrics = async (businessId) => {
       adLeaderboard,
       productDemand: leadMetrics.productDemand,
       productCombos: leadMetrics.productCombos,
-      heatmap: timing?.heatmap || [],
+      activityByDay: timing?.activityByDay || [],
       intentPeakHour: timing?.intentPeakHour ?? null,
       intentPeakDay: timing?.intentPeakDay ?? null,
       leadResponseDist: responseData?.dist || [],

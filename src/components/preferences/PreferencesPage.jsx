@@ -11,7 +11,7 @@ import { usePreferences } from '../../hooks/usePreferences';
 import { useMaterials } from '../../hooks/useMaterials';
 import { saveMaterials } from '../../services/settingsService';
 import { useToast } from '../../hooks/useToast';
-import { mockBusiness, mockBalance } from '../../services/mockPreferences';
+import { mockBusiness } from '../../services/mockPreferences';
 import NotificationStrip from '../shared/NotificationStrip';
 
 export default function PreferencesPage({ initialSection = 'followup' }) {
@@ -62,7 +62,7 @@ export default function PreferencesPage({ initialSection = 'followup' }) {
       case 'whatsapp':
         return <WhatsAppSection />;
       case 'billing':
-        return <BillingSection mockBalance={mockBalance} />;
+        return <BillingSection />;
       default:
         return <FollowupSection prefs={prefs} updatePref={updatePref} />;
     }

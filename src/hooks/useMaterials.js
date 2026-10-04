@@ -28,6 +28,7 @@ function areValuesEqual(left, right) {
 export function useMaterials() {
   const [materials, setMaterials] = useState(mockMaterials);
   const [savedMaterials, setSavedMaterials] = useState(mockMaterials);
+  const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({ 
@@ -47,10 +48,14 @@ export function useMaterials() {
         if (mounted) {
           setMaterials(savedMaterialsFromDb);
           setSavedMaterials(cloneValue(savedMaterialsFromDb));
+          setIsLoading(false);
         }
       })
       .catch((error) => {
-        if (mounted) setLoadError(error);
+        if (mounted) {
+          setLoadError(error);
+          setIsLoading(false);
+        }
       });
 
     return () => { mounted = false; };
@@ -100,6 +105,7 @@ export function useMaterials() {
     editMaterial,
     deleteMaterial,
     cancelEdit,
+    isLoading,
     loadError,
     isDirty,
     markSaved,

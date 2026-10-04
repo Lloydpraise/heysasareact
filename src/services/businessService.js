@@ -2,6 +2,11 @@ import { supabase } from '../lib/supabase';
 
 const EVOLUTION_API_URL = (import.meta.env.VITE_EVOLUTION_API_URL || 'http://localhost:8080').replace(/\/$/, '');
 const EVOLUTION_API_KEY = import.meta.env.VITE_EVOLUTION_API_KEY || '';
+const BUSINESS_LOGO_TYPES = new Set(['image/png', 'image/jpeg']);
+
+function getImageExtension(fileName) {
+  return String(fileName).split('.').pop()?.toLowerCase() || '';
+}
 
 async function fetchEvolutionInstances() {
   if (!EVOLUTION_API_KEY) return null;
@@ -139,13 +144,47 @@ export async function fetchUserBusinesses(userId) {
   if (!supabase) return [];
   if (!userId) throw new Error('You must be signed in to load businesses.');
 
-  const { data, error } = await supabase
+  const queryBusinesses = (columns) => supabase
     .from('businesses')
-    .select('business_id, name, industry, website_url, billing_business_id')
+    .select(columns)
     .eq('user_id', userId)
     .order('name');
+
+  const { data, error } = await queryBusinesses(
+    'business_id, name, industry, website_url, billing_business_id, business_logo_url'
+  );
+  if (!error) return data || [];
+
+  const missingLogoColumn = error.message?.includes('business_logo_url')
+    && (error.code === '42703' || /does not exist|could not find|schema cache/i.test(error.message));
+  if (!missingLogoColumn) throw error;
+
+  const { data: businesses, error: fallbackError } = await queryBusinesses(
+    'business_id, name, industry, website_url, billing_business_id'
+  );
+  if (fallbackError) throw fallbackError;
+  return businesses || [];
+}
+
+export async function uploadBusinessLogo(businessId, file) {
+  if (!supabase) throw new Error('Supabase is not configured.');
+  if (!businessId) throw new Error('Select a business before uploading a logo.');
+
+  const extension = getImageExtension(file?.name);
+  if (!file || !BUSINESS_LOGO_TYPES.has(file.type) || !['png', 'jpg', 'jpeg'].includes(extension)) {
+    throw new Error('Please choose a PNG, JPG, or JPEG image.');
+  }
+  if (file.size > 5 * 1024 * 1024) throw new Error('Choose an image smaller than 5 MB.');
+
+  const path = `${businessId}/logos/${crypto.randomUUID()}.${extension}`;
+  const { error } = await supabase.storage
+    .from('customer_images')
+    .upload(path, file, { contentType: file.type, upsert: false });
   if (error) throw error;
-  return data || [];
+
+  const { data } = supabase.storage.from('customer_images').getPublicUrl(path);
+  if (!data?.publicUrl) throw new Error('The uploaded logo does not have a public URL.');
+  return data.publicUrl;
 }
 
 export async function createBusiness({ name, industry, websiteUrl, billingBusinessId }) {

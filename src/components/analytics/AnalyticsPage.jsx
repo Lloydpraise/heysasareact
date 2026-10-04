@@ -16,6 +16,7 @@ import Timing from './sections/Timing';
 import Health from './sections/Health';
 import whatsappIcon from '../../assets/images/whatsappicon.svg';
 import NotificationStrip from '../shared/NotificationStrip';
+import { ANALYTICS_SECTIONS } from '../../constants/analyticsNav';
 
 const SECTION_COMPONENTS = {
   overview: Overview,
@@ -41,6 +42,7 @@ function AnalyticsPageInner() {
   const { loading: historyLoading, error: historyError, loadHistory } = useWhatsAppHistory(refetch);
 
   const ActiveSection = SECTION_COMPONENTS[activeSection];
+  const activeDescription = ANALYTICS_SECTIONS.find((section) => section.id === activeSection)?.description;
   const hasNoAnalyticsActivity = data && data.funnel?.[0]?.count === 0;
   const isDisconnected = !businessLoading && business?.whatsapp_connected === false;
   const showHistoryPrompt = !businessLoading && business?.whatsapp_connected === true && hasNoAnalyticsActivity;
@@ -51,6 +53,11 @@ function AnalyticsPageInner() {
 
       <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
         <div className="h-full min-w-0 overflow-y-auto p-2 sm:p-3 md:p-4 lg:p-5">
+          {activeDescription && (
+            <p aria-live="polite" className="mb-3 px-1 text-sm leading-5 text-slate-600">
+              {activeDescription}
+            </p>
+          )}
           {!loading && !error && (isDisconnected || showHistoryPrompt) && (
             <NotificationStrip
               action={isDisconnected
