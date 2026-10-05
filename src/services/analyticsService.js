@@ -260,48 +260,18 @@ async function getTimingMetrics(businessId, intentByContact) {
 // ── Lead response time distribution: time from business's first outbound
 // message to that contact's first reply after it. ─────────────────────────
 async function getResponseDistribution(businessId) {
-  const { data, error } = await supabase
-    .from('messages')
-    .select('contact_id, direction, created_at')
-    .eq('business_id', businessId)
-    .order('created_at', { ascending: true });
+  const { data, error } = await supabase.rpc('get_message_response_distribution', {
+    p_business_id: businessId,
+  });
 
   if (error || !data) {
     reportMetricError('response distribution', error || new Error('No rows returned'));
     return [];
   }
 
-  const byContact = {};
-  for (const m of data) {
-    byContact[m.contact_id] = byContact[m.contact_id] || [];
-    byContact[m.contact_id].push(m);
-  }
-
-  const buckets = { '< 2 min': 0, '2\u201310 min': 0, '10\u201330 min': 0, '30\u201360 min': 0, '1\u20136 hrs': 0, '6+ hrs': 0 };
-  let totalMinutes = 0;
-  let sampleCount = 0;
-
-  for (const msgs of Object.values(byContact)) {
-    const firstOut = msgs.find((m) => m.direction === 'out');
-    if (!firstOut) continue;
-    const reply = msgs.find((m) => m.direction === 'in' && new Date(m.created_at) > new Date(firstOut.created_at));
-    if (!reply) continue;
-
-    const minutes = (new Date(reply.created_at) - new Date(firstOut.created_at)) / 60000;
-    totalMinutes += minutes;
-    sampleCount++;
-
-    if (minutes < 2) buckets['< 2 min']++;
-    else if (minutes < 10) buckets['2\u201310 min']++;
-    else if (minutes < 30) buckets['10\u201330 min']++;
-    else if (minutes < 60) buckets['30\u201360 min']++;
-    else if (minutes < 360) buckets['1\u20136 hrs']++;
-    else buckets['6+ hrs']++;
-  }
-
   return {
-    dist: Object.entries(buckets).map(([bucket, count]) => ({ bucket, count })),
-    avgReplyTimeMin: sampleCount ? Math.round(totalMinutes / sampleCount) : null,
+    dist: data.map(({ bucket, count }) => ({ bucket, count: Number(count) })),
+    avgReplyTimeMin: data[0]?.avg_reply_time_min == null ? null : Number(data[0].avg_reply_time_min),
   };
 }
 

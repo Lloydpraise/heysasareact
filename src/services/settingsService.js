@@ -7,7 +7,16 @@ const STORAGE_KEY = 'heysasa_preferences_v1';
 // a child process on a separate port (FOLLOWUP_ENGINE_PORT, default
 // 3001) — distinct from VITE_BACKEND_API_URL (port 3000), which points
 // at the root server's own routes (/analysis/*, /webhook/*, etc.).
-const FOLLOWUP_API_URL = (import.meta.env.VITE_FOLLOWUP_API_URL || 'http://localhost:3001').replace(/\/$/, '');
+const FOLLOWUP_API_URL = (
+  import.meta.env.VITE_FOLLOWUP_API_URL || (import.meta.env.DEV ? 'http://localhost:3001' : '')
+).replace(/\/$/, '');
+
+function getFollowupApiUrl() {
+  if (!FOLLOWUP_API_URL) {
+    throw new Error('Follow-up settings API is not configured. Set VITE_FOLLOWUP_API_URL to its HTTPS URL.');
+  }
+  return FOLLOWUP_API_URL;
+}
 
 const fallback = {
   prefs: mockPrefs,
@@ -64,7 +73,7 @@ export async function getSettings() {
   if (supabase && businessId && token) {
     const [businessResult, prefsResult] = await Promise.all([
       supabase.from('businesses').select('*').eq('business_id', businessId).maybeSingle(),
-      fetch(`${FOLLOWUP_API_URL}/settings/followup`, {
+      fetch(`${getFollowupApiUrl()}/settings/followup`, {
         headers: { Authorization: `Bearer ${token}`, 'X-Business-Id': businessId },
       }).then((res) => readBackendResponse(res, 'Could not load follow-up preferences.')),
     ]);
@@ -115,7 +124,7 @@ export async function saveSettings(nextSettings) {
       Object.keys(businessUpdate).length > 0
         ? supabase.from('businesses').update(businessUpdate).eq('business_id', businessId).select('*').single()
         : supabase.from('businesses').select('*').eq('business_id', businessId).single(),
-      fetch(`${FOLLOWUP_API_URL}/settings/followup`, {
+      fetch(`${getFollowupApiUrl()}/settings/followup`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
