@@ -19,7 +19,7 @@ export default function FunnelBars({ rows, showDrop = true, opacityScale = DEFAU
             <div className="relative h-7 flex-1 overflow-hidden rounded-md bg-slate-50">
               <div
                 className="flex h-full items-center rounded-md pl-2.5 text-[11px] font-bold text-white transition-all duration-700"
-                style={{ width: `${w}%`, background: `rgba(59,109,17,${opacityScale[i] ?? 0.3})` }}
+                style={{ width: `${w}%`, background: `rgb(var(--chart-green-rgb) / ${opacityScale[i] ?? 0.3})` }}
               >
                 {comma(row.count)}
               </div>

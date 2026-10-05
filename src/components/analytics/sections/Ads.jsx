@@ -107,7 +107,7 @@ export default function Ads() {
           </SectionLabel>
           <HBarList
             rows={ads.map((a) => ({ label: a.headline.split('\u2014')[0].trim().slice(0, 30), count: a.cycle_days_avg }))}
-            colors={['#3B6D11']}
+            colors={['var(--chart-green)']}
             formatValue={(v) => `${v}d`}
           />
         </AnCard>

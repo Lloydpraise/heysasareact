@@ -91,7 +91,7 @@ export default function App() {
   const { user, loading } = useAuth();
 
   if (loading) {
-    return <div className="flex min-h-screen items-center justify-center bg-[#F7FBF9] text-sm text-slate-500">Loading workspace...</div>;
+    return <div className="flex min-h-screen items-center justify-center bg-[var(--app-bg)] text-sm text-slate-500">Loading workspace...</div>;
   }
 
   return (

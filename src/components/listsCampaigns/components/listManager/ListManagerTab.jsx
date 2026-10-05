@@ -45,33 +45,34 @@ export default function ListManagerTab({ onLaunchCampaign, onEditRules, openCrea
   };
 
   return (
-    <div className="space-y-5">
-      <div>
-        <div className="flex items-center justify-between gap-3">
+    <div className="flex min-w-0 flex-col space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/80 pb-2">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-3">
           <h2 className="text-[15px] font-semibold text-slate-900">Audience Lists</h2>
-          <button
-            type="button"
-            onClick={() => setShowCreateModal(true)}
-            className="flex-shrink-0 rounded-lg bg-[#28A745] px-3 py-1.5 text-[12px] font-semibold text-white shadow-sm hover:bg-[#218838]"
-          >
-            + Add List
-          </button>
+          <ListSelectorBar
+            lists={availableLists}
+            activeGroup={activeGroup}
+            onGroupChange={(group) => {
+              setActiveGroup(group);
+              setSelectedListId(null);
+            }}
+            view={view}
+            onViewChange={setView}
+          />
         </div>
+        <button
+          type="button"
+          onClick={() => setShowCreateModal(true)}
+          className="flex-shrink-0 rounded-lg bg-[#28A745] px-3 py-1.5 text-[12px] font-semibold text-white shadow-sm hover:bg-[#218838]"
+        >
+          + Add List
+        </button>
+      </div>
+      <div>
         <p className="text-[12.5px] text-slate-500">
           Track lead movement from first ad click to post-purchase retention.
         </p>
       </div>
-
-      <ListSelectorBar
-        lists={availableLists}
-        activeGroup={activeGroup}
-        onGroupChange={(group) => {
-          setActiveGroup(group);
-          setSelectedListId(null);
-        }}
-        view={view}
-        onViewChange={setView}
-      />
 
       {visibleLists.length === 0 ? (
         <p className="text-[12px] text-slate-400">No lists in this group yet.</p>

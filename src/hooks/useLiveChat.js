@@ -9,7 +9,6 @@ function newSimConversationId() {
 export function useLiveChat(businessId) {
   const [messages, setMessages] = useState([]);
   const [sending, setSending] = useState(false);
-  const [tierPreference, setTierPreference] = useState('intelligent');
   const [conversationId, setConversationId] = useState(newSimConversationId());
   const [sendError, setSendError] = useState(null);
 
@@ -29,19 +28,32 @@ export function useLiveChat(businessId) {
       setMessages((m) => [...m, { role: 'user', content: text }]);
 
       try {
-        const json = await sendTestMessage({ text, history, businessId, conversationId, tierPreference });
+        const json = await sendTestMessage({ text, history, businessId });
+        const silent = json.status === 'replied' ? '(chose not to reply)' : null;
+        const note = json.error || (json.skipReason ? `Skipped: ${json.skipReason}` : json.handoff ? `Handed to the owner: ${json.handoff.reason || json.handoff}` : silent);
         setMessages((m) => [
           ...m,
-          { role: 'assistant', content: json.reply || '(no reply — check the trace/logs)', tierUsed: json.tier_used, responseTimeMs: json.response_time_ms, trace: json.trace },
+          {
+            role: 'assistant',
+            content: json.reply || note || '(no reply — open the thoughts and tool calls)',
+            isNote: !json.reply,
+            responseTimeMs: json.responseTimeMs,
+            trace: json.trace,
+            thoughts: json.thoughts,
+            flow: json.flow,
+            skillsLoaded: json.skillsLoaded,
+            holdingMessage: json.holdingMessage,
+            handoff: json.handoff,
+          },
         ]);
       } catch (err) {
         setSendError(err);
-        setMessages((m) => [...m, { role: 'assistant', content: "⚠️ Request failed — check the edge function's logs." }]);
+        setMessages((m) => [...m, { role: 'assistant', content: `⚠️ ${err.message || 'Request failed — check the sasa-brain logs.'}` }]);
       } finally {
         setSending(false);
       }
     },
-    [messages, businessId, conversationId, tierPreference, sending],
+    [messages, businessId, sending],
   );
 
   // Fires a scripted sequence of messages back-to-back — used by stress-test
@@ -62,5 +74,5 @@ export function useLiveChat(businessId) {
     [businessId, conversationId],
   );
 
-  return { messages, send, runScript, sending, sendError, tierPreference, setTierPreference, conversationId, reset, flag };
+  return { messages, send, runScript, sending, sendError, conversationId, reset, flag };
 }

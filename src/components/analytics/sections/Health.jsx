@@ -119,7 +119,7 @@ export default function Health() {
                   <div className="relative h-5 flex-1 overflow-hidden rounded bg-slate-50">
                     <div
                       className="flex h-full items-center rounded pl-2 text-[10px] font-bold text-white transition-all duration-700"
-                      style={{ width: `${pct(s.replies, maxReplies)}%`, background: '#3B6D11' }}
+                      style={{ width: `${pct(s.replies, maxReplies)}%`, background: 'var(--chart-green)' }}
                     >
                       {s.replies}
                     </div>
@@ -137,7 +137,7 @@ export default function Health() {
               AI vs human closes
             </SectionLabel>
             <div className="flex items-center gap-4">
-              <Donut segments={[{ pct: aiPct, color: '#3B6D11' }, { pct: 100 - aiPct, color: '#f1f5f9' }]} size={80} thickness={14} />
+              <Donut segments={[{ pct: aiPct, color: 'var(--chart-green)' }, { pct: 100 - aiPct, color: 'var(--chart-track)' }]} size={80} thickness={14} />
               <div className="flex-1">
                 <div className="mb-1.5 flex gap-2">
                   <Pill className="bg-[#28A745]/10 text-[#27500A]">AI: {closeBreakdown.ai}</Pill>

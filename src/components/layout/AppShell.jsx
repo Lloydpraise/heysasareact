@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { useEffect, useState } from 'react';
 import logo from '../../assets/images/heysasalogo.png';
 import { 
@@ -11,6 +12,9 @@ import {
   ChevronDown,
   MoreVertical, 
   X, 
+  CheckCircle2,
+  Loader2,
+  Plus,
 } from 'lucide-react';
 import Profile from '../profile/Profile';
 import { useAuth } from '../../context/useAuth';
@@ -18,11 +22,15 @@ import { getBusinessDisplayName } from '../../utils/businessHelpers';
 
 export default function AppShell({ activeTab, setActiveTab, onBusinessClick, children }) {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
-  const { user, activeBusinessId, getBusinesses, switchBusiness } = useAuth();
+  const { user, activeBusinessId, getBusinesses, switchBusiness, addBusiness } = useAuth();
   const [businesses, setBusinesses] = useState([]);
   const [businessesLoading, setBusinessesLoading] = useState(true);
   const [businessesError, setBusinessesError] = useState('');
   const [businessMenuOpen, setBusinessMenuOpen] = useState(false);
+  const [addBusinessOpen, setAddBusinessOpen] = useState(false);
+  const [businessForm, setBusinessForm] = useState({ name: '', industry: '', websiteUrl: '', billingBusinessId: '' });
+  const [businessSaving, setBusinessSaving] = useState(false);
+  const [businessFormError, setBusinessFormError] = useState('');
 
   useEffect(() => {
     let mounted = true;
@@ -61,6 +69,18 @@ export default function AppShell({ activeTab, setActiveTab, onBusinessClick, chi
     ? getBusinessDisplayName(activeBusiness, activeBusinessIndex)
     : user?.user_metadata?.business_name || 'Business name - 1';
 
+  const handleCreateBusiness = async (event) => {
+    event.preventDefault();
+    setBusinessSaving(true);
+    setBusinessFormError('');
+    try {
+      await addBusiness(businessForm);
+    } catch (error) {
+      setBusinessFormError(error.message || 'Could not create business.');
+      setBusinessSaving(false);
+    }
+  };
+
   const navItems = [
     { id: 'analytics', label: 'Analytics', icon: BarChart3 },
     { id: 'leads', label: 'Leads', icon: Users },
@@ -71,7 +91,7 @@ export default function AppShell({ activeTab, setActiveTab, onBusinessClick, chi
   ];
 
   return (
-    <div className="antialiased relative flex h-screen w-full flex-col gap-3 overflow-hidden bg-[#F7FBF9] p-3 text-[#0F172A] sm:gap-4 sm:p-4 md:flex-row md:gap-6 md:overflow-hidden md:pt-4">
+    <div className="antialiased relative flex h-screen w-full flex-col gap-3 overflow-hidden bg-[var(--app-bg)] p-3 text-[var(--app-fg)] sm:gap-4 sm:p-4 md:flex-row md:gap-6 md:overflow-hidden md:pt-4">
       <button
         type="button"
         aria-label={isMobileOpen ? 'Close navigation menu' : 'Open navigation menu'}
@@ -82,11 +102,11 @@ export default function AppShell({ activeTab, setActiveTab, onBusinessClick, chi
       </button>
       
       {/* Background Noise & Mesh Gradient */}
-      <div className="fixed top-0 left-0 w-full h-full pointer-events-none -z-20 opacity-25 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:16px_16px]"></div>
-      <div className="fixed top-0 left-0 w-full h-full -z-10 overflow-hidden bg-[#F7FBF9]">
-        <div className="absolute rounded-full blur-[120px] opacity-35 animate-pulse bg-[#28A745] w-[45vw] h-[45vw] -top-[10vw] -left-[10vw]"></div>
-        <div className="absolute rounded-full blur-[120px] opacity-25 bg-[#FF8C00] w-[30vw] h-[30vw] top-[15vw] -right-[5vw]"></div>
-        <div className="absolute rounded-full blur-[120px] opacity-35 bg-[#86efac] w-[35vw] h-[35vw] -bottom-[10vw] left-[15vw]"></div>
+      <div className="fixed top-0 left-0 w-full h-full pointer-events-none -z-20 opacity-25 dark:opacity-[0.06] bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:16px_16px]"></div>
+      <div className="fixed top-0 left-0 w-full h-full -z-10 overflow-hidden bg-[var(--app-bg)]">
+        <div className="absolute rounded-full blur-[120px] opacity-35 dark:opacity-[0.16] animate-pulse bg-[#28A745] w-[45vw] h-[45vw] -top-[10vw] -left-[10vw]"></div>
+        <div className="absolute rounded-full blur-[120px] opacity-25 dark:opacity-[0.08] bg-[#FF8C00] w-[30vw] h-[30vw] top-[15vw] -right-[5vw]"></div>
+        <div className="absolute rounded-full blur-[120px] opacity-35 dark:opacity-[0.1] bg-[#86efac] w-[35vw] h-[35vw] -bottom-[10vw] left-[15vw]"></div>
       </div>
 
       {/* Mobile Overlay */}
@@ -192,27 +212,50 @@ export default function AppShell({ activeTab, setActiveTab, onBusinessClick, chi
                   <p className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Switch business</p>
                   {businessesLoading && <p role="status" className="px-2 py-2 text-xs text-slate-500">Loading businesses...</p>}
                   {businessesError && <p role="alert" className="px-2 py-2 text-xs text-red-600">{businessesError}</p>}
-                  {!businessesLoading && !businessesError && businesses.map((business, index) => (
-                    <button
-                      key={business.business_id}
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        setBusinessMenuOpen(false);
-                        switchBusiness(business.business_id);
-                      }}
-                      className={`flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left transition hover:bg-green-50 ${business.business_id === activeBusinessId ? 'bg-green-50/70' : ''}`}
-                    >
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-100 bg-white text-[#28A745]">
-                        {business.business_logo_url
-                          ? <img src={business.business_logo_url} alt="" className="h-full w-full object-contain p-0.5" />
-                          : <Building2 className="h-4 w-4" />}
-                      </span>
-                      <span className="min-w-0 truncate text-xs font-semibold text-slate-700">{getBusinessDisplayName(business, index)}</span>
-                      {business.business_id === activeBusinessId && <span className="ml-auto shrink-0 text-[10px] font-bold text-[#28A745]">Active</span>}
-                    </button>
-                  ))}
+                  {!businessesLoading && !businessesError && businesses.map((business, index) => {
+                    const businessId = business.business_id || business.id;
+                    const billingBusinessIndex = businesses.findIndex((item) => (item.business_id || item.id) === business.billing_business_id);
+                    return (
+                      <button
+                        key={businessId}
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setBusinessMenuOpen(false);
+                          switchBusiness(businessId);
+                        }}
+                        className={`flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left transition hover:bg-green-50 ${businessId === activeBusinessId ? 'bg-green-50/70' : ''}`}
+                      >
+                        <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-100 bg-white text-[#28A745]">
+                          {business.business_logo_url
+                            ? <img src={business.business_logo_url} alt="" className="h-full w-full object-contain p-0.5" />
+                            : <Building2 className="h-4 w-4" />}
+                        </span>
+                        <span className="min-w-0 truncate text-xs font-semibold text-slate-700">
+                          <span className="block truncate">{getBusinessDisplayName(business, index)}</span>
+                          {business.billing_business_id && (
+                            <span className="block truncate text-[10px] font-normal text-slate-400">
+                              Bills through {getBusinessDisplayName(businesses[billingBusinessIndex], billingBusinessIndex)}
+                            </span>
+                          )}
+                        </span>
+                        {businessId === activeBusinessId && <CheckCircle2 className="ml-auto h-4 w-4 shrink-0 text-[#28A745]" />}
+                      </button>
+                    );
+                  })}
                   {!businessesLoading && !businessesError && businesses.length === 0 && <p className="px-2 py-2 text-xs text-slate-500">No connected businesses yet.</p>}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBusinessMenuOpen(false);
+                      setBusinessFormError('');
+                      setBusinessForm({ name: '', industry: '', websiteUrl: '', billingBusinessId: '' });
+                      setAddBusinessOpen(true);
+                    }}
+                    className="mt-1 flex w-full items-center gap-2 rounded-xl border-t border-slate-100 px-2 py-2.5 text-left text-xs font-semibold text-[#28A745] hover:bg-green-50"
+                  >
+                    <Plus className="h-4 w-4" />Add business
+                  </button>
                   <button type="button" onClick={() => { setBusinessMenuOpen(false); onBusinessClick?.(); }} className="mt-1 w-full rounded-xl border-t border-slate-100 px-2 py-2.5 text-left text-xs font-semibold text-[#28A745] hover:bg-green-50">Business settings</button>
                 </div>
               )}
@@ -225,6 +268,36 @@ export default function AppShell({ activeTab, setActiveTab, onBusinessClick, chi
           {children}
         </div>
       </main>
+      {addBusinessOpen && createPortal(
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/20 p-4 backdrop-blur-sm" onClick={() => setAddBusinessOpen(false)}>
+          <form onSubmit={handleCreateBusiness} onClick={(event) => event.stopPropagation()} className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="flex items-start justify-between">
+              <div><h2 className="text-lg font-bold">Add business</h2><p className="mt-1 text-sm text-slate-500">Create a separate workspace for this business.</p></div>
+              <button type="button" aria-label="Close" onClick={() => setAddBusinessOpen(false)} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"><X className="h-5 w-5" /></button>
+            </div>
+            <div className="mt-5 space-y-3">
+              <input required placeholder="Business name" value={businessForm.name} onChange={(event) => setBusinessForm({ ...businessForm, name: event.target.value })} className="h-11 w-full rounded-xl border border-slate-200 px-3 outline-none focus:border-[#28A745]" />
+              <input required placeholder="Industry" value={businessForm.industry} onChange={(event) => setBusinessForm({ ...businessForm, industry: event.target.value })} className="h-11 w-full rounded-xl border border-slate-200 px-3 outline-none focus:border-[#28A745]" />
+              <input type="url" placeholder="Website (optional)" value={businessForm.websiteUrl} onChange={(event) => setBusinessForm({ ...businessForm, websiteUrl: event.target.value })} className="h-11 w-full rounded-xl border border-slate-200 px-3 outline-none focus:border-[#28A745]" />
+              <label className="block text-sm font-semibold text-slate-700">Billing wallet
+                <select value={businessForm.billingBusinessId} onChange={(event) => setBusinessForm({ ...businessForm, billingBusinessId: event.target.value })} className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 font-normal outline-none focus:border-[#28A745]">
+                  <option value="">Use this business's own wallet</option>
+                  {businesses.filter((business) => !business.billing_business_id).map((business, index) => (
+                    <option key={business.business_id || business.id} value={business.business_id || business.id}>{getBusinessDisplayName(business, index)}</option>
+                  ))}
+                </select>
+                <span className="mt-1 block text-xs font-normal text-slate-500">Choose an existing root business to pay for this workspace, or keep its wallet separate.</span>
+              </label>
+            </div>
+            {businessFormError && <p className="mt-3 text-sm text-red-600">{businessFormError}</p>}
+            <button disabled={businessSaving} className="mt-6 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#28A745] text-sm font-bold text-white disabled:opacity-60">
+              {businessSaving && <Loader2 className="h-4 w-4 animate-spin" />}
+              {businessSaving ? 'Creating workspace...' : 'Create business'}
+            </button>
+          </form>
+        </div>,
+        document.body,
+      )}
     </div>
   );
 }

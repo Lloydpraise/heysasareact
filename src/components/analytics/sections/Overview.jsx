@@ -78,9 +78,9 @@ export default function Overview() {
             <div style={{ width: '100%', height: 180 }}>
               <ResponsiveContainer>
                 <BarChart data={wk}>
-                  <XAxis dataKey="week" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                  <Tooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ fontSize: 12, borderRadius: 8 }} />
-                  <Bar dataKey="new" radius={[4, 4, 0, 0]} fill="#3B6D11" />
+                  <XAxis dataKey="week" tick={{ fontSize: 10, fill: 'var(--chart-tick)' }} axisLine={false} tickLine={false} />
+                  <Tooltip cursor={{ fill: 'var(--chart-cursor)' }} contentStyle={{ fontSize: 12, borderRadius: 8, background: 'var(--chart-tooltip-bg)', borderColor: 'var(--chart-tooltip-border)', color: 'var(--chart-tooltip-fg)' }} />
+                  <Bar dataKey="new" radius={[4, 4, 0, 0]} fill="var(--chart-green)" />
                 </BarChart>
               </ResponsiveContainer>
             </div>

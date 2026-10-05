@@ -1,11 +1,34 @@
 @import 'tailwindcss';
+@import './styles/dark.css';
 
 :root {
+  color-scheme: light;
+  --app-bg: #f7fbf9;
+  --app-fg: #0f172a;
+
+  /* Chart tokens (dark values live in styles/dark.css) */
+  --chart-grid: #e2e8f0;
+  --chart-tick: #94a3b8;
+  --chart-label: #64748b;
+  --chart-cursor: #f8fafc;
+  --chart-track: #f1f5f9;
+  --chart-green: #3b6d11;
+  --chart-green-rgb: 59 109 17;
+  --chart-g1: #3b6d11;
+  --chart-g2: #27500a;
+  --chart-g3: #4a8c15;
+  --chart-g4: #5aaa1a;
+  --chart-g5: #6fcc22;
+  --chart-g6: #84d93a;
+  --chart-tooltip-bg: #ffffff;
+  --chart-tooltip-border: #e2e8f0;
+  --chart-tooltip-fg: #0f172a;
+
   font-family: Inter, 'Segoe UI', sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  color: #0f172a;
-  background-color: #f7fbf9;
+  color: var(--app-fg);
+  background-color: var(--app-bg);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;

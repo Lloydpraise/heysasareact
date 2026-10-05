@@ -103,16 +103,18 @@ export default function PreferencesPage({ initialSection = 'followup' }) {
           {renderSection()}
         </div>
 
-        <div className="mt-6 flex justify-end border-t border-slate-200/80 pt-4 sm:mt-8 sm:pt-5">
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={isSaving || !hasUnsavedChanges}
-            className="w-full rounded-full bg-[#28A745] px-3 py-2.5 text-sm font-semibold text-white shadow-lg shadow-[#28A745]/20 transition hover:bg-[#1f8d3d] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 disabled:shadow-none sm:w-auto sm:px-4"
-          >
-            {isSaving ? 'Saving...' : 'Save changes'}
-          </button>
-        </div>
+        {activeSection !== 'billing' && (
+          <div className="mt-6 flex justify-end border-t border-slate-200/80 pt-4 sm:mt-8 sm:pt-5">
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={isSaving || !hasUnsavedChanges}
+              className="w-full rounded-full bg-[#28A745] px-3 py-2.5 text-sm font-semibold text-white shadow-lg shadow-[#28A745]/20 transition hover:bg-[#1f8d3d] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 disabled:shadow-none sm:w-auto sm:px-4"
+            >
+              {isSaving ? 'Saving...' : 'Save changes'}
+            </button>
+          </div>
+        )}
       </section>
 
       <Toast toast={toast} />

@@ -35,7 +35,7 @@ export default function RuleToggleRow({ rule, status, onToggle, onConfigure }) {
           className={`w-10 h-6 rounded-full transition ${enabled ? 'bg-[#28A745]' : 'bg-slate-200'}`}
         >
           <span
-            className={`block w-4 h-4 bg-white rounded-full transition-transform ${
+            className={`toggle-knob block w-4 h-4 bg-white rounded-full transition-transform ${
               enabled ? 'translate-x-5' : 'translate-x-1'
             }`}
           />

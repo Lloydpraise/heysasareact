@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
-import { Wallet, RefreshCw, ArrowDownRight, ArrowUpRight } from 'lucide-react';
+import { Wallet, RefreshCw, ArrowDownRight, ArrowUpRight, ChevronDown, ChevronUp } from 'lucide-react';
 import { GlassCard } from '../shared/ui';
 import { useBilling } from '../../../hooks/useBilling';
 
@@ -8,10 +8,12 @@ import { useBilling } from '../../../hooks/useBilling';
 // comes out of it. Rates are deliberately never shown: only an approximate message count.
 const kes = (n, max = 2) => `KES ${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: max })}`;
 const LOW_MESSAGES = 200;
+const RECENT_ACTIVITY_PAGE_SIZE = 10;
 
 export function BillingSection() {
   const { overview: o, loading, error, refetch, topUp, canTopUp } = useBilling();
   const [notice, setNotice] = useState('');
+  const [recentActivityLimit, setRecentActivityLimit] = useState(RECENT_ACTIVITY_PAGE_SIZE);
 
   const daily = useMemo(
     () => (o?.daily || []).map((d) => ({ label: new Date(d.day).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }), kes: Number(d.kes) })),
@@ -89,7 +91,7 @@ export function BillingSection() {
         <div className="h-56 w-full">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={daily} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
               <XAxis dataKey="label" tick={{ fontSize: 11 }} interval={4} />
               <YAxis tick={{ fontSize: 11 }} width={48} />
               <Tooltip formatter={(v) => [kes(v), 'Spent']} />
@@ -122,28 +124,53 @@ export function BillingSection() {
       <GlassCard className="w-full">
         <h3 className="mb-4 text-sm font-semibold text-slate-800">Recent activity</h3>
         {o.recent?.length ? (
-          <ul className="divide-y divide-slate-100">
-            {o.recent.map((t, i) => {
-              const credit = t.type === 'credit';
-              return (
-                <li key={i} className="flex items-center justify-between gap-3 py-2.5 text-sm">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${credit ? 'bg-[#28A745]/10 text-[#1f8d3d]' : 'bg-slate-100 text-slate-500'}`}>
-                      {credit ? <ArrowUpRight size={15} /> : <ArrowDownRight size={15} />}
-                    </span>
-                    <div className="min-w-0">
-                      <div className="truncate text-slate-800">{t.label}</div>
-                      <div className="text-xs text-slate-400">{new Date(t.created_at).toLocaleString()}</div>
+          <>
+            <ul className="divide-y divide-slate-100">
+              {o.recent.slice(0, recentActivityLimit).map((t, i) => {
+                const credit = t.type === 'credit';
+                return (
+                  <li key={i} className="flex items-center justify-between gap-3 py-2.5 text-sm">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${credit ? 'bg-[#28A745]/10 text-[#1f8d3d]' : 'bg-slate-100 text-slate-500'}`}>
+                        {credit ? <ArrowUpRight size={15} /> : <ArrowDownRight size={15} />}
+                      </span>
+                      <div className="min-w-0">
+                        <div className="truncate text-slate-800">{t.label}</div>
+                        <div className="text-xs text-slate-400">{new Date(t.created_at).toLocaleString()}</div>
+                      </div>
                     </div>
-                  </div>
-                  <div className="shrink-0 text-right">
-                    <div className={`font-medium ${credit ? 'text-[#1f8d3d]' : 'text-slate-800'}`}>{credit ? '+' : '−'}{kes(t.kes, 2)}</div>
-                    {t.balance_kes != null && <div className="text-xs text-slate-400">balance {kes(t.balance_kes, 0)}</div>}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
+                    <div className="shrink-0 text-right">
+                      <div className={`font-medium ${credit ? 'text-[#1f8d3d]' : 'text-slate-800'}`}>{credit ? '+' : '−'}{kes(t.kes, 2)}</div>
+                      {t.balance_kes != null && <div className="text-xs text-slate-400">balance {kes(t.balance_kes, 0)}</div>}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+            {o.recent.length > RECENT_ACTIVITY_PAGE_SIZE && (
+              <div className="mt-3 flex justify-center">
+                {recentActivityLimit < o.recent.length ? (
+                  <button
+                    type="button"
+                    onClick={() => setRecentActivityLimit((limit) => Math.min(limit + RECENT_ACTIVITY_PAGE_SIZE, o.recent.length))}
+                    className="inline-flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100"
+                  >
+                    Show more activity
+                    <ChevronDown size={16} />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setRecentActivityLimit(RECENT_ACTIVITY_PAGE_SIZE)}
+                    className="inline-flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100"
+                  >
+                    Show less
+                    <ChevronUp size={16} />
+                  </button>
+                )}
+              </div>
+            )}
+          </>
         ) : <p className="text-sm text-slate-500">Nothing yet.</p>}
       </GlassCard>
     </div>

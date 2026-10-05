@@ -10,7 +10,7 @@ export default function ScoreRing({ score, size = 52, thickness = 5 }) {
   return (
     <div className="relative flex-shrink-0" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="-rotate-90">
-        <circle cx={size / 2} cy={size / 2} r={r} stroke="#f1f5f9" strokeWidth={thickness} fill="none" />
+        <circle cx={size / 2} cy={size / 2} r={r} stroke="var(--chart-track)" strokeWidth={thickness} fill="none" />
         <circle
           cx={size / 2}
           cy={size / 2}

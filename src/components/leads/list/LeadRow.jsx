@@ -32,7 +32,7 @@ function LeadRow({ lead, isActive, onClick, selectMode, selected, onToggleSelect
 
   return (
     <div
-      className={`relative w-full text-left flex gap-2 rounded-xl border-l-[3px] p-3 transition-colors ${
+      className={`relative w-full text-left flex gap-2 rounded-xl border-l-[3px] dark:border-slate-300 p-3 transition-colors ${
         isActive ? 'bg-[#28A745]/5' : 'hover:bg-slate-50'
       }`}
       style={{ borderLeftColor: sc.hex }}

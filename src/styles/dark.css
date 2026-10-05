@@ -1,0 +1,231 @@
+/*
+ * HeySasa dark theme
+ * ---------------------------------------------------------------------------
+ * Light is the default. Dark is opt-in via the `dark` class on <html>, which
+ * ThemeContext toggles (Profile menu -> Dark mode) and persists.
+ *
+ * How it works, so new screens "just work":
+ *  1. Tailwind v4 compiles palette utilities to CSS variables
+ *     (bg-white -> var(--color-white), text-slate-500 -> var(--color-slate-500)).
+ *     Re-declaring those variables under `.dark` re-themes every existing
+ *     white / slate / tinted-hue utility with no component changes.
+ *  2. Things a variable can't express (white *text*, toggle knobs, scrims,
+ *     hex-arbitrary classes like text-[#0F172A], saturated hue text) are
+ *     overridden explicitly in the utilities layer below.
+ *  3. Charts read --chart-* variables (see :root in index.css).
+ *
+ * Rule of thumb for new code: prefer palette utilities (bg-white, text-slate-*,
+ * border-slate-*) over hard-coded hex. If you need white text on a colored
+ * surface use `text-white` (it is pinned to #fff in dark mode). For a switch
+ * knob add the `toggle-knob` class next to bg-white.
+ */
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ============================== 1. TOKENS ============================== */
+/* :root.dark (not .dark) so these beat the light-mode :root tokens in index.css regardless of import order */
+:root.dark {
+  color-scheme: dark;
+
+  --app-bg: #070c0b;
+  --app-fg: #eef4f1;
+
+  /* Surfaces: white = card, 50/100 = nested + hover, 200/300 = borders + tracks */
+  --color-white: #121a17;
+  --color-slate-50: #18221e;
+  --color-slate-100: #1e2a25;
+  --color-slate-200: #2a3832;
+  --color-slate-300: #3a4a43;
+  --color-slate-400: #71857c;
+  --color-slate-500: #8fa198;
+  --color-slate-600: #a9b9b1;
+  --color-slate-700: #c3d0ca;
+  --color-slate-800: #dce6e1;
+  --color-slate-900: #eef4f1;
+  --color-slate-950: #f7faf8;
+
+  /* Tinted status surfaces (alerts, chips, soft buttons) */
+  --color-red-50: #2a1416;    --color-red-100: #371a1d;    --color-red-200: #5a272b;    --color-red-300: #7a3338;
+  --color-amber-50: #2a2008;  --color-amber-100: #382a0b;  --color-amber-200: #5a4412;  --color-amber-300: #7a5c18;
+  --color-orange-50: #2b1a0b; --color-orange-100: #3a230e; --color-orange-200: #5c3814; --color-orange-300: #7d4c1a;
+  --color-emerald-50: #0f2a1d; --color-emerald-100: #123524; --color-emerald-200: #1b5a3c; --color-emerald-300: #237a52;
+  --color-green-50: #10281a;  --color-green-100: #14331f;  --color-green-200: #1c5230;  --color-green-300: #266f43;
+  --color-blue-50: #0f1d33;   --color-blue-100: #132846;   --color-blue-200: #1e3f70;   --color-blue-300: #2b5ca3;
+  --color-indigo-50: #171a38; --color-indigo-100: #1e2347; --color-indigo-200: #303a78; --color-indigo-300: #4552a6;
+  --color-violet-50: #1f1633; --color-violet-100: #281c42; --color-violet-200: #43306f; --color-violet-300: #5d45a0;
+  --color-sky-50: #0c2330;    --color-sky-100: #0f2e40;    --color-sky-200: #17506e;    --color-sky-300: #217aa3;
+
+  /* Charts */
+  --chart-grid: #26332e;
+  --chart-tick: #7d9087;
+  --chart-label: #93a59c;
+  --chart-cursor: rgb(255 255 255 / 0.05);
+  --chart-track: #25332d;
+  --chart-green: #2a9650;
+  --chart-green-rgb: 42 150 80;
+  --chart-g1: #2a9650;
+  --chart-g2: #86efac;
+  --chart-g3: #5fd17a;
+  --chart-g4: #7be08f;
+  --chart-g5: #a3f0b2;
+  --chart-g6: #c6f7cf;
+  --chart-tooltip-bg: #17211d;
+  --chart-tooltip-border: #2e3d36;
+  --chart-tooltip-fg: #eef4f1;
+
+  --dk-red: #f87171;   --dk-red-strong: #fca5a5;
+  --dk-amber: #fbbf24; --dk-amber-strong: #fcd34d;
+  --dk-orange: #fb923c; --dk-orange-strong: #fdba74;
+  --dk-green: #4ade80; --dk-green-strong: #86efac;
+  --dk-blue: #60a5fa;  --dk-blue-strong: #93c5fd;
+  --dk-indigo: #818cf8; --dk-indigo-strong: #a5b4fc;
+  --dk-violet: #a78bfa; --dk-violet-strong: #c4b5fd;
+  --dk-sky: #38bdf8;   --dk-sky-strong: #7dd3fc;
+  --dk-brand-text: #3fcf6a;
+
+  background-color: var(--app-bg);
+  color: var(--app-fg);
+}
+
+.dark ::selection { background: rgb(40 167 69 / 0.35); color: #fff; }
+.dark * { scrollbar-color: rgb(148 163 184 / 0.22) transparent; }
+.dark ::-webkit-scrollbar-thumb { background: rgb(148 163 184 / 0.22); }
+.dark ::-webkit-scrollbar-thumb:hover { background: rgb(148 163 184 / 0.4); }
+.dark input::placeholder, .dark textarea::placeholder { color: var(--color-slate-400); opacity: 1; }
+.dark input, .dark textarea, .dark select { color-scheme: dark; }
+.dark input:-webkit-autofill {
+  -webkit-text-fill-color: var(--app-fg);
+  box-shadow: 0 0 0 1000px var(--color-slate-50) inset;
+}
+
+/* ===================== 2. UTILITY OVERRIDES (layered) ===================== */
+@layer utilities {
+  /* --- white text stays white (the --color-white variable is now a surface) --- */
+  :where(.dark) .text-white { color: #fff; }
+  :where(.dark) .text-white\/70 { color: rgb(255 255 255 / 0.7); }
+  :where(.dark) .text-white\/80 { color: rgb(255 255 255 / 0.8); }
+  :where(.dark) .bg-white\/20 { background-color: rgb(255 255 255 / 0.2); }
+  :where(.dark) .toggle-knob { background-color: #fff; }
+
+  /* --- glass borders: hairline light edge instead of a surface-colored edge --- */
+  :where(.dark) :is(.border-white, .border-white\/80, .border-white\/70, .border-white\/30, .border-white\/20) {
+    border-color: rgb(255 255 255 / 0.08);
+  }
+  :where(.dark) :is(.hover\:border-white\/80):hover { border-color: rgb(255 255 255 / 0.14); }
+
+  /* --- hover washes: lighten instead of "more surface" --- */
+  :where(.dark) :is(.hover\:bg-white, .hover\:bg-white\/90, .hover\:bg-white\/70, .hover\:bg-white\/60, .hover\:bg-white\/40):hover {
+    background-color: rgb(255 255 255 / 0.07);
+  }
+
+  /* --- popovers/menus: near-opaque so content behind never bleeds through --- */
+  :where(.dark) :is(.bg-white\/90, .bg-white\/95) { background-color: color-mix(in oklab, var(--color-white) 97%, transparent); }
+
+  /* --- inverse (dark-on-light) chips become raised slate chips --- */
+  :where(.dark) .bg-slate-900 { background-color: #2f3f38; }
+  :where(.dark) .hover\:bg-slate-800:hover { background-color: #3a4d44; }
+  :where(.dark) .hover\:bg-slate-700:hover { background-color: #44594f; }
+  :where(.dark) :is(.shadow-slate-900\/10, .shadow-slate-900\/15, .shadow-slate-900\/20) { --tw-shadow-color: rgb(0 0 0 / 0.45); }
+
+  /* --- scrims stay dark (and a little deeper) --- */
+  :where(.dark) :is(
+    .bg-slate-900\/20, .bg-slate-900\/30, .bg-slate-900\/35, .bg-slate-900\/40,
+    .bg-slate-950\/35, .bg-slate-950\/45
+  ) { background-color: rgb(2 6 5 / 0.62); }
+
+  /* --- text-slate-300 is a *faint hint* in light mode; the remapped variable is a border tone, so give text its own --- */
+  :where(.dark) .text-slate-300 { color: #5f7269; }
+
+  /* --- hex-arbitrary neutrals used for text/background in the app --- */
+  :where(.dark) .text-\[\#0F172A\], :where(.dark) .text-\[\#0f172a\] { color: var(--color-slate-900); }
+  :where(.dark) .text-\[\#1E293B\] { color: var(--color-slate-800); }
+  :where(.dark) .text-\[\#475569\] { color: var(--color-slate-600); }
+  :where(.dark) .text-\[\#64748B\] { color: var(--color-slate-500); }
+  :where(.dark) .text-\[\#94A3B8\] { color: var(--color-slate-400); }
+  :where(.dark) .hover\:text-\[\#0F172A\]:hover { color: var(--color-slate-900); }
+  :where(.dark) .hover\:text-\[\#1E293B\]:hover { color: var(--color-slate-800); }
+  :where(.dark) .hover\:text-\[\#64748B\]:hover { color: var(--color-slate-500); }
+  :where(.dark) :is(.bg-\[\#F7FBF9\], .bg-\[\#f7fbf9\], .bg-\[\#FAFAFA\], .hover\:bg-\[\#F7FBF9\]:hover) { background-color: var(--color-slate-50); }
+  :where(.dark) .from-\[\#F7FBF9\] { --tw-gradient-from: var(--color-slate-50); }
+  :where(.dark) .border-\[\#F7FBF9\] { border-color: var(--color-white); }
+
+  /* --- brand greens: dark greens used as text become a brighter green --- */
+  :where(.dark) :is(
+    .text-\[\#1f8d3d\], .text-\[\#218c3a\], .text-\[\#1F7A3E\], .text-\[\#1D7A35\],
+    .text-\[\#218838\], .text-\[\#27A844\],
+    .hover\:text-\[\#1f8d3d\]:hover, .group:hover .group-hover\:text-\[\#1f8d3d\]
+  ) { color: var(--dk-brand-text); }
+  :where(.dark) .text-\[\#27500A\] { color: var(--dk-green-strong); }
+  :where(.dark) .text-\[\#27500A\]\/70 { color: rgb(134 239 172 / 0.7); }
+  :where(.dark) :is(.text-\[\#B45F00\], .text-\[\#C76A00\]) { color: #ffb454; }
+
+  /* --- light green / orange tinted surfaces -> translucent brand tints --- */
+  :where(.dark) :is(
+    .bg-\[\#EAF9EE\], .bg-\[\#E8F8EC\], .bg-\[\#EDFBF2\], .bg-\[\#F0FDF4\], .bg-\[\#DCFCE7\],
+    .bg-\[\#dff5e6\], .bg-\[\#dff5e5\]
+  ) { background-color: rgb(40 167 69 / 0.14); }
+  :where(.dark) .bg-\[\#E8F8EC\]\/40 { background-color: rgb(40 167 69 / 0.08); }
+  :where(.dark) :is(.hover\:bg-\[\#dff5e6\], .hover\:bg-\[\#dff5e5\], .hover\:bg-\[\#DCFCE7\]):hover { background-color: rgb(40 167 69 / 0.22); }
+  :where(.dark) .bg-\[\#FFF7ED\] { background-color: rgb(255 140 0 / 0.12); }
+  :where(.dark) :is(.border-\[\#D9F5E3\], .border-\[\#BFE8CA\]) { border-color: rgb(40 167 69 / 0.28); }
+  :where(.dark) .bg-\[\#86efac\] { background-color: #2f9e55; }
+
+  /* --- saturated hue text: brighter on dark. (bg-red-500 etc. are left alone.) --- */
+  :where(.dark) :is(.text-red-400, .text-red-500, .text-red-600) { color: var(--dk-red); }
+  :where(.dark) :is(.text-red-700, .text-red-800) { color: var(--dk-red-strong); }
+  :where(.dark) :is(.hover\:text-red-400, .hover\:text-red-500, .hover\:text-red-600):hover { color: var(--dk-red-strong); }
+  :where(.dark) :is(.text-amber-400, .text-amber-500, .text-amber-600) { color: var(--dk-amber); }
+  :where(.dark) :is(.text-amber-700, .text-amber-800) { color: var(--dk-amber-strong); }
+  :where(.dark) :is(.text-orange-600, .text-orange-700) { color: var(--dk-orange-strong); }
+  :where(.dark) .text-orange-400 { color: var(--dk-orange); }
+  :where(.dark) :is(.text-emerald-500, .text-emerald-600) { color: var(--dk-green); }
+  :where(.dark) :is(.text-emerald-700, .text-emerald-800) { color: var(--dk-green-strong); }
+  :where(.dark) :is(.text-green-500, .text-green-600) { color: var(--dk-green); }
+  :where(.dark) :is(.text-green-700, .text-green-800) { color: var(--dk-green-strong); }
+  :where(.dark) :is(.text-blue-400, .text-blue-500, .text-blue-600) { color: var(--dk-blue); }
+  :where(.dark) :is(.text-blue-700, .text-blue-800) { color: var(--dk-blue-strong); }
+  :where(.dark) :is(.text-indigo-600, .text-indigo-700) { color: var(--dk-indigo-strong); }
+  :where(.dark) :is(.text-violet-600, .text-violet-700) { color: var(--dk-violet-strong); }
+  :where(.dark) :is(.text-sky-600, .text-sky-700) { color: var(--dk-sky-strong); }
+
+  /* --- image scrims on product thumbnails stay dark --- */
+  :where(.dark) .group-hover\:bg-black\/20 { background-color: rgb(0 0 0 / 0.35); }
+}
+
+/* ============== 3. PLAIN-CSS SECTIONS (styles/analytics.css) ============== */
+.dark .an-wrap { color: var(--color-slate-900); }
+.dark .tabs {
+  border-color: rgb(255 255 255 / 0.07);
+  background: rgb(18 26 23 / 0.7);
+  box-shadow: 0 12px 30px rgb(0 0 0 / 0.35);
+}
+.dark .tabs button { color: var(--color-slate-500); }
+.dark .tabs button:hover { background: rgb(255 255 255 / 0.06); color: var(--color-slate-900); }
+.dark .tabs button.active { color: #fff; box-shadow: 0 10px 24px rgb(40 167 69 / 0.28); }
+.dark .tab-section {
+  background: rgb(18 26 23 / 0.7);
+  border-color: rgb(255 255 255 / 0.07);
+  box-shadow: 0 18px 42px rgb(0 0 0 / 0.4);
+}
+.dark .tab-section h2 { color: var(--color-slate-900); }
+.dark .metric-card {
+  background: linear-gradient(180deg, rgb(24 34 30 / 0.9), rgb(18 26 23 / 0.9));
+  border-color: rgb(40 167 69 / 0.2);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.04);
+}
+.dark .metric-card h3 { color: var(--color-slate-500); }
+.dark .metric-card p { color: var(--color-slate-900); }
+
+/* ================= 4. Recharts + misc third-party chrome ================= */
+.dark .recharts-default-tooltip {
+  background-color: var(--chart-tooltip-bg) !important;
+  border-color: var(--chart-tooltip-border) !important;
+}
+.dark .recharts-tooltip-label, .dark .recharts-tooltip-item { color: var(--chart-tooltip-fg) !important; }
+.dark .recharts-legend-item-text { color: var(--color-slate-600) !important; }
+.dark .recharts-cartesian-axis-tick-value { fill: var(--chart-tick); }
+
+/* Smooth cross-fade only while the user is flipping the switch */
+html.theme-transition, html.theme-transition *, html.theme-transition *::before, html.theme-transition *::after {
+  transition: background-color 0.28s ease, border-color 0.28s ease, color 0.28s ease, fill 0.28s ease, stroke 0.28s ease, box-shadow 0.28s ease !important;
+}

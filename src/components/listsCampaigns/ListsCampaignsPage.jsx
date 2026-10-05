@@ -28,23 +28,29 @@ function ListsCampaignsInner() {
   };
 
   return (
-    <div className="relative flex h-full min-h-0 min-w-0 w-full flex-col overflow-hidden bg-[#F7FBF9]">
+    <div className="relative flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden bg-[#F7FBF9]">
       <TopNav activeSection={activeTab} onSectionChange={setActiveTab} />
 
       <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
-        <div className="flex h-full min-w-0 overflow-y-auto p-2 sm:p-3 md:p-4 lg:p-5">
-          <section className="mx-auto flex h-full w-full min-w-0 flex-1 flex-col rounded-[1.5rem] border border-white/80 bg-white/70 p-3 shadow-xl shadow-[#28A745]/5 backdrop-blur-xl sm:p-4 lg:p-5">
+        <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden p-2 sm:p-3 md:p-4 lg:p-5">
+          <section className="mx-auto flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden rounded-[1.5rem] border border-white/80 bg-white/70 p-3 shadow-xl shadow-[#28A745]/5 backdrop-blur-xl sm:p-4 lg:p-5">
             {activeTab === 'lists' && (
-              <ListManagerTab
-                onLaunchCampaign={goToCampaignsWithList}
-                onEditRules={goToRulesForList}
-                openCreateModal={openCreateListModal}
-                onCreateModalHandled={() => setOpenCreateListModal(false)}
-              />
+              <div className="min-h-0 flex-1 overflow-y-auto">
+                <ListManagerTab
+                  onLaunchCampaign={goToCampaignsWithList}
+                  onEditRules={goToRulesForList}
+                  openCreateModal={openCreateListModal}
+                  onCreateModalHandled={() => setOpenCreateListModal(false)}
+                />
+              </div>
             )}
-            {activeTab === 'campaigns' && <CampaignRunnerTab onNeedLists={goToListCreation} />}
-            {activeTab === 'templates' && <WABALockScreen />}
-            {activeTab === 'rules' && <AutomationRulesTab />}
+            {activeTab === 'campaigns' && (
+              <div className="min-h-0 flex-1 overflow-y-auto">
+                <CampaignRunnerTab onNeedLists={goToListCreation} />
+              </div>
+            )}
+            {activeTab === 'templates' && <div className="min-h-0 flex-1 overflow-y-auto"><WABALockScreen /></div>}
+            {activeTab === 'rules' && <div className="min-h-0 flex-1 overflow-y-auto"><AutomationRulesTab /></div>}
           </section>
         </div>
       </div>

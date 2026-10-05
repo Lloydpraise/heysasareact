@@ -1,11 +1,13 @@
 import { createPortal } from 'react-dom';
 import { useEffect, useState } from 'react';
-import { CheckCircle2, ChevronRight, Loader2, LogOut, Plus, ShieldCheck, X } from 'lucide-react';
+import { CheckCircle2, ChevronRight, Loader2, LogOut, Moon, Plus, ShieldCheck, Sun, X } from 'lucide-react';
 import { useAuth } from '../../context/useAuth';
+import { useTheme } from '../../context/useTheme';
 import { getBusinessDisplayName } from '../../utils/businessHelpers';
 
 export default function Profile() {
   const { user, signOut, updatePassword, activeBusinessId, getBusinesses, switchBusiness, addBusiness } = useAuth();
+  const { isDark, toggleTheme } = useTheme();
   const [open, setOpen] = useState(false);
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [password, setPassword] = useState('');
@@ -91,6 +93,18 @@ export default function Profile() {
           {!businessesLoading && !businessesError && businesses.length === 0 && <p className="px-3 py-2 text-xs text-slate-500">No connected businesses yet.</p>}
           <button onClick={() => { setAddBusinessOpen(true); setOpen(false); setBusinessesOpen(false); setError(''); }} className="mt-1 flex w-full items-center gap-2 rounded-xl border-t border-slate-200/70 px-3 py-2 pt-3 text-left text-xs font-bold text-[#28A745] hover:bg-green-50"><Plus className="h-4 w-4" />Add business</button>
         </div>}
+        <button type="button" role="switch" aria-checked={isDark} aria-label="Dark mode" onClick={toggleTheme} className="group/theme flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-xs font-medium text-slate-700 hover:bg-white">
+          <span className="flex items-center gap-3">
+            <span className="relative flex h-4 w-4 items-center justify-center">
+              <Sun className={`absolute h-4 w-4 text-[#FF8C00] transition-all duration-300 ${isDark ? 'rotate-90 scale-0 opacity-0' : 'rotate-0 scale-100 opacity-100'}`} />
+              <Moon className={`absolute h-4 w-4 text-[#28A745] transition-all duration-300 ${isDark ? 'rotate-0 scale-100 opacity-100' : '-rotate-90 scale-0 opacity-0'}`} />
+            </span>
+            Dark mode
+          </span>
+          <span className={`relative h-5 w-9 shrink-0 rounded-full transition-colors duration-300 ${isDark ? 'bg-[#28A745]' : 'bg-slate-300'}`}>
+            <span className={`toggle-knob absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all duration-300 ${isDark ? 'left-[18px]' : 'left-0.5'}`} />
+          </span>
+        </button>
         <div className="my-1 h-px bg-slate-200/50" />
         <button onClick={signOut} className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-xs font-bold text-red-500 hover:bg-red-50/60"><LogOut className="h-4 w-4" />Sign out</button>
       </div>}

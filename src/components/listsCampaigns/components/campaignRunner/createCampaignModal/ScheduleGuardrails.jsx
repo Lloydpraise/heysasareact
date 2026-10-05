@@ -11,7 +11,7 @@ export default function ScheduleGuardrails({ smartTiming, setSmartTiming, dailyC
           className={`h-6 w-10 rounded-full transition ${smartTiming ? 'bg-[#28A745]' : 'bg-slate-200'}`}
           aria-label="Toggle smart timing"
         >
-          <span className={`block h-4 w-4 rounded-full bg-white transition-transform ${smartTiming ? 'translate-x-5' : 'translate-x-1'}`} />
+          <span className={`toggle-knob block h-4 w-4 rounded-full bg-white transition-transform ${smartTiming ? 'translate-x-5' : 'translate-x-1'}`} />
         </button>
       </div>
 

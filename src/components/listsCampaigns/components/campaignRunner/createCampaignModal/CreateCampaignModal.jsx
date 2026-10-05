@@ -361,7 +361,7 @@ export default function CreateCampaignModal({ open, campaign, onClose, businessI
                       }`}
                     >
                       <span
-                        className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition ${
+                        className={`toggle-knob absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition ${
                           aiRewriteEnabled ? 'left-5' : 'left-0.5'
                         }`}
                       />
@@ -385,7 +385,7 @@ export default function CreateCampaignModal({ open, campaign, onClose, businessI
                       }`}
                     >
                       <span
-                        className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition ${
+                        className={`toggle-knob absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition ${
                           autoApprove ? 'left-5' : 'left-0.5'
                         }`}
                       />

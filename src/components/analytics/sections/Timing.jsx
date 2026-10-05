@@ -123,27 +123,27 @@ export default function Timing() {
                   data={view === 'weekly' ? weeklyActivity : dailyActivity}
                   margin={{ top: 8, right: 12, left: 4, bottom: 8 }}
                 >
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
                   <XAxis
                     dataKey="label"
                     interval={view === 'daily' ? 2 : 0}
-                    tick={{ fontSize: 10, fill: '#94a3b8' }}
+                    tick={{ fontSize: 10, fill: 'var(--chart-tick)' }}
                     axisLine={false}
                     tickLine={false}
                   />
                   <YAxis
                     allowDecimals={false}
                     width={42}
-                    tick={{ fontSize: 10, fill: '#94a3b8' }}
+                    tick={{ fontSize: 10, fill: 'var(--chart-tick)' }}
                     axisLine={false}
                     tickLine={false}
-                    label={{ value: 'Messages', angle: -90, position: 'insideLeft', fill: '#64748b', fontSize: 11 }}
+                    label={{ value: 'Messages', angle: -90, position: 'insideLeft', fill: 'var(--chart-label)', fontSize: 11 }}
                   />
                   <Tooltip
-                    cursor={{ fill: '#f8fafc' }}
+                    cursor={{ fill: 'var(--chart-cursor)' }}
                     formatter={(value) => [value, 'Messages']}
                     labelFormatter={(label) => view === 'weekly' ? label : `${selectedDay}, ${label}`}
-                    contentStyle={{ fontSize: 12, borderRadius: 8, borderColor: '#e2e8f0' }}
+                    contentStyle={{ fontSize: 12, borderRadius: 8, background: 'var(--chart-tooltip-bg)', borderColor: 'var(--chart-tooltip-border)', color: 'var(--chart-tooltip-fg)' }}
                   />
                   <Bar
                     dataKey="messages"
@@ -174,7 +174,7 @@ export default function Timing() {
           <SectionLabel info="Lead response time distribution. Fast replies signal high intent. Segment your follow-up urgency by this.">
             How fast leads reply to you
           </SectionLabel>
-          <HBarList rows={dist} colors={['#3B6D11']} labelKey="bucket" />
+          <HBarList rows={dist} colors={['var(--chart-green)']} labelKey="bucket" />
         </AnCard>
       )}
     </div>

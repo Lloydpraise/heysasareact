@@ -4,7 +4,7 @@ import HBarList from '../shared/HBarList';
 import Donut from '../shared/Donut';
 import InsightNote from '../shared/InsightNote';
 
-const COLORS = ['#3B6D11', '#27500A', '#4a8c15', '#5aaa1a', '#6fcc22', '#84d93a'];
+const COLORS = ['var(--chart-g1)', 'var(--chart-g2)', 'var(--chart-g3)', 'var(--chart-g4)', 'var(--chart-g5)', 'var(--chart-g6)'];
 
 // Ported from analytics.js's renderDemand().
 export default function Demand() {

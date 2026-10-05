@@ -22,7 +22,7 @@ export const Toggle = ({ checked, onChange, label, description }) => (
       }`}
     >
       <span
-        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+        className={`toggle-knob inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
           checked ? 'translate-x-6' : 'translate-x-1'
         }`}
       />

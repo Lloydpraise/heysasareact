@@ -128,7 +128,7 @@ export function LiveChatPlayground({ liveChat }) {
                     type="button"
                     onClick={() => setTierPreference(key)}
                     className="rounded-full px-2.5 py-1 text-xs font-medium transition-colors"
-                    style={tierPreference === key ? { backgroundColor: TIER_COLORS[key], color: 'white' } : { backgroundColor: '#F1F5F9', color: '#64748B' }}
+                    style={tierPreference === key ? { backgroundColor: TIER_COLORS[key], color: 'white' } : { backgroundColor: 'var(--chart-track)', color: 'var(--color-slate-500)' }}
                   >
                     {label}
                   </button>

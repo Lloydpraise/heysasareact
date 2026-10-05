@@ -136,9 +136,41 @@ export default function CampaignRunnerTab({ onNeedLists }) {
   );
 
   return (
-    <div className="flex h-full min-h-0 flex-1 flex-col space-y-4 overflow-y-auto">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-[15px] font-semibold text-slate-900">Campaigns</h2>
+    <div className="flex min-w-0 flex-col space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/80 pb-2">
+        <div className="flex flex-wrap items-center gap-3">
+          <h2 className="text-[15px] font-semibold text-slate-900">Campaigns</h2>
+          <div className="flex items-center gap-1 rounded-xl bg-slate-100 p-1" role="tablist" aria-label="Campaign status">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={campaignSection === 'active'}
+              onClick={() => setCampaignSection('active')}
+              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${campaignSection === 'active' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              Active <span className="ml-1 text-[10px] text-slate-400">{currentCampaigns.length}</span>
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={campaignSection === 'auto'}
+              onClick={() => setCampaignSection('auto')}
+              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${campaignSection === 'auto' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              Auto <span className="ml-1 text-[10px] text-slate-400">{autoLiveCount}</span>
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={campaignSection === 'archived'}
+              onClick={() => setCampaignSection('archived')}
+              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${campaignSection === 'archived' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              Archived <span className="ml-1 text-[10px] text-slate-400">{archivedCampaigns.length}</span>
+            </button>
+          </div>
+          <ViewSwitcher view={view} onChange={setView} />
+        </div>
         <div className="flex items-center justify-end gap-2">
           <button
             type="button"
@@ -182,39 +214,6 @@ export default function CampaignRunnerTab({ onNeedLists }) {
       </div>
 
       {showActivityLog && <CampaignActivityLog businessId={businessId} onClose={() => setShowActivityLog(false)} />}
-
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/80 pb-2">
-        <div className="flex items-center gap-1 rounded-xl bg-slate-100 p-1" role="tablist" aria-label="Campaign status">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={campaignSection === 'active'}
-            onClick={() => setCampaignSection('active')}
-            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${campaignSection === 'active' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-          >
-            Active <span className="ml-1 text-[10px] text-slate-400">{currentCampaigns.length}</span>
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={campaignSection === 'auto'}
-            onClick={() => setCampaignSection('auto')}
-            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${campaignSection === 'auto' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-          >
-            Auto <span className="ml-1 text-[10px] text-slate-400">{autoLiveCount}</span>
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={campaignSection === 'archived'}
-            onClick={() => setCampaignSection('archived')}
-            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${campaignSection === 'archived' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-          >
-            Archived <span className="ml-1 text-[10px] text-slate-400">{archivedCampaigns.length}</span>
-          </button>
-        </div>
-        <ViewSwitcher view={view} onChange={setView} />
-      </div>
 
       {campaignSection === 'auto' && <AutoCampaignsPanel businessId={businessId} onChanged={refetch} />}
 

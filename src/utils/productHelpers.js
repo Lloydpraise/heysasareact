@@ -120,8 +120,10 @@ export function confidenceLabel(value) {
 
 // Colour for a text-only product tile, stable per category so groups look like groups.
 const TILE_TONES = [
-  ['#E8F6EC', '#1f8d3d'], ['#FFF1DD', '#B45F00'], ['#E7F0FB', '#2B5C9E'],
-  ['#F5E9F7', '#7B3E8C'], ['#FBEAEA', '#A34040'], ['#EEF2E3', '#5C6B2A'],
+  // light-dark() follows the html color-scheme, so tiles re-tone in dark mode.
+  ['light-dark(#E8F6EC, #12301f)', 'light-dark(#1f8d3d, #6fdc8c)'], ['light-dark(#FFF1DD, #35240d)', 'light-dark(#B45F00, #ffb454)'],
+  ['light-dark(#E7F0FB, #12233d)', 'light-dark(#2B5C9E, #8fbcf5)'], ['light-dark(#F5E9F7, #2a1a33)', 'light-dark(#7B3E8C, #d2a3e0)'],
+  ['light-dark(#FBEAEA, #351618)', 'light-dark(#A34040, #f29b9b)'], ['light-dark(#EEF2E3, #232a14)', 'light-dark(#5C6B2A, #bccf86)'],
 ];
 export function tileTone(key) {
   const text = String(key || 'none');
