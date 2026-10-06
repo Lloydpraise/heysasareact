@@ -53,7 +53,7 @@ export default function Health() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-4">
         <KpiTile
           tone={h.avg_reply_time_min != null && h.avg_reply_time_min <= 15 ? 'green' : 'amber'}
           label="Avg reply time"

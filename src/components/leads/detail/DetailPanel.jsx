@@ -31,6 +31,7 @@ export default function DetailPanel({
   onAddToCampaign,
   onRemoveFromCampaign,
   onViewFullSequence,
+  hideHeaderActions = false,
 }) {
   if (!lead) return null;
 
@@ -43,6 +44,7 @@ export default function DetailPanel({
         analysisState={analysisState}
         onMarkBought={onMarkBought}
         onEdit={onEdit}
+        hideActions={hideHeaderActions}
       />
 
       {lead.lead_type === 'business' && (
@@ -73,7 +75,7 @@ export default function DetailPanel({
       )}
 
       {lead.lead_type === 'personal' && (
-        <div className="mx-6 my-4 rounded-xl border border-slate-200 bg-white px-4 py-3 text-[12.5px] text-slate-500">
+        <div className="mx-4 md:mx-6 my-4 rounded-xl border border-slate-200 bg-white px-4 py-3 text-[12.5px] text-slate-500">
           This is a personal chat, not a customer conversation{' \u2014 '}no sales signals to show.
         </div>
       )}

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ArrowLeft, BriefcaseBusiness, CheckSquare, Download, LoaderCircle, MessageCircleMore, Plus, Search, RefreshCw, Sparkles, Trash2, User } from 'lucide-react';
+import { BriefcaseBusiness, CheckSquare, Download, LoaderCircle, MessageCircleMore, Plus, Search, RefreshCw, Sparkles, Trash2, User } from 'lucide-react';
 import { useLeads } from '../../hooks/useLeads';
 import { useLeadFilters } from '../../hooks/useLeadFilters';
+import { useIsMobile } from '../../hooks/useIsMobile';
 import { useToast } from '../../hooks/useToast';
 import { Toast } from '../preferences/shared/Toast';
 import NotificationStrip from '../shared/NotificationStrip';
@@ -25,6 +26,8 @@ import ChatDrawer from './drawers/ChatDrawer';
 import ApprovalDrawer from './drawers/ApprovalDrawer';
 import AddToListModal from './modals/AddToListModal';
 import AddToCampaignModal from './modals/AddToCampaignModal';
+import MobileLeadsList from './mobile/MobileLeadsList';
+import MobileLeadDetail from './mobile/MobileLeadDetail';
 
 // Which drawer (if any) is open. Only one at a time — matches the old
 // closeAllDrawers-before-open behavior from leads.js.
@@ -63,6 +66,7 @@ export default function LeadsPage() {
   const { user, activeBusinessId } = useAuth();
   const { loading: historyLoading, error: historyError, loadHistory } = useWhatsAppHistory(refetch);
   const { toast, showToast } = useToast();
+  const isMobile = useIsMobile();
   const {
     searchQuery, setSearchQuery,
     stateFilter, setStateFilter,
@@ -125,7 +129,8 @@ export default function LeadsPage() {
   };
 
   const closeLeadDetail = () => {
-    setActiveLeadId(null);
+    // On phones the lead stays selected until the slide-out animation finishes.
+    if (!isMobile) setActiveLeadId(null);
     setMobileDetailOpen(false);
   };
 
@@ -377,9 +382,194 @@ export default function LeadsPage() {
     }
   };
 
+  const connectionStrip = (isDisconnected || showHistoryPrompt) ? (
+    <>
+      <NotificationStrip action={isDisconnected ? <><MessageCircleMore className="mr-1.5 inline h-3.5 w-3.5" />Connect now</> : <><LoaderCircle className={`mr-1.5 inline h-3.5 w-3.5 ${historyLoading ? 'animate-spin' : ''}`} />{historyLoading ? 'Loading...' : 'Load History'}</>} onAction={isDisconnected ? () => setIsConnectionOpen(true) : loadHistory}><span>{isDisconnected ? 'No WhatsApp connected for this business.' : 'Load your chat history for the last 90 days to start seeing data here!'}</span></NotificationStrip>{historyError && <p className="mt-1 text-xs text-red-500">{historyError}</p>}
+    </>
+  ) : null;
+
+  const overlays = (
+    <>
+      {/* ── Drawers (only one open at a time) ─────────── */}
+      <FollowupsDrawer
+        lead={activeLead}
+        open={openDrawer === DRAWER.FOLLOWUPS}
+        onClose={closeDrawer}
+        onApprove={() => activeLead && approveDraft(activeLead.id)}
+        onSkip={() => activeLead && skipDraft(activeLead.id)}
+        onEdit={() => {} /* TODO: no backing service method yet */}
+        onRewrite={() => {} /* TODO: no backing service method yet */}
+        onSendConsent={() => setShowConsentModal(true)}
+        onAddToCampaign={() => setShowAddToCampaignModal(true)}
+        onRemoveFromCampaign={handleRemoveFromCampaign}
+      />
+
+      <ChatDrawer
+        lead={activeLead}
+        open={openDrawer === DRAWER.CHAT}
+        onClose={closeDrawer}
+        onSend={handleChatSend}
+        onMessagesRead={handleMessagesRead}
+      />
+
+      <ApprovalDrawer
+        leads={leads}
+        open={openDrawer === DRAWER.APPROVALS}
+        onClose={closeDrawer}
+        onApprove={approveDraft}
+        onSkip={skipDraft}
+        onSelectLead={jumpToLead}
+      />
+
+      <AddLeadModal
+        open={showAddLeadModal}
+        onClose={() => setShowAddLeadModal(false)}
+        onCreateLead={handleCreateLead}
+        onCreateBulkLeads={handleCreateBulkLeads}
+      />
+
+      <AddToListModal
+        open={showAddToListModal}
+        leads={leads.filter((lead) => selectedIds.has(lead.id))}
+        onClose={() => setShowAddToListModal(false)}
+        onConfirm={handleAddToList}
+      />
+
+      {activeLead && (
+        <AddToCampaignModal
+          lead={activeLead}
+          open={showAddToCampaignModal}
+          businessId={leadsService.getBusinessId()}
+          onClose={() => setShowAddToCampaignModal(false)}
+          onConfirm={handleAddToCampaign}
+        />
+      )}
+
+      {activeLead && (
+        <BoughtModal
+          lead={activeLead}
+          open={showBoughtModal}
+          onClose={() => setShowBoughtModal(false)}
+          onConfirm={handleMarkBought}
+        />
+      )}
+
+      {editingLead && (
+        <EditLeadModal
+          key={editingLead.id}
+          lead={editingLead}
+          open
+          onClose={() => setEditingLead(null)}
+          onSave={handleSaveLead}
+          onAnalyze={() => handleAnalyzeLead(editingLead.id)}
+          analysisState={analysisStates[editingLead.id]}
+        />
+      )}
+
+      {activeLead && (
+        <ConsentModal
+          lead={activeLead}
+          open={showConsentModal}
+          onClose={() => setShowConsentModal(false)}
+          onSend={handleSendConsent}
+        />
+      )}
+
+      <WhatsAppConnectionFlow
+        open={isConnectionOpen}
+        onClose={() => setIsConnectionOpen(false)}
+        onConnected={() => refetchBusiness()}
+      />
+
+      <Toast toast={toast} />
+    </>
+  );
+
+  const detailPanelProps = activeLead ? {
+    lead: activeLead,
+    onEdit: () => setEditingLead(activeLead),
+    onOpenChat: () => setOpenDrawer(DRAWER.CHAT),
+    onAnalyze: () => handleAnalyzeLead(activeLead.id),
+    analysisState: analysisStates[activeLead.id],
+    onMarkBought: () => setShowBoughtModal(true),
+    onApproveDraft: () => approveDraft(activeLead.id),
+    onSkipDraft: () => skipDraft(activeLead.id),
+    onEditDraft: () => {},
+    onRewriteDraft: () => {},
+    onSendConsent: () => setShowConsentModal(true),
+    onAddToCampaign: () => setShowAddToCampaignModal(true),
+    onRemoveFromCampaign: handleRemoveFromCampaign,
+    onViewFullSequence: () => setOpenDrawer(DRAWER.FOLLOWUPS),
+  } : null;
+
+  if (isMobile) {
+    return (
+      <div className="relative flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden bg-[#F7FBF9]">
+        <MobileLeadsList
+          leads={leads}
+          filteredLeads={filteredLeads}
+          stats={stats}
+          loading={loading}
+          error={error}
+          banner={connectionStrip}
+          searchQuery={searchQuery}
+          onSearch={setSearchQuery}
+          stateFilter={stateFilter}
+          typeFilter={typeFilter}
+          instanceFilter={instanceFilter}
+          onStateFilter={handleStateFilter}
+          onTypeFilter={handleTypeFilter}
+          onInstanceFilter={setInstanceFilter}
+          connectedInstances={connectedInstances}
+          onSelectLead={selectLead}
+          selectMode={selectMode}
+          selectedIds={selectedIds}
+          allVisibleSelected={allVisibleSelected}
+          onToggleSelect={toggleSelected}
+          onToggleSelectAll={toggleSelectAll}
+          onStartSelect={() => setSelectMode(true)}
+          onExitSelect={() => { setSelectMode(false); setSelectedIds(new Set()); }}
+          onAddLead={() => setShowAddLeadModal(true)}
+          onSync={handleGetChats}
+          syncing={gettingChats}
+          onAnalyzeAll={handleAnalyzeAll}
+          analysingAll={analysingAll}
+          canAnalyzeAll={!analysingAll && leads.some((lead) => lead.lead_type === 'business')}
+          onExport={handleExportLeads}
+          exporting={isExportingLeads}
+          onRefresh={refetch}
+          onOpenApprovals={() => setOpenDrawer(DRAWER.APPROVALS)}
+          onBulkMarkBusiness={handleBulkMarkBusiness}
+          onBulkAddToList={() => setShowAddToListModal(true)}
+          onBulkAnalyze={handleBulkAnalyze}
+          onBulkDelete={handleBulkDelete}
+          onEditLead={setEditingLead}
+          onMarkPersonal={handleMarkPersonal}
+          onDeleteLead={handleDeleteLead}
+        />
+
+        <MobileLeadDetail
+          open={mobileDetailOpen}
+          lead={activeLead}
+          onClose={closeLeadDetail}
+          onEdit={() => activeLead && setEditingLead(activeLead)}
+          onOpenChat={() => setOpenDrawer(DRAWER.CHAT)}
+          onAnalyze={() => activeLead && handleAnalyzeLead(activeLead.id)}
+          analysisState={activeLead ? analysisStates[activeLead.id] : undefined}
+          onMarkBought={() => setShowBoughtModal(true)}
+          onMarkPersonal={activeLead ? () => handleMarkPersonal(activeLead) : undefined}
+        >
+          {detailPanelProps && <DetailPanel {...detailPanelProps} hideHeaderActions />}
+        </MobileLeadDetail>
+
+        {overlays}
+      </div>
+    );
+  }
+
   return (
     <div className="relative flex h-full min-w-0 w-full flex-col overflow-hidden bg-[#F7FBF9] md:flex-row">
-      {(isDisconnected || showHistoryPrompt) && <div className="absolute left-0 right-0 top-0 z-20 px-3 pt-3 md:px-4"><NotificationStrip action={isDisconnected ? <><MessageCircleMore className="mr-1.5 inline h-3.5 w-3.5" />Connect now</> : <><LoaderCircle className={`mr-1.5 inline h-3.5 w-3.5 ${historyLoading ? 'animate-spin' : ''}`} />{historyLoading ? 'Loading...' : 'Load History'}</>} onAction={isDisconnected ? () => setIsConnectionOpen(true) : loadHistory}><span>{isDisconnected ? 'No WhatsApp connected for this business.' : 'Load your chat history for the last 90 days to start seeing data here!'}</span></NotificationStrip>{historyError && <p className="mt-1 text-xs text-red-500">{historyError}</p>}</div>}
+      {connectionStrip && <div className="absolute left-0 right-0 top-0 z-20 px-3 pt-3 md:px-4">{connectionStrip}</div>}
       {/* ── List panel ─────────────────────────────── */}
       <div className={`flex min-h-0 w-full shrink-0 flex-col overflow-hidden border-b border-slate-200 bg-white/70 backdrop-blur-xl ${isDisconnected || showHistoryPrompt ? 'pt-16' : ''} md:w-[340px] md:min-w-[280px] md:max-w-[340px] md:border-b-0 md:border-r ${mobileDetailOpen ? 'hidden md:flex' : 'flex'}`}>
         <div className="min-h-0 flex-1 overflow-y-auto px-0 pt-3 md:px-3.5 md:pt-4">
@@ -542,7 +732,7 @@ export default function LeadsPage() {
 
       {/* ── Detail panel ───────────────────────────── */}
       <div className={`min-h-0 min-w-0 flex-1 overflow-y-auto ${isDisconnected || showHistoryPrompt ? 'pt-16' : ''}`}>
-        <div className="hidden h-full md:block">
+        <div className="h-full">
           {activeLead ? (
             <DetailPanel
               lead={activeLead}
@@ -571,133 +761,10 @@ export default function LeadsPage() {
           )}
         </div>
 
-        {activeLead && (
-          <div className={`fixed inset-0 z-40 bg-[#F7FBF9] md:hidden ${mobileDetailOpen ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'} transition-all duration-200`}>
-            <div className="flex items-center gap-3 border-b border-slate-200 bg-white/80 px-4 py-3 backdrop-blur-sm">
-              <button
-                type="button"
-                onClick={closeLeadDetail}
-                className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100"
-                aria-label="Back to leads"
-              >
-                <ArrowLeft size={18} />
-              </button>
-              <span className="text-sm font-semibold text-slate-800">{activeLead.name}</span>
-            </div>
-            <div className="h-[calc(100%-57px)] overflow-y-auto">
-              <DetailPanel
-                lead={activeLead}
-                onEdit={() => setEditingLead(activeLead)}
-                onOpenChat={() => setOpenDrawer(DRAWER.CHAT)}
-                onAnalyze={() => handleAnalyzeLead(activeLead.id)}
-                analysisState={analysisStates[activeLead.id]}
-                onMarkBought={() => setShowBoughtModal(true)}
-                onApproveDraft={() => approveDraft(activeLead.id)}
-                onSkipDraft={() => skipDraft(activeLead.id)}
-                onEditDraft={() => {} /* TODO: no backing service method yet */}
-                onRewriteDraft={() => {} /* TODO: no backing service method yet */}
-                onSendConsent={() => setShowConsentModal(true)}
-                onAddToCampaign={() => setShowAddToCampaignModal(true)}
-                onRemoveFromCampaign={handleRemoveFromCampaign}
-                onViewFullSequence={() => setOpenDrawer(DRAWER.FOLLOWUPS)}
-              />
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* ── Drawers (only one open at a time) ─────────── */}
-      <FollowupsDrawer
-        lead={activeLead}
-        open={openDrawer === DRAWER.FOLLOWUPS}
-        onClose={closeDrawer}
-        onApprove={() => activeLead && approveDraft(activeLead.id)}
-        onSkip={() => activeLead && skipDraft(activeLead.id)}
-        onEdit={() => {} /* TODO: no backing service method yet */}
-        onRewrite={() => {} /* TODO: no backing service method yet */}
-        onSendConsent={() => setShowConsentModal(true)}
-        onAddToCampaign={() => setShowAddToCampaignModal(true)}
-        onRemoveFromCampaign={handleRemoveFromCampaign}
-      />
+      {overlays}
 
-      <ChatDrawer
-        lead={activeLead}
-        open={openDrawer === DRAWER.CHAT}
-        onClose={closeDrawer}
-        onSend={handleChatSend}
-        onMessagesRead={handleMessagesRead}
-      />
-
-      <ApprovalDrawer
-        leads={leads}
-        open={openDrawer === DRAWER.APPROVALS}
-        onClose={closeDrawer}
-        onApprove={approveDraft}
-        onSkip={skipDraft}
-        onSelectLead={jumpToLead}
-      />
-
-      <AddLeadModal
-        open={showAddLeadModal}
-        onClose={() => setShowAddLeadModal(false)}
-        onCreateLead={handleCreateLead}
-        onCreateBulkLeads={handleCreateBulkLeads}
-      />
-
-      <AddToListModal
-        open={showAddToListModal}
-        leads={leads.filter((lead) => selectedIds.has(lead.id))}
-        onClose={() => setShowAddToListModal(false)}
-        onConfirm={handleAddToList}
-      />
-
-      {activeLead && (
-        <AddToCampaignModal
-          lead={activeLead}
-          open={showAddToCampaignModal}
-          businessId={leadsService.getBusinessId()}
-          onClose={() => setShowAddToCampaignModal(false)}
-          onConfirm={handleAddToCampaign}
-        />
-      )}
-
-      {activeLead && (
-        <BoughtModal
-          lead={activeLead}
-          open={showBoughtModal}
-          onClose={() => setShowBoughtModal(false)}
-          onConfirm={handleMarkBought}
-        />
-      )}
-
-      {editingLead && (
-        <EditLeadModal
-          key={editingLead.id}
-          lead={editingLead}
-          open
-          onClose={() => setEditingLead(null)}
-          onSave={handleSaveLead}
-          onAnalyze={() => handleAnalyzeLead(editingLead.id)}
-          analysisState={analysisStates[editingLead.id]}
-        />
-      )}
-
-      {activeLead && (
-        <ConsentModal
-          lead={activeLead}
-          open={showConsentModal}
-          onClose={() => setShowConsentModal(false)}
-          onSend={handleSendConsent}
-        />
-      )}
-
-      <WhatsAppConnectionFlow
-        open={isConnectionOpen}
-        onClose={() => setIsConnectionOpen(false)}
-        onConnected={() => refetchBusiness()}
-      />
-
-      <Toast toast={toast} />
     </div>
   );
 }

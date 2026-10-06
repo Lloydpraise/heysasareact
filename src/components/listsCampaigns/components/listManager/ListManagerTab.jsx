@@ -8,6 +8,8 @@ import ListHeroCard from './ListHeroCard';
 import ListRow from './ListRow';
 import ListContactsModal from './ListContactsModal';
 import AnCard from '../../../analytics/shared/AnCard';
+import MobileListCard from './MobileListCard';
+import { useIsMobile } from '../../../../hooks/useIsMobile';
 
 const GROUPS = ['Active Auto-Lists', 'Manual Lists', 'Archived Lists'];
 
@@ -15,6 +17,7 @@ export default function ListManagerTab({ onLaunchCampaign, onEditRules, openCrea
   const { businessId, lists, setSelectedListId, refetchLists } = useListsCampaigns();
   const [activeGroup, setActiveGroup] = useState(GROUPS[0]);
   const [view, setView] = useState('list');
+  const isMobile = useIsMobile();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [contactsList, setContactsList] = useState(null);
 
@@ -46,9 +49,16 @@ export default function ListManagerTab({ onLaunchCampaign, onEditRules, openCrea
 
   return (
     <div className="flex min-w-0 flex-col space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/80 pb-2">
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-3">
-          <h2 className="text-[15px] font-semibold text-slate-900">Audience Lists</h2>
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/80 pb-2 max-md:border-0 max-md:pb-0">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-3 max-md:justify-between">
+          <h2 className="text-[15px] font-semibold text-slate-900 max-md:text-[22px] max-md:font-extrabold max-md:tracking-tight max-md:whitespace-nowrap">Audience Lists</h2>
+          <button
+            type="button"
+            onClick={() => setShowCreateModal(true)}
+            className="hidden h-11 flex-shrink-0 items-center rounded-full bg-[#28A745] px-5 text-[14px] font-bold text-white shadow-lg shadow-[#28A745]/25 max-md:flex"
+          >
+            + Add list
+          </button>
           <ListSelectorBar
             lists={availableLists}
             activeGroup={activeGroup}
@@ -63,19 +73,27 @@ export default function ListManagerTab({ onLaunchCampaign, onEditRules, openCrea
         <button
           type="button"
           onClick={() => setShowCreateModal(true)}
-          className="flex-shrink-0 rounded-lg bg-[#28A745] px-3 py-1.5 text-[12px] font-semibold text-white shadow-sm hover:bg-[#218838]"
+          className="flex-shrink-0 rounded-lg bg-[#28A745] px-3 py-1.5 text-[12px] font-semibold text-white shadow-sm hover:bg-[#218838] max-md:hidden"
         >
           + Add List
         </button>
       </div>
       <div>
-        <p className="text-[12.5px] text-slate-500">
+        <p className="text-[12.5px] text-slate-500 max-md:text-[13.5px]">
           Track lead movement from first ad click to post-purchase retention.
         </p>
       </div>
 
       {visibleLists.length === 0 ? (
-        <p className="text-[12px] text-slate-400">No lists in this group yet.</p>
+        <p className="text-[12px] text-slate-400 max-md:py-10 max-md:text-center max-md:text-[14px]">No lists in this group yet.</p>
+      ) : isMobile ? (
+        <div className="flex flex-col gap-2.5">
+          {visibleLists.map((list, index) => (
+            <div key={list.id} className="m-stagger" style={{ '--i': index }}>
+              <MobileListCard list={list} onSelect={handleSelectList} actionProps={{ onLaunchCampaign, onExportCsv: (id) => console.log('export', id), onEditRules }} />
+            </div>
+          ))}
+        </div>
       ) : view === 'list' ? (
         <>
           <AnCard className="overflow-hidden p-0">

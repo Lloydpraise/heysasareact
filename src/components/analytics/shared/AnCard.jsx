@@ -16,7 +16,7 @@ export default function AnCard({ children, onClick, cacheUpdatedAt, className = 
   return (
     <div
       onClick={onClick}
-      className={`rounded-[14px] border border-slate-200 bg-white p-5 ${
+      className={`rounded-[14px] border border-slate-200 bg-white p-5 max-md:p-4 ${
         clickable ? 'cursor-pointer transition-all hover:-translate-y-px hover:shadow-[0_4px_16px_rgba(0,0,0,0.06)]' : ''
       } ${className}`}
     >

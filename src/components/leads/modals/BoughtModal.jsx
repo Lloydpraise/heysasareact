@@ -57,10 +57,10 @@ export default function BoughtModal({ lead, open, onClose, onConfirm }) {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-start justify-center bg-slate-900/40 p-4 pt-10 backdrop-blur-[2px]" onClick={onClose}>
+    <div className="sheet-overlay fixed inset-0 z-[100] flex items-start justify-center bg-slate-900/40 p-4 pt-10 backdrop-blur-[2px]" onClick={onClose}>
       <div
         onClick={(e) => e.stopPropagation()}
-        className="relative flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+        className="sheet-panel relative flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
       >
         {celebrating && <Confetti />}
 

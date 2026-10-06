@@ -190,10 +190,10 @@ export default function CampaignActivityLog({ businessId, campaignId = null, onC
   }, [entries]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-3 sm:p-6" role="presentation" onMouseDown={(event) => {
+    <div className="sheet-overlay fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-3 sm:p-6" role="presentation" onMouseDown={(event) => {
       if (event.target === event.currentTarget) onClose?.();
     }}>
-      <div id="campaign-activity-log" className="flex max-h-[min(720px,calc(100vh-1.5rem))] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-white/80 bg-white shadow-2xl shadow-slate-900/20" role="dialog" aria-modal="true" aria-labelledby="campaign-activity-title">
+      <div id="campaign-activity-log" className="sheet-panel sheet-tall flex max-h-[min(720px,calc(100vh-1.5rem))] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-white/80 bg-white shadow-2xl shadow-slate-900/20" role="dialog" aria-modal="true" aria-labelledby="campaign-activity-title">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 sm:px-5">
           <div className="flex items-center gap-2">
             <div>

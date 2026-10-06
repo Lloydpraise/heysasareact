@@ -8,7 +8,7 @@ export default function NextActionCard({ lead, onAct }) {
   if (!lead.next_action_plan) return null;
 
   return (
-    <div className="mx-6 my-3 rounded-xl border border-[#28A745]/20 bg-gradient-to-br from-[#F7FBF9] to-white p-4">
+    <div className="mx-4 my-3 rounded-xl md:mx-6 border border-[#28A745]/20 bg-gradient-to-br from-[#F7FBF9] to-white p-4">
       <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-[#28A745]">
         <Sparkles size={12} /> Next best action
       </div>

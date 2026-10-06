@@ -26,7 +26,7 @@ export default function FollowupsDrawer({ lead, open, onClose, onApprove, onSkip
       />
 
       {fu && fu.status !== 'not_enrolled' && (
-        <div className="px-6 pb-6">
+        <div className="px-4 pb-6 md:px-6">
           <h3 className="mb-3 text-[12px] font-bold uppercase tracking-wide text-slate-400">All 11 steps</h3>
           <SequenceTimeline sentSteps={fu.sent_steps} currentStep={fu.current_step} />
         </div>

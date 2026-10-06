@@ -25,9 +25,9 @@ function Message({ msg, onFlag }) {
 
   return (
     <div className={`mb-3 flex ${isUser ? 'justify-end' : 'justify-start'}`}>
-      <div className={`max-w-[75%] ${isUser ? 'order-2' : ''}`}>
+      <div className={`max-w-[75%] max-md:max-w-[88%] ${isUser ? 'order-2' : ''}`}>
         <div
-          className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
+          className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed max-md:text-[15.5px] ${
             isUser ? 'rounded-br-sm bg-[#28A745] text-white' : 'rounded-bl-sm border border-slate-200/80 bg-white text-[#0F172A] shadow-sm'
           }`}
         >
@@ -87,14 +87,14 @@ export function LiveChatPlayground({ liveChat }) {
   };
 
   return (
-    <div className="relative flex h-full min-h-[32rem] min-w-0 flex-col overflow-hidden rounded-[1.25rem] border border-white/80 bg-white/70 shadow-lg shadow-[#28A745]/5 backdrop-blur-xl lg:min-h-0">
+    <div className="relative flex h-full min-h-[32rem] min-w-0 flex-col max-md:min-h-0 overflow-hidden rounded-[1.25rem] border border-white/80 bg-white/70 shadow-lg shadow-[#28A745]/5 backdrop-blur-xl lg:min-h-0">
       <div className="relative flex shrink-0 justify-end border-b border-slate-200/80 px-3 py-2">
         <button
           type="button"
           onClick={() => setMenuOpen((open) => !open)}
           aria-label="Open chat options"
           aria-expanded={menuOpen}
-          className={`flex h-8 w-8 items-center justify-center rounded-lg border text-[#64748B] transition hover:border-[#28A745]/40 hover:text-[#1f8d3d] ${menuOpen ? 'border-[#28A745]/40 bg-[#28A745]/10' : 'border-transparent hover:bg-slate-50'}`}
+          className={`flex h-8 w-8 items-center justify-center rounded-lg border text-[#64748B] max-md:h-11 max-md:w-11 max-md:rounded-full transition hover:border-[#28A745]/40 hover:text-[#1f8d3d] ${menuOpen ? 'border-[#28A745]/40 bg-[#28A745]/10' : 'border-transparent hover:bg-slate-50'}`}
         >
           <MoreVertical size={16} />
         </button>
@@ -144,7 +144,7 @@ export function LiveChatPlayground({ liveChat }) {
                     type="button"
                     onClick={() => runScript(scenario.messages)}
                     disabled={sending}
-                    className="rounded-full border border-slate-200/80 bg-white/80 px-2.5 py-1 text-xs text-[#64748B] hover:border-[#28A745]/40 hover:text-[#1f8d3d] disabled:opacity-40"
+                    className="rounded-full border border-slate-200/80 bg-white/80 px-2.5 py-1 text-xs max-md:px-3.5 max-md:py-2.5 max-md:text-[13.5px] text-[#64748B] hover:border-[#28A745]/40 hover:text-[#1f8d3d] disabled:opacity-40"
                   >
                     {scenario.label}
                   </button>
@@ -154,29 +154,29 @@ export function LiveChatPlayground({ liveChat }) {
           </div>
         )}
       </div>
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-4">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto overscroll-contain px-5 py-4 max-md:px-3">
         {messages.length === 0 && <p className="mx-auto mt-6 max-w-[16rem] text-center text-xs leading-5 text-[#94A3B8]">Send a message or run a scenario above — nothing here reaches a real customer.</p>}
         {messages.map((m, i) => (
           <Message key={i} msg={m} onFlag={setFlagTarget} />
         ))}
       </div>
 
-      <div className="relative flex min-w-0 items-center gap-2 border-t border-slate-200/80 px-4 py-3">
+      <div className="relative flex min-w-0 items-center gap-2 border-t border-slate-200/80 px-4 py-3 max-md:px-3">
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && submit()}
           placeholder="Type a test message…"
-          className="min-w-0 flex-1 rounded-full border border-slate-200/80 bg-white/80 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#28A745]/30"
+          className="min-w-0 flex-1 rounded-full border border-slate-200/80 bg-white/80 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#28A745]/30 max-md:h-12"
         />
-        <button onClick={submit} disabled={sending} className="shrink-0 rounded-full bg-[#28A745] p-2.5 text-white shadow-lg shadow-[#28A745]/20 hover:bg-[#1f8d3d] disabled:opacity-40">
+        <button onClick={submit} disabled={sending} className="shrink-0 rounded-full bg-[#28A745] p-2.5 text-white shadow-lg shadow-[#28A745]/20 hover:bg-[#1f8d3d] disabled:opacity-40 max-md:flex max-md:h-12 max-md:w-12 max-md:items-center justify-center max-md:p-0">
           <Send size={16} />
         </button>
       </div>
 
       {flagTarget && (
         <div className="absolute inset-0 flex items-center justify-center rounded-[1.25rem] bg-black/30">
-          <div className="w-80 rounded-2xl bg-white p-5 shadow-lg">
+          <div className="w-80 max-w-[calc(100%-2rem)] rounded-2xl bg-white p-5 shadow-lg">
             <p className="mb-2 text-sm font-medium text-[#0F172A]">What felt off about this reply?</p>
             <textarea
               autoFocus

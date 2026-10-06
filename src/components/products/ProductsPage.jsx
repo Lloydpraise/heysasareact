@@ -38,7 +38,7 @@ function Tab({ active, onClick, children, count, hot }) {
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition ${active ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+      className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm max-md:py-2.5 font-semibold transition ${active ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
     >
       {children}
       <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${hot && count > 0 ? 'bg-[#FF8C00] text-white' : 'bg-slate-200/80 text-slate-600'}`}>{count}</span>
@@ -51,7 +51,7 @@ function Chip({ active, onClick, children }) {
     <button
       type="button"
       onClick={onClick}
-      className={`shrink-0 whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold transition ${active ? 'bg-[#28A745] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+      className={`shrink-0 whitespace-nowrap rounded-full px-3 py-1 text-xs max-md:px-3.5 max-md:py-2 max-md:text-[13px] font-semibold transition ${active ? 'bg-[#28A745] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
     >
       {children}
     </button>
@@ -259,10 +259,10 @@ export default function ProductsPage() {
             <h1 className="text-xl font-bold text-slate-900">Products</h1>
             <p className="mt-0.5 text-sm text-slate-500">The AI only talks about products you approve here.</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 max-md:w-full max-md:justify-between">
             <div className="flex rounded-xl bg-slate-100 p-1" role="group" aria-label="Choose how products are shown">
-              <button type="button" onClick={() => setView('grid')} aria-pressed={view === 'grid'} aria-label="Photo grid" className={`flex h-8 w-8 items-center justify-center rounded-lg transition ${view === 'grid' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}><LayoutGrid className="h-4 w-4" /></button>
-              <button type="button" onClick={() => setView('list')} aria-pressed={view === 'list'} aria-label="List" className={`flex h-8 w-8 items-center justify-center rounded-lg transition ${view === 'list' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}><ListIcon className="h-4 w-4" /></button>
+              <button type="button" onClick={() => setView('grid')} aria-pressed={view === 'grid'} aria-label="Photo grid" className={`flex h-8 w-8 max-md:h-10 max-md:w-10 items-center justify-center rounded-lg transition ${view === 'grid' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}><LayoutGrid className="h-4 w-4" /></button>
+              <button type="button" onClick={() => setView('list')} aria-pressed={view === 'list'} aria-label="List" className={`flex h-8 w-8 max-md:h-10 max-md:w-10 items-center justify-center rounded-lg transition ${view === 'list' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}><ListIcon className="h-4 w-4" /></button>
             </div>
             {tab === 'discovered' && scanComplete && (
               <button type="button" onClick={scan} disabled={scanning} className="flex items-center gap-1.5 rounded-xl border border-[#28A745]/30 bg-white px-3 py-2 text-sm font-semibold text-[#1f8d3d] transition hover:bg-[#28A745]/5 disabled:opacity-60">
@@ -359,38 +359,38 @@ export default function ProductsPage() {
       </div>
 
       {selectedIds.length > 0 && (
-        <div className="absolute inset-x-3 bottom-3 z-20 mx-auto flex max-w-3xl flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white/95 px-3 py-2.5 shadow-2xl backdrop-blur md:bottom-4">
+        <div className="absolute inset-x-3 bottom-3 max-md:m-rise z-20 mx-auto flex max-w-3xl flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white/95 px-3 py-2.5 shadow-2xl backdrop-blur md:bottom-4">
           <span className="px-1 text-sm font-semibold text-slate-800">{selectedIds.length} selected</span>
           <div className="ml-auto flex flex-wrap items-center gap-1.5">
             {catPrompt ? (
               <form className="flex items-center gap-1.5" onSubmit={(e) => { e.preventDefault(); bulk.category(); }}>
                 <input autoFocus list="bulk-categories" className={`${inputClass} w-44 py-1.5`} value={catPrompt.value} onChange={(e) => setCatPrompt({ value: e.target.value })} placeholder="Category name" maxLength={40} aria-label="Category name" />
                 <datalist id="bulk-categories">{categories.map((c) => <option key={c.name} value={c.name} />)}</datalist>
-                <button type="submit" className="rounded-xl bg-[#28A745] px-3 py-1.5 text-xs font-semibold text-white">Apply</button>
-                <button type="button" onClick={() => setCatPrompt(null)} aria-label="Cancel" className="flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100"><X className="h-4 w-4" /></button>
+                <button type="submit" className="rounded-xl bg-[#28A745] px-3 py-1.5 text-xs max-md:py-2.5 max-md:text-[13px] font-semibold text-white">Apply</button>
+                <button type="button" onClick={() => setCatPrompt(null)} aria-label="Cancel" className="flex h-8 w-8 max-md:h-11 max-md:w-11 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100"><X className="h-4 w-4" /></button>
               </form>
             ) : (
               <>
                 {status === 'discovered' && (
                   <>
-                    <button type="button" onClick={bulk.approve} className="flex items-center gap-1.5 rounded-xl bg-[#28A745] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#23913d]"><Check className="h-3.5 w-3.5" /> Approve</button>
-                    <button type="button" onClick={bulk.dismiss} className="flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-red-50 hover:text-red-600"><X className="h-3.5 w-3.5" /> Dismiss</button>
+                    <button type="button" onClick={bulk.approve} className="flex items-center gap-1.5 rounded-xl bg-[#28A745] px-3 py-1.5 text-xs max-md:py-2.5 max-md:text-[13px] font-semibold text-white hover:bg-[#23913d]"><Check className="h-3.5 w-3.5" /> Approve</button>
+                    <button type="button" onClick={bulk.dismiss} className="flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-1.5 text-xs max-md:py-2.5 max-md:text-[13px] font-semibold text-slate-600 hover:bg-red-50 hover:text-red-600"><X className="h-3.5 w-3.5" /> Dismiss</button>
                   </>
                 )}
                 {status === 'approved' && (
                   <>
-                    <button type="button" onClick={() => bulk.ai(true)} className="flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"><Eye className="h-3.5 w-3.5 text-[#28A745]" /> AI on</button>
-                    <button type="button" onClick={() => bulk.ai(false)} className="flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"><EyeOff className="h-3.5 w-3.5" /> AI off</button>
+                    <button type="button" onClick={() => bulk.ai(true)} className="flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-1.5 text-xs max-md:py-2.5 max-md:text-[13px] font-semibold text-slate-700 hover:bg-slate-50"><Eye className="h-3.5 w-3.5 text-[#28A745]" /> AI on</button>
+                    <button type="button" onClick={() => bulk.ai(false)} className="flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-1.5 text-xs max-md:py-2.5 max-md:text-[13px] font-semibold text-slate-700 hover:bg-slate-50"><EyeOff className="h-3.5 w-3.5" /> AI off</button>
                   </>
                 )}
                 {status === 'dismissed' && (
-                  <button type="button" onClick={bulk.restore} className="flex items-center gap-1.5 rounded-xl bg-[#28A745] px-3 py-1.5 text-xs font-semibold text-white"><Undo2 className="h-3.5 w-3.5" /> Bring back</button>
+                  <button type="button" onClick={bulk.restore} className="flex items-center gap-1.5 rounded-xl bg-[#28A745] px-3 py-1.5 text-xs max-md:py-2.5 max-md:text-[13px] font-semibold text-white"><Undo2 className="h-3.5 w-3.5" /> Bring back</button>
                 )}
                 {status !== 'dismissed' && (
-                  <button type="button" onClick={() => setCatPrompt({ value: '' })} className="flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"><Tags className="h-3.5 w-3.5" /> Category</button>
+                  <button type="button" onClick={() => setCatPrompt({ value: '' })} className="flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-1.5 text-xs max-md:py-2.5 max-md:text-[13px] font-semibold text-slate-700 hover:bg-slate-50"><Tags className="h-3.5 w-3.5" /> Category</button>
                 )}
                 {status === 'approved' && (
-                  <button type="button" onClick={bulk.remove} aria-label="Delete selected" className="flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-red-50 hover:text-red-600"><Trash2 className="h-4 w-4" /></button>
+                  <button type="button" onClick={bulk.remove} aria-label="Delete selected" className="flex h-8 w-8 max-md:h-11 max-md:w-11 items-center justify-center rounded-xl text-slate-400 hover:bg-red-50 hover:text-red-600"><Trash2 className="h-4 w-4" /></button>
                 )}
                 <button type="button" onClick={() => setSelected(new Set())} className="rounded-xl px-2.5 py-1.5 text-xs font-semibold text-slate-500 hover:bg-slate-100">Clear</button>
               </>

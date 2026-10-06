@@ -1,6 +1,7 @@
 export const PLAYGROUND_SECTIONS = [
   { id: 'test', label: 'Test & Tune' },
   { id: 'replay', label: 'Replay' },
+  { id: 'skills', label: 'Skills & Flows' },
   { id: 'history', label: 'Version History' },
 ];
 

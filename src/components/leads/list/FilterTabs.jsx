@@ -16,7 +16,7 @@ const TYPES = [
 
 export default function FilterTabs({ stateFilter, onSetStateFilter, typeFilter, onSetTypeFilter }) {
   return (
-    <div className="flex items-stretch gap-1 overflow-x-auto pb-2 mb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <div className="flex snap-x items-stretch gap-1 overflow-x-auto pb-2 mb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden max-md:mb-0 max-md:scroll-px-4 max-md:gap-2 max-md:px-4 max-md:pb-3">
       {STATES.map((s) => (
         <FilterChip key={s.id} active={stateFilter === s.id && (s.id !== 'all' || typeFilter === 'all')} onClick={() => { onSetStateFilter(s.id); if (s.id === 'all') onSetTypeFilter('all'); }}>
           {s.label}
@@ -37,8 +37,8 @@ function FilterChip({ active, onClick, children }) {
     <button
       type="button"
       onClick={onClick}
-      className={`flex-shrink-0 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors ${
-        active ? 'bg-[#28A745] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+      className={`flex-shrink-0 snap-start whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-semibold transition-all duration-200 max-md:h-10 max-md:px-4 max-md:text-[14px] ${
+        active ? 'bg-[#28A745] text-white max-md:shadow-md max-md:shadow-[#28A745]/25' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
       }`}
     >
       {children}

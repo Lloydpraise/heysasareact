@@ -307,8 +307,8 @@ export function WhatsAppConnectionFlow({ open, onClose, onConnected }) {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/35 p-4 sm:p-6">
-      <div className="static w-full max-w-lg max-h-[calc(100vh-2rem)] overflow-y-auto rounded-[1.5rem] border border-white/80 bg-white/95 shadow-2xl shadow-slate-900/15 backdrop-blur-xl sm:max-h-[calc(100vh-3rem)]">
+    <div className="sheet-overlay fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/35 p-4 sm:p-6">
+      <div className="sheet-panel static w-full max-w-lg max-h-[calc(100vh-2rem)] overflow-y-auto rounded-[1.5rem] border border-white/80 bg-white/95 shadow-2xl shadow-slate-900/15 backdrop-blur-xl sm:max-h-[calc(100vh-3rem)]">
         <div className="flex items-center justify-between border-b border-slate-200/80 px-4 py-3 sm:px-5">
           <div><p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Evolution API</p><h3 className="mt-1 text-base font-semibold text-slate-800">Connect WhatsApp</h3></div>
           <button type="button" onClick={handleClose} className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:text-slate-800" aria-label="Close connection flow"><X className="h-4 w-4" /></button>

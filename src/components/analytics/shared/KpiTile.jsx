@@ -9,12 +9,12 @@ const TONE_DOT = {
   blue: 'bg-blue-500 shadow-[0_0_0_2px_rgba(59,130,246,0.18)]',
 };
 
-export default function KpiTile({ label, tone, value, sub, onClick, valueClassName = 'text-[32px]' }) {
+export default function KpiTile({ label, tone, value, sub, onClick, valueClassName = 'text-[32px] max-md:text-[26px]' }) {
   const clickable = typeof onClick === 'function';
   return (
     <div
       onClick={onClick}
-      className={`flex flex-col gap-1 rounded-[14px] border border-slate-200 bg-white px-5 py-4.5 ${
+      className={`flex flex-col gap-1 rounded-[14px] border border-slate-200 bg-white px-5 py-4.5 max-md:px-3.5 max-md:py-3.5 ${
         clickable ? 'cursor-pointer transition-all hover:-translate-y-px hover:shadow-[0_4px_16px_rgba(0,0,0,0.06)]' : ''
       }`}
     >

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import PlaygroundSidebar from './PlaygroundSidebar';
 import { TestSection } from './sections/TestSection';
 import { ReplaySection } from './sections/ReplaySection';
+import { SkillsFlowsSection } from './sections/SkillsFlowsSection';
 import { VersionHistorySection } from './sections/VersionHistorySection';
 import { Toast } from '../preferences/shared/Toast';
 import NotificationStrip from '../shared/NotificationStrip';
@@ -55,6 +56,8 @@ export default function PlaygroundPage({ businessId }) {
         return <TestSection businessId={businessId} personaPack={personaPack} liveChat={liveChat} showToast={showToast} isAuthenticated={Boolean(user)} />;
       case 'replay':
         return <ReplaySection businessId={businessId} liveChat={liveChat} />;
+      case 'skills':
+        return <SkillsFlowsSection key={businessId} businessId={businessId} showToast={showToast} />;
       case 'history':
         return (
           <VersionHistorySection

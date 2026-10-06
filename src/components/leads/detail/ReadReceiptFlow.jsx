@@ -15,7 +15,7 @@ export default function ReadReceiptFlow({ status }) {
   const currentIndex = ORDER[status] ?? 0;
 
   return (
-    <div className="flex items-center gap-1 px-6 py-2">
+    <div className="flex shrink-0 items-center gap-1 overflow-x-auto px-4 py-2 md:px-6">
       {STEPS.map((step, i) => {
         const reached = i <= currentIndex;
         const isCurrent = i === currentIndex;

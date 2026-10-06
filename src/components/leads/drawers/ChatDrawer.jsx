@@ -166,14 +166,14 @@ export default function ChatDrawer({ lead, open, onClose, onSend, onMessagesRead
               type="button"
               onClick={handleLoadPast}
               disabled={loadingPast}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-[11px] font-semibold text-slate-600 hover:border-[#28A745] hover:text-[#28A745] disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-[11px] font-semibold max-md:h-10 max-md:px-3.5 max-md:text-[13px] text-slate-600 hover:border-[#28A745] hover:text-[#28A745] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {loadingPast ? <LoaderCircle size={13} className="animate-spin" /> : <History size={13} />}
               {loadingPast ? 'Loading...' : 'Load past'}
             </button>
           </div>
         </div>
-        <div className="flex-1 overflow-y-auto px-5 py-4">
+        <div className="flex-1 overflow-y-auto overscroll-contain px-5 py-4 max-md:px-3 max-md:bg-[#F7FBF9]">
           {loading ? (
             <div className="flex h-full items-center justify-center gap-2 text-sm text-slate-400">
               <LoaderCircle size={16} className="animate-spin" /> Loading chat...
@@ -191,7 +191,7 @@ export default function ChatDrawer({ lead, open, onClose, onSend, onMessagesRead
               {transcript.map((msg) => (
                 <div key={msg.id} className={`flex ${msg.sender === 'business' ? 'justify-end' : 'justify-start'}`}>
                   <div
-                    className={`max-w-[75%] rounded-2xl px-3 py-2 text-[13px] leading-snug ${
+                    className={`max-w-[75%] rounded-2xl px-3 py-2 text-[13px] leading-snug max-md:max-w-[85%] max-md:px-3.5 max-md:py-2.5 max-md:text-[15.5px] m-pop-in ${
                       msg.sender === 'business'
                         ? 'rounded-br-sm bg-[#28A745] text-white'
                         : 'rounded-bl-sm bg-slate-100 text-slate-700'
@@ -225,7 +225,7 @@ export default function ChatDrawer({ lead, open, onClose, onSend, onMessagesRead
         </div>
 
         {error && <p className="flex-shrink-0 px-4 pt-2 text-xs text-red-500">{error}</p>}
-        <div className="flex-shrink-0 border-t border-slate-200 px-4 py-3">
+        <div className="flex-shrink-0 border-t border-slate-200 bg-white px-4 py-3 max-md:px-3 max-md:pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
           <div className="flex items-center gap-2">
             <input
               type="text"
@@ -234,13 +234,13 @@ export default function ChatDrawer({ lead, open, onClose, onSend, onMessagesRead
               onKeyDown={(e) => e.key === 'Enter' && handleSend()}
               placeholder={onSend ? 'Type a message...' : 'Sending not wired up yet'}
               disabled={!onSend}
-              className="flex-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-[13px] text-slate-700 placeholder:text-slate-400 focus:border-[#28A745] focus:bg-white focus:outline-none disabled:opacity-60"
+              className="flex-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-[13px] text-slate-700 placeholder:text-slate-400 focus:border-[#28A745] focus:bg-white focus:outline-none disabled:opacity-60 max-md:h-12 max-md:rounded-full max-md:px-4"
             />
             <button
               type="button"
               onClick={handleSend}
               disabled={!onSend || sending || !draft.trim()}
-              className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-[#28A745] text-white hover:bg-[#1e7a35] disabled:opacity-40"
+              className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-[#28A745] text-white hover:bg-[#1e7a35] disabled:opacity-40 max-md:h-12 max-md:w-12 max-md:rounded-full"
               aria-label="Send"
             >
               {sending ? <LoaderCircle size={15} className="animate-spin" /> : <Send size={15} />}

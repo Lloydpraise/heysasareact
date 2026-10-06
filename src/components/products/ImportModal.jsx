@@ -63,7 +63,7 @@ export default function ImportModal({ existing, currency, onClose, onImport }) {
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4">
       <div className="absolute inset-0 bg-slate-900/30 backdrop-blur-[2px]" onClick={() => !importing && onClose()} aria-hidden="true" />
-      <div role="dialog" aria-modal="true" aria-label="Import products" className="relative flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:max-w-xl sm:rounded-3xl">
+      <div role="dialog" aria-modal="true" aria-label="Import products" className="relative flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl max-sm:m-sheet-in max-sm:pb-[env(safe-area-inset-bottom)] sm:max-w-xl sm:rounded-3xl">
         <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
           <h2 className="text-base font-bold text-slate-900">Import products</h2>
           <button type="button" onClick={onClose} disabled={importing} aria-label="Close" className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100"><X className="h-4 w-4" /></button>

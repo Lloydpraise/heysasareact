@@ -42,8 +42,8 @@ export default function EditLeadModal({ lead, open, onClose, onSave, onAnalyze, 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-slate-900/35 p-4 pt-10 backdrop-blur-[2px]">
-      <form onSubmit={handleSubmit} className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl">
+    <div className="sheet-overlay fixed inset-0 z-50 flex items-start justify-center bg-slate-900/35 p-4 pt-10 backdrop-blur-[2px]">
+      <form onSubmit={handleSubmit} className="sheet-panel w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl">
         <div className="mb-5 flex items-start justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#28A745]">Lead details</p>

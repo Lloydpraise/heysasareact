@@ -38,7 +38,7 @@ export default function EngagementSignals({ lead }) {
   ].filter((f) => f.active);
 
   return (
-    <div className="flex flex-wrap items-stretch gap-2 px-6 py-3">
+    <div className="flex flex-wrap items-stretch gap-2 px-4 py-3 md:px-6">
       {tiles.map((t) => (
         <div
           key={t.key}

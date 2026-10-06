@@ -168,8 +168,8 @@ export function FollowupSection({ prefs, updatePref }) {
       )}
 
       {showDisableConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4" role="presentation">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="disable-followups-title">
+        <div className="sheet-overlay fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4" role="presentation">
+          <div className="sheet-panel w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="disable-followups-title">
             <h2 id="disable-followups-title" className="text-lg font-semibold text-slate-900">Turn off AI follow-ups?</h2>
             <p className="mt-3 text-sm leading-6 text-slate-600">Are you sure? Having HeySasa! follow up your clients automatically can lead to massive boosts in sales and time saved.</p>
             <div className="mt-6 flex justify-end gap-3">

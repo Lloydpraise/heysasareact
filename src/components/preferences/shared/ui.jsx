@@ -17,7 +17,7 @@ export const Toggle = ({ checked, onChange, label, description }) => (
     <button
       type="button"
       onClick={() => onChange(!checked)}
-      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors focus:outline-none ${
+      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors before:absolute before:-inset-2 before:content-[''] focus:outline-none ${
         checked ? 'bg-[#28A745]' : 'bg-slate-300'
       }`}
     >

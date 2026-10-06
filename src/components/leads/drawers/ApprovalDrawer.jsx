@@ -24,27 +24,27 @@ export default function ApprovalDrawer({ leads, open, onClose, onApprove, onSkip
           <p className="text-[11px] text-slate-300">Drafted follow-ups will queue up here.</p>
         </div>
       ) : (
-        <div className="flex flex-col gap-3 px-5 py-4">
+        <div className="flex flex-col gap-3 px-5 py-4 max-md:px-4">
           {pending.map((lead) => (
             <div key={lead.id} className="rounded-xl border border-[#FF8C00]/25 bg-[#FFF7ED] p-3.5">
               <div className="mb-1.5 flex items-center justify-between">
                 <button
                   type="button"
                   onClick={() => onSelectLead?.(lead.id)}
-                  className="flex items-center gap-1 text-[13px] font-bold text-slate-800 hover:text-[#28A745]"
+                  className="flex items-center gap-1 text-[13px] font-bold text-slate-800 hover:text-[#28A745] max-md:text-[15.5px]"
                 >
                   {lead.name}
                   <ArrowUpRight size={12} className="text-slate-400" />
                 </button>
                 <span className="text-[10.5px] font-semibold text-[#FF8C00]">Step {lead.followup.current_step}</span>
               </div>
-              <p className="text-[12.5px] leading-relaxed text-slate-700">{lead.followup.draft}</p>
+              <p className="text-[12.5px] leading-relaxed text-slate-700 max-md:text-[15px]">{lead.followup.draft}</p>
               <div className="mt-2.5 flex items-center gap-1.5">
                 {onApprove && (
                   <button
                     type="button"
                     onClick={() => onApprove(lead.id)}
-                    className="flex items-center gap-1 rounded-lg bg-[#28A745] px-2.5 py-1.5 text-[11.5px] font-semibold text-white hover:bg-[#1e7a35]"
+                    className="flex items-center gap-1 rounded-lg bg-[#28A745] px-2.5 py-1.5 text-[11.5px] font-semibold text-white hover:bg-[#1e7a35] max-md:px-5 max-md:py-3 max-md:text-[14px]"
                   >
                     <Check size={12} /> Approve
                   </button>
@@ -53,7 +53,7 @@ export default function ApprovalDrawer({ leads, open, onClose, onApprove, onSkip
                   <button
                     type="button"
                     onClick={() => onSkip(lead.id)}
-                    className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11.5px] font-semibold text-slate-400 hover:bg-white"
+                    className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11.5px] font-semibold text-slate-400 hover:bg-white max-md:px-4 max-md:py-3 max-md:text-[14px]"
                   >
                     <X size={12} /> Skip
                   </button>

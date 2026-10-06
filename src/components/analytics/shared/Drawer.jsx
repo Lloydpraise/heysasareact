@@ -1,11 +1,23 @@
 import { X } from 'lucide-react';
 import { useAnalyticsContext } from '../../../context/AnalyticsContext';
+import { useIsMobile } from '../../../hooks/useIsMobile';
+import BottomSheet from '../../mobile/BottomSheet';
 
 // Replaces analytics.js's #an-overlay/#an-drawer + openDrawer()/closeDrawer().
 // Reads drawer state straight from AnalyticsContext, so any section can open
 // it via `openDrawer(title, <content/>)` without prop-drilling a setter down.
+// On phones the same content shows as a swipe-to-dismiss bottom sheet.
 export default function Drawer() {
   const { drawer, closeDrawer } = useAnalyticsContext();
+  const isMobile = useIsMobile();
+
+  if (isMobile) {
+    return (
+      <BottomSheet open={Boolean(drawer.open && drawer.content)} onClose={closeDrawer} title={drawer.title || 'Details'}>
+        <div className="pb-2">{drawer.content}</div>
+      </BottomSheet>
+    );
+  }
 
   if (!drawer.open || !drawer.content) return null;
 

@@ -17,7 +17,7 @@ export default function ProfileDrawer({ lead, open, onClose, onOpenChat, onMarkB
     <Drawer open={open} onClose={onClose} title="Lead profile">
       <DetailHeader lead={lead} onOpenChat={onOpenChat} onMarkBought={onMarkBought} />
 
-      <div className="flex flex-col gap-4 px-6 py-4">
+      <div className="flex flex-col gap-4 px-4 py-4 md:px-6">
         {lead.customer_intent && (
           <div>
             <div className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">

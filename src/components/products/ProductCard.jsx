@@ -74,10 +74,10 @@ export default function ProductCard({ product, currency, selected, selectMode, o
             <p className="text-[11px] leading-tight text-slate-500">{evidenceLine(product)}</p>
             {confidence && <p className={`-mt-1 text-[11px] font-semibold leading-tight ${CONFIDENCE_TONE[confidence.tone]}`}>{confidence.text}</p>}
             <div className="mt-1 flex gap-2">
-              <button type="button" onClick={() => onApprove(product)} className="flex flex-1 items-center justify-center gap-1 rounded-xl bg-[#28A745] px-2 py-1.5 text-xs font-semibold text-white transition hover:bg-[#23913d] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#28A745] focus-visible:ring-offset-2">
+              <button type="button" onClick={() => onApprove(product)} className="flex flex-1 items-center justify-center gap-1 rounded-xl bg-[#28A745] px-2 py-1.5 text-xs max-md:py-2.5 font-semibold text-white transition hover:bg-[#23913d] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#28A745] focus-visible:ring-offset-2">
                 <Check className="h-3.5 w-3.5" /> Approve
               </button>
-              <button type="button" onClick={() => onDismiss(product)} aria-label={`Dismiss ${product.title}`} title="Not mine. Don't suggest it again." className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 text-slate-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-500">
+              <button type="button" onClick={() => onDismiss(product)} aria-label={`Dismiss ${product.title}`} title="Not mine. Don't suggest it again." className="flex h-8 w-8 max-md:h-10 max-md:w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-500">
                 <X className="h-4 w-4" />
               </button>
             </div>

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import AppShell from './components/layout/AppShell';
+import MobileShell from './components/mobile/MobileShell';
+import { useIsMobile } from './hooks/useIsMobile';
 import LeadsPage from './components/leads/LeadsPage';
 import ListsCampaignsPage from './components/listsCampaigns/ListsCampaignsPage';
 import PreferencesPage from './components/preferences/PreferencesPage';
@@ -14,27 +16,40 @@ import PricingPage from './components/landing/PricingPage';
 import PolicyPage from './components/policies/PolicyPage';
 import { useAuth } from './context/useAuth';
 
-// Everything below is the existing logged-in app, entirely unchanged —
-// only lifted out of App() so it can be mounted as one route instead of
-// being the only thing App() ever rendered.
+function tabFromPath(path) {
+  if (path.includes('/leads')) return 'leads';
+  if (path.includes('/lists-campaigns')) return 'lists-campaigns';
+  if (path.includes('/preferences')) return 'preferences';
+  if (path.includes('/playground')) return 'playground';
+  if (path.includes('/products')) return 'products';
+  return 'analytics';
+}
+
+// The existing logged-in app, lifted out of App() so it can be mounted as one
+// route. Phones get MobileShell (top bar + bottom tabs); everything else keeps
+// the original AppShell.
 function AuthenticatedApp() {
   const { activeBusinessId } = useAuth();
+  const isMobile = useIsMobile();
   const [preferencesSection, setPreferencesSection] = useState('followup');
-  const [activeTab, setActiveTab] = useState(() => {
-    const path = window.location.pathname;
-    if (path.includes('/leads')) return 'leads';
-    if (path.includes('/lists-campaigns')) return 'lists-campaigns';
-    if (path.includes('/preferences')) return 'preferences';
-    if (path.includes('/playground')) return 'playground';
-    if (path.includes('/products')) return 'products';
-    return 'analytics';
-  });
+  // On phones Preferences opens as a section list; this flag skips the list when
+  // another screen deep-links straight into one section (e.g. Business settings).
+  const [preferencesDirect, setPreferencesDirect] = useState(false);
+  const [activeTab, setActiveTab] = useState(() => tabFromPath(window.location.pathname));
 
   // Update URL when active tab changes
   const handleTabChange = (tab) => {
     setActiveTab(tab);
-    window.history.pushState(null, '', `/${tab}`);
+    setPreferencesDirect(false);
+    if (window.location.pathname !== `/${tab}`) window.history.pushState(null, '', `/${tab}`);
   };
+
+  // Browser/phone Back button: keep the visible tab in step with the URL.
+  useEffect(() => {
+    const syncTab = () => setActiveTab(tabFromPath(window.location.pathname));
+    window.addEventListener('popstate', syncTab);
+    return () => window.removeEventListener('popstate', syncTab);
+  }, []);
 
   const renderMainContent = () => {
     switch (activeTab) {
@@ -45,7 +60,7 @@ function AuthenticatedApp() {
       case 'analytics':
         return <AnalyticsPage />;
       case 'preferences':
-        return <PreferencesPage key={preferencesSection} initialSection={preferencesSection} />;
+        return <PreferencesPage key={`${preferencesSection}-${preferencesDirect}`} initialSection={preferencesSection} startInSection={preferencesDirect} />;
       case 'playground':
         return <PlaygroundPage businessId={activeBusinessId} />;
       case 'products':
@@ -57,6 +72,7 @@ function AuthenticatedApp() {
 
   const openBusinessSettings = () => {
     setPreferencesSection('business');
+    setPreferencesDirect(true);
     setActiveTab('preferences');
     window.history.pushState(null, '', '/preferences');
   };
@@ -65,6 +81,7 @@ function AuthenticatedApp() {
     const handleOpenPreferences = (event) => {
       const section = event.detail?.section || 'followup';
       setPreferencesSection(section);
+      setPreferencesDirect(true);
       setActiveTab('preferences');
       window.history.pushState(null, '', '/preferences');
     };
@@ -73,7 +90,8 @@ function AuthenticatedApp() {
     return () => window.removeEventListener('heysasa:open-preferences', handleOpenPreferences);
   }, []);
 
-  return <AppShell activeTab={activeTab} setActiveTab={handleTabChange} onBusinessClick={openBusinessSettings}>{renderMainContent()}</AppShell>;
+  const Shell = isMobile ? MobileShell : AppShell;
+  return <Shell activeTab={activeTab} setActiveTab={handleTabChange} onBusinessClick={openBusinessSettings}>{renderMainContent()}</Shell>;
 }
 
 // CHANGED: heysasa.co.ke's root used to always render either LoginPage

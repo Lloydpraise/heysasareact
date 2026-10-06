@@ -1,5 +1,6 @@
 @import 'tailwindcss';
 @import './styles/dark.css';
+@import './styles/mobile.css';
 
 :root {
   color-scheme: light;
@@ -43,6 +44,7 @@ html, body, #root {
 
 body {
   min-height: 100vh;
+  min-height: 100dvh;
   margin: 0;
 }
 

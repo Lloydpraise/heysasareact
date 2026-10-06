@@ -13,7 +13,7 @@ import whatsappIcon from '../../../assets/images/whatsappicon.svg';
 //   onMarkBought — () => void, opens the "mark as bought" flow (modal/form
 //                  lives in LeadsPage or a future BoughtModal — this button
 //                  just triggers it)
-export default function DetailHeader({ lead, onOpenChat, onAnalyze, analysisState, onMarkBought, onEdit }) {
+export default function DetailHeader({ lead, onOpenChat, onAnalyze, analysisState, onMarkBought, onEdit, hideActions = false }) {
   const state = stateConfig(lead.lead_state);
   const quality = qualityLabel(lead.lead_quality);
   const displayName = getLeadDisplayName(lead.name, lead.phone);
@@ -48,7 +48,7 @@ export default function DetailHeader({ lead, onOpenChat, onAnalyze, analysisStat
               title={onEdit ? 'Edit lead details' : undefined}
             >
               <div className="flex min-w-0 flex-nowrap items-center gap-1.5 overflow-hidden">
-              <h2 className="truncate text-[17px] font-bold leading-tight text-slate-900">{displayName}</h2>
+              <h2 className="truncate text-[17px] font-bold leading-tight text-slate-900 max-md:text-[19px]">{displayName}</h2>
               <span className={`flex shrink-0 items-center gap-1 whitespace-nowrap text-[11px] font-semibold ${state.textClass}`}>
                 <span className={`h-1.5 w-1.5 rounded-full ${state.dotClass}`} />
                 {state.label}
@@ -79,60 +79,62 @@ export default function DetailHeader({ lead, onOpenChat, onAnalyze, analysisStat
           </div>
         </div>
 
-        <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:items-center md:gap-1.5">
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={onAnalyze}
-              disabled={!onAnalyze || analysisState === 'analysing'}
-              className={`flex h-8 w-8 items-center justify-center rounded-lg transition ${analysisState === 'completed' ? 'text-[#28A745]' : 'text-slate-400 hover:bg-slate-100 hover:text-[#28A745]'} disabled:cursor-not-allowed`}
-              aria-label={analysisState === 'completed' ? 'Analysis complete' : 'Analyse contact'}
-              title={analysisState === 'completed' ? 'Analysis complete' : 'Analyse contact'}
-            >
-              {analysisState === 'analysing' ? <LoaderCircle size={16} className="animate-spin" /> : analysisState === 'completed' ? <Check size={16} strokeWidth={2.5} /> : <Sparkles size={16} />}
-            </button>
-            <button
-              type="button"
-              onClick={onOpenChat}
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-[#28A745]"
-              aria-label="Open chat"
-              title="Open chat"
-            >
-              <img src={whatsappIcon} alt="Chat" className="h-4 w-4 opacity-50" />
-            </button>
-            {telLink && (
-              <a
-                href={telLink}
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-[#28A745]"
-                aria-label="Call"
-                title="Call"
+        {!hideActions && (
+          <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:items-center md:gap-1.5">
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={onAnalyze}
+                disabled={!onAnalyze || analysisState === 'analysing'}
+                className={`flex h-8 w-8 items-center justify-center rounded-lg transition ${analysisState === 'completed' ? 'text-[#28A745]' : 'text-slate-400 hover:bg-slate-100 hover:text-[#28A745]'} disabled:cursor-not-allowed`}
+                aria-label={analysisState === 'completed' ? 'Analysis complete' : 'Analyse contact'}
+                title={analysisState === 'completed' ? 'Analysis complete' : 'Analyse contact'}
               >
-                <Phone size={16} />
-              </a>
-            )}
-            {waLink && (
-              <a
-                href={waLink}
-                target="_blank"
-                rel="noreferrer"
+                {analysisState === 'analysing' ? <LoaderCircle size={16} className="animate-spin" /> : analysisState === 'completed' ? <Check size={16} strokeWidth={2.5} /> : <Sparkles size={16} />}
+              </button>
+              <button
+                type="button"
+                onClick={onOpenChat}
                 className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-[#28A745]"
-                aria-label="Open in WhatsApp"
-                title="Open in WhatsApp"
+                aria-label="Open chat"
+                title="Open chat"
               >
-                <ExternalLink size={16} />
-              </a>
+                <img src={whatsappIcon} alt="Chat" className="h-4 w-4 opacity-50" />
+              </button>
+              {telLink && (
+                <a
+                  href={telLink}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-[#28A745]"
+                  aria-label="Call"
+                  title="Call"
+                >
+                  <Phone size={16} />
+                </a>
+              )}
+              {waLink && (
+                <a
+                  href={waLink}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-[#28A745]"
+                  aria-label="Open in WhatsApp"
+                  title="Open in WhatsApp"
+                >
+                  <ExternalLink size={16} />
+                </a>
+              )}
+            </div>
+            {canMarkBought && (
+              <button
+                type="button"
+                onClick={onMarkBought}
+                className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-[#28A745] px-3 py-2 text-[12px] font-semibold text-white hover:bg-[#1e7a35] md:w-auto"
+              >
+                <ShoppingBag size={13} /> Mark as bought
+              </button>
             )}
           </div>
-          {canMarkBought && (
-            <button
-              type="button"
-              onClick={onMarkBought}
-              className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-[#28A745] px-3 py-2 text-[12px] font-semibold text-white hover:bg-[#1e7a35] md:w-auto"
-            >
-              <ShoppingBag size={13} /> Mark as bought
-            </button>
-          )}
-        </div>
+        )}
       </div>
 
       {isWon && lead.product_sold && (
@@ -149,7 +151,7 @@ export default function DetailHeader({ lead, onOpenChat, onAnalyze, analysisStat
       )}
 
       {lead.context_summary && (
-        <p className="mt-3 text-[13px] leading-relaxed text-slate-600">{lead.context_summary}</p>
+        <p className="mt-3 text-[13px] leading-relaxed text-slate-600 max-md:text-[15px]">{lead.context_summary}</p>
       )}
     </div>
   );

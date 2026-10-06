@@ -20,7 +20,7 @@ export default function PhaseBar({ currentStep }) {
   const currentPhaseIndex = PHASES.indexOf(currentPhase);
 
   return (
-    <div className="flex items-center gap-1 px-6 pt-3">
+    <div className="flex items-center gap-1 px-4 md:px-6 pt-3">
       {PHASES.map((phase, i) => {
         const config = KLT_CONFIG[phase];
         const reached = i <= currentPhaseIndex;

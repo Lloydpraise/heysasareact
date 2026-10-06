@@ -12,7 +12,7 @@ export default function ConversationSignals({ objections = [], competitors = [],
   if (objections.length === 0 && competitors.length === 0 && questions.length === 0) return null;
 
   return (
-    <div className="flex flex-col gap-3 px-6 py-3">
+    <div className="flex flex-col gap-3 px-4 py-3 md:px-6">
       {objections.length > 0 && (
         <div>
           <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">

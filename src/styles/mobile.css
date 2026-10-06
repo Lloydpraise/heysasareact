@@ -1,0 +1,123 @@
+/*
+ * HeySasa mobile layer
+ * ---------------------------------------------------------------------------
+ * Everything here is either (a) an animation helper used by the mobile
+ * components, or (b) scoped to phones with @media (max-width: 767px), so the
+ * desktop experience is untouched.
+ */
+
+/* ------------------------------ animations ------------------------------ */
+@keyframes m-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes m-fade-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes m-sheet-in { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@keyframes m-sheet-out { from { transform: translateY(0); } to { transform: translateY(100%); } }
+@keyframes m-slide-in-right { from { transform: translateX(100%); } to { transform: translateX(0); } }
+@keyframes m-slide-out-right { from { transform: translateX(0); } to { transform: translateX(100%); } }
+@keyframes m-page-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes m-pop-in { from { opacity: 0; transform: scale(0.94) translateY(6px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+@keyframes m-rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+
+/* `backwards` (not `both`) on entrances: once finished, the element carries no
+   transform, so drag gestures and fixed-position children behave normally. */
+.m-fade-in { animation: m-fade-in 220ms ease-out backwards; }
+.m-fade-out { animation: m-fade-out 220ms ease-in forwards; }
+.m-sheet-in { animation: m-sheet-in 340ms cubic-bezier(0.32, 0.72, 0, 1) backwards; }
+.m-sheet-out { animation: m-sheet-out 230ms cubic-bezier(0.4, 0, 1, 1) forwards; }
+.m-slide-in { animation: m-slide-in-right 320ms cubic-bezier(0.32, 0.72, 0, 1) backwards; }
+.m-slide-out { animation: m-slide-out-right 230ms cubic-bezier(0.4, 0, 1, 1) forwards; }
+.m-page-in { animation: m-page-in 260ms cubic-bezier(0.22, 1, 0.36, 1) backwards; }
+.m-pop-in { animation: m-pop-in 200ms cubic-bezier(0.22, 1, 0.36, 1) backwards; }
+.m-rise { animation: m-rise 320ms cubic-bezier(0.22, 1, 0.36, 1) backwards; }
+
+/* Stagger helper for lists: style={{ '--i': index }} */
+.m-stagger { animation: m-rise 320ms cubic-bezier(0.22, 1, 0.36, 1) backwards; animation-delay: calc(min(var(--i, 0), 10) * 28ms); }
+
+/* ------------------------- phone-only adjustments ------------------------ */
+@media (max-width: 767px) {
+  html, body {
+    overscroll-behavior-y: none;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  * { -webkit-tap-highlight-color: transparent; }
+
+  /* iOS Safari zooms the page when a focused field is under 16px. */
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+
+  /* Comfortable touch height for form fields (≈44px minimum tap target). */
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not([type='hidden']),
+  select {
+    min-height: 44px;
+  }
+  textarea { min-height: 88px; }
+
+  /* Buttons inside converted sheets: finger-sized. */
+  .sheet-panel button:not([aria-label^='Close']) { min-height: 44px; }
+
+  /* Tactile press feedback instead of hover (hover never fires on touch). */
+  button:not(:disabled),
+  [role='button'],
+  a[href] {
+    transition-property: transform, background-color, color, border-color, box-shadow, opacity;
+    transition-duration: 140ms;
+    touch-action: manipulation;
+  }
+  button:not(:disabled):active,
+  [role='button']:active {
+    transform: scale(0.97);
+  }
+  /* Controls that must not shrink when pressed (full-width bars, list rows). */
+  .m-no-press:active { transform: none !important; }
+
+  /* Smoother momentum scrolling, no scroll chaining into the page behind. */
+  .m-scroll { overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+
+  /* ---- Modal / popup conversion: centered dialogs become bottom sheets ----
+     Add `sheet-overlay` to the fixed backdrop and `sheet-panel` to the dialog
+     box. Desktop is untouched because all of this lives in the media query. */
+  .sheet-overlay {
+    align-items: flex-end !important;
+    justify-content: center !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    animation: m-fade-in 220ms ease-out backwards;
+  }
+  .sheet-panel {
+    width: 100% !important;
+    max-width: none !important;
+    max-height: 92dvh !important;
+    margin: 0 !important;
+    border-radius: 1.75rem 1.75rem 0 0 !important;
+    border-bottom-width: 0 !important;
+    padding-bottom: env(safe-area-inset-bottom);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    animation: m-sheet-in 340ms cubic-bezier(0.32, 0.72, 0, 1) backwards;
+  }
+  /* A little grab-handle so it reads as a sheet. */
+  .sheet-panel::before {
+    content: '';
+    display: block;
+    width: 2.5rem;
+    height: 0.375rem;
+    margin: 0.625rem auto 0;
+    border-radius: 9999px;
+    background: var(--color-slate-300);
+  }
+  /* Full-height variant for long forms (campaign builders, import flows). */
+  .sheet-panel.sheet-tall { height: 92dvh; }
+}
+
+/* ------------------------------ reduced motion --------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .m-fade-in, .m-fade-out, .m-sheet-in, .m-sheet-out, .m-slide-in, .m-slide-out,
+  .m-page-in, .m-pop-in, .m-rise, .m-stagger, .sheet-overlay, .sheet-panel {
+    animation-duration: 1ms !important;
+    animation-delay: 0ms !important;
+  }
+  button:not(:disabled):active, [role='button']:active { transform: none !important; }
+}

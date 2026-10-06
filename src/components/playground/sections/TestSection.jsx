@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { Bot, MessageSquare } from 'lucide-react';
+import { useIsMobile } from '../../../hooks/useIsMobile';
 import { PersonaPackEditor } from '../PersonaPackEditor';
 import { LiveChatPlayground } from '../LiveChatPlayground';
 
@@ -39,9 +41,42 @@ function PersonaPackScaffold() {
 }
 
 export function TestSection({ businessId, personaPack, liveChat, showToast, isAuthenticated }) {
+  const isMobile = useIsMobile();
+  const [pane, setPane] = useState('chat');
+
+  const persona = personaPack.pack
+    ? <PersonaPackEditor businessId={businessId} personaPack={personaPack} showToast={showToast} isAuthenticated={isAuthenticated} />
+    : <PersonaPackScaffold />;
+
+  // Phones: one pane at a time with a segmented switch, instead of squeezing the
+  // persona editor and the test chat into the same small screen.
+  if (isMobile) {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col gap-3">
+        <div className="grid shrink-0 grid-cols-2 gap-1 rounded-2xl bg-slate-100 p-1" role="tablist" aria-label="Playground view">
+          {[['chat', 'Test chat', MessageSquare], ['persona', 'AI persona', Bot]].map(([id, label, Icon]) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              aria-selected={pane === id}
+              onClick={() => setPane(id)}
+              className={`flex h-11 items-center justify-center gap-2 rounded-xl text-[14px] font-semibold transition-all duration-200 ${pane === id ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}
+            >
+              <Icon size={16} /> {label}
+            </button>
+          ))}
+        </div>
+        <div key={pane} className="m-page-in min-h-0 flex-1">
+          {pane === 'chat' ? <LiveChatPlayground liveChat={liveChat} /> : persona}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="grid min-h-0 flex-1 grid-cols-1 items-stretch gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(18rem,1fr)]">
-      {personaPack.pack ? <PersonaPackEditor businessId={businessId} personaPack={personaPack} showToast={showToast} isAuthenticated={isAuthenticated} /> : <PersonaPackScaffold />}
+      {persona}
       <LiveChatPlayground liveChat={liveChat} />
     </div>
   );

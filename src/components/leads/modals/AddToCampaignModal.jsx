@@ -42,8 +42,8 @@ export default function AddToCampaignModal({ lead, open, onClose, onConfirm, bus
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-start justify-center bg-slate-900/40 p-4 pt-10 backdrop-blur-[2px]" onClick={onClose}>
-      <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl" onClick={(event) => event.stopPropagation()}>
+    <div className="sheet-overlay fixed inset-0 z-[100] flex items-start justify-center bg-slate-900/40 p-4 pt-10 backdrop-blur-[2px]" onClick={onClose}>
+      <div className="sheet-panel w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl" onClick={(event) => event.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
           <div className="flex items-center gap-2.5">
             {selectedCampaign && (

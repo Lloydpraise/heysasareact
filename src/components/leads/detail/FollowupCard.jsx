@@ -10,7 +10,7 @@ export default function FollowupCard({ lead, onApprove, onSkip, onEdit, onRewrit
   if (lead.campaignEnrollment) {
     const enrollment = lead.campaignEnrollment;
     return (
-      <div className="mx-6 mb-4 mt-1 rounded-xl border border-[#28A745]/20 bg-[#F7FBF9] px-4 py-3.5">
+      <div className="mx-4 md:mx-6 mb-4 mt-1 rounded-xl border border-[#28A745]/20 bg-[#F7FBF9] px-4 py-3.5">
         <div className="flex items-start gap-2">
           <CheckCircle2 size={15} className="mt-0.5 flex-shrink-0 text-[#28A745]" />
           <div className="min-w-0 flex-1">
@@ -29,7 +29,7 @@ export default function FollowupCard({ lead, onApprove, onSkip, onEdit, onRewrit
   }
 
   const headerRow = (
-    <div className="flex items-center justify-between px-6 pt-4">
+    <div className="flex items-center justify-between px-4 md:px-6 pt-4">
       <h3 className="text-[13px] font-bold text-slate-800">Follow-up sequence</h3>
       {fu.status === "opted_in" && onViewFullSequence && (
         <button
@@ -45,7 +45,7 @@ export default function FollowupCard({ lead, onApprove, onSkip, onEdit, onRewrit
 
   if (fu.status === "not_enrolled") {
     return (
-      <div className="mx-6 mb-4 mt-1 rounded-xl border border-dashed border-slate-300 bg-white px-4 py-3.5">
+      <div className="mx-4 md:mx-6 mb-4 mt-1 rounded-xl border border-dashed border-slate-300 bg-white px-4 py-3.5">
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="text-[12.5px] font-semibold text-slate-600">Not enrolled in follow-up sequence</p>
@@ -62,7 +62,7 @@ export default function FollowupCard({ lead, onApprove, onSkip, onEdit, onRewrit
 
   if (fu.status === "opted_out") {
     return (
-      <div className="mx-6 mb-4 mt-1 flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-[12.5px] text-slate-400">
+      <div className="mx-4 md:mx-6 mb-4 mt-1 flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-[12.5px] text-slate-400">
         <MessageCircleOff size={15} />
         Opted out of the follow-up sequence at step {fu.current_step}.
       </div>
@@ -71,7 +71,7 @@ export default function FollowupCard({ lead, onApprove, onSkip, onEdit, onRewrit
 
   if (fu.status === "consent_sent") {
     return (
-      <div className="mx-6 mb-4 mt-1 flex items-center gap-2 rounded-xl border border-[#FF8C00]/20 bg-[#FFF7ED] px-4 py-3.5 text-[12.5px] text-slate-600">
+      <div className="mx-4 md:mx-6 mb-4 mt-1 flex items-center gap-2 rounded-xl border border-[#FF8C00]/20 bg-[#FFF7ED] px-4 py-3.5 text-[12.5px] text-slate-600">
         <Clock size={15} className="text-[#FF8C00]" />
         Consent message sent — the default 11-step sequence will begin when they opt in.
       </div>
@@ -80,7 +80,7 @@ export default function FollowupCard({ lead, onApprove, onSkip, onEdit, onRewrit
 
   if (fu.status === "completed") {
     return (
-      <div className="mx-6 mb-4 mt-1 flex items-center gap-2 rounded-xl border border-[#28A745]/20 bg-[#F7FBF9] px-4 py-3.5 text-[12.5px] font-medium text-[#28A745]">
+      <div className="mx-4 md:mx-6 mb-4 mt-1 flex items-center gap-2 rounded-xl border border-[#28A745]/20 bg-[#F7FBF9] px-4 py-3.5 text-[12.5px] font-medium text-[#28A745]">
         <CheckCircle2 size={15} />
         Sequence complete — all 11 steps sent.
       </div>
@@ -90,22 +90,22 @@ export default function FollowupCard({ lead, onApprove, onSkip, onEdit, onRewrit
   const overdue = fu.next_due && new Date(fu.next_due) < new Date();
 
   return (
-    <div className="mx-6 mb-4 mt-1 rounded-xl border border-slate-200 bg-white pb-4">
+    <div className="mx-4 md:mx-6 mb-4 mt-1 rounded-xl border border-slate-200 bg-white pb-4">
       {headerRow}
       <PhaseBar currentStep={fu.current_step} />
 
       {fu.pending_approval && fu.draft ? (
-        <div className="mx-6 mt-3 rounded-lg border border-[#FF8C00]/25 bg-[#FFF7ED] p-3">
+        <div className="mx-4 md:mx-6 mt-3 rounded-lg border border-[#FF8C00]/25 bg-[#FFF7ED] p-3">
           <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-[#FF8C00]">
             <Inbox size={12} /> Step {fu.current_step} draft — needs review
           </div>
-          <p className="text-[13px] leading-relaxed text-slate-700">{fu.draft}</p>
+          <p className="text-[13px] leading-relaxed text-slate-700 max-md:text-[15px]">{fu.draft}</p>
           <div className="mt-3 flex flex-wrap items-center gap-1.5">
             {onApprove && (
               <button
                 type="button"
                 onClick={onApprove}
-                className="flex items-center gap-1 rounded-lg bg-[#28A745] px-2.5 py-1.5 text-[11.5px] font-semibold text-white hover:bg-[#1e7a35]"
+                className="flex items-center gap-1 rounded-lg bg-[#28A745] px-2.5 py-1.5 text-[11.5px] max-md:px-4 max-md:py-2.5 max-md:text-[14px] font-semibold text-white hover:bg-[#1e7a35]"
               >
                 <Check size={12} /> Approve & send
               </button>
@@ -114,7 +114,7 @@ export default function FollowupCard({ lead, onApprove, onSkip, onEdit, onRewrit
               <button
                 type="button"
                 onClick={onEdit}
-                className="flex items-center gap-1 rounded-lg bg-white px-2.5 py-1.5 text-[11.5px] font-semibold text-slate-600 ring-1 ring-inset ring-slate-200 hover:bg-slate-50"
+                className="flex items-center gap-1 rounded-lg bg-white px-2.5 py-1.5 text-[11.5px] max-md:px-4 max-md:py-2.5 max-md:text-[14px] font-semibold text-slate-600 ring-1 ring-inset ring-slate-200 hover:bg-slate-50"
               >
                 <Pencil size={12} /> Edit
               </button>
@@ -123,7 +123,7 @@ export default function FollowupCard({ lead, onApprove, onSkip, onEdit, onRewrit
               <button
                 type="button"
                 onClick={onRewrite}
-                className="flex items-center gap-1 rounded-lg bg-white px-2.5 py-1.5 text-[11.5px] font-semibold text-slate-600 ring-1 ring-inset ring-slate-200 hover:bg-slate-50"
+                className="flex items-center gap-1 rounded-lg bg-white px-2.5 py-1.5 text-[11.5px] max-md:px-4 max-md:py-2.5 max-md:text-[14px] font-semibold text-slate-600 ring-1 ring-inset ring-slate-200 hover:bg-slate-50"
               >
                 <Sparkles size={12} /> Rewrite
               </button>
@@ -132,7 +132,7 @@ export default function FollowupCard({ lead, onApprove, onSkip, onEdit, onRewrit
               <button
                 type="button"
                 onClick={onSkip}
-                className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11.5px] font-semibold text-slate-400 hover:bg-slate-50"
+                className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11.5px] max-md:px-4 max-md:py-2.5 max-md:text-[14px] font-semibold text-slate-400 hover:bg-slate-50"
               >
                 <X size={12} /> Skip
               </button>
@@ -141,7 +141,7 @@ export default function FollowupCard({ lead, onApprove, onSkip, onEdit, onRewrit
         </div>
       ) : (
         fu.next_due && (
-          <div className="mx-6 mt-3 flex items-center gap-1.5 text-[12px] font-medium">
+          <div className="mx-4 md:mx-6 mt-3 flex items-center gap-1.5 text-[12px] font-medium">
             {overdue ? (
               <>
                 <AlertTriangle size={13} className="text-red-500" />
@@ -157,7 +157,7 @@ export default function FollowupCard({ lead, onApprove, onSkip, onEdit, onRewrit
         )
       )}
 
-      <div className="mx-6 mt-3">
+      <div className="mx-4 md:mx-6 mt-3">
         <SequenceTimeline sentSteps={fu.sent_steps} currentStep={fu.current_step} compact />
       </div>
     </div>

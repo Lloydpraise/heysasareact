@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { sendTestMessage } from '../services/chatAgentService';
 import { supabase } from '../lib/supabase';
 
@@ -6,11 +6,64 @@ function newSimConversationId() {
   return `sim_${crypto.randomUUID()}`;
 }
 
+function readSavedConversation(storageKey) {
+  try {
+    const saved = JSON.parse(window.localStorage.getItem(storageKey) || 'null');
+    if (
+      !saved ||
+      !Array.isArray(saved.messages) ||
+      !saved.messages.every((message) =>
+        message &&
+        (message.role === 'user' || message.role === 'assistant') &&
+        typeof message.content === 'string'
+      )
+    ) {
+      return null;
+    }
+    return saved;
+  } catch (error) {
+    console.error('Could not restore the playground conversation.', error);
+    return null;
+  }
+}
+
 export function useLiveChat(businessId) {
   const [messages, setMessages] = useState([]);
   const [sending, setSending] = useState(false);
   const [conversationId, setConversationId] = useState(newSimConversationId());
   const [sendError, setSendError] = useState(null);
+  const storageKey = businessId ? `heysasa:playground-chat:${businessId}` : null;
+  const [hydratedStorageKey, setHydratedStorageKey] = useState(null);
+  const isHydrated = !storageKey || hydratedStorageKey === storageKey;
+
+  useEffect(() => {
+    if (!storageKey) {
+      setMessages([]);
+      setConversationId(newSimConversationId());
+      setSendError(null);
+      setHydratedStorageKey(null);
+      return;
+    }
+
+    const saved = readSavedConversation(storageKey);
+    setMessages(saved?.messages || []);
+    setConversationId(saved?.conversationId || newSimConversationId());
+    setSendError(null);
+    setHydratedStorageKey(storageKey);
+  }, [storageKey]);
+
+  useEffect(() => {
+    if (!storageKey || hydratedStorageKey !== storageKey) return;
+    try {
+      if (messages.length === 0) {
+        window.localStorage.removeItem(storageKey);
+        return;
+      }
+      window.localStorage.setItem(storageKey, JSON.stringify({ messages, conversationId }));
+    } catch (error) {
+      console.error('Could not save the playground conversation.', error);
+    }
+  }, [storageKey, hydratedStorageKey, messages, conversationId]);
 
   const reset = useCallback(() => {
     setMessages([]);
@@ -20,7 +73,7 @@ export function useLiveChat(businessId) {
 
   const send = useCallback(
     async (text) => {
-      if (!text.trim() || sending) return;
+      if (!text.trim() || sending || !isHydrated) return;
       setSending(true);
       setSendError(null);
 
@@ -53,7 +106,7 @@ export function useLiveChat(businessId) {
         setSending(false);
       }
     },
-    [messages, businessId, sending],
+    [messages, businessId, sending, isHydrated],
   );
 
   // Fires a scripted sequence of messages back-to-back — used by stress-test
@@ -74,5 +127,5 @@ export function useLiveChat(businessId) {
     [businessId, conversationId],
   );
 
-  return { messages, send, runScript, sending, sendError, conversationId, reset, flag };
+  return { messages, send, runScript, sending, sendError, conversationId, reset, flag, isHydrated };
 }

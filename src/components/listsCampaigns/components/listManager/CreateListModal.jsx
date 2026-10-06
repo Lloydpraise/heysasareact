@@ -83,8 +83,8 @@ export default function CreateListModal({ open, onClose, onCreate }) {
 
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-slate-900/35 p-4 pt-10 backdrop-blur-[2px]">
-      <div className="w-full max-w-2xl rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl md:p-5">
+    <div className="sheet-overlay fixed inset-0 z-50 flex items-start justify-center bg-slate-900/35 p-4 pt-10 backdrop-blur-[2px]">
+      <div className="sheet-panel w-full max-w-2xl rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl md:p-5">
         <div className="mb-4 flex items-center justify-between">
           <div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#28A745]">Manual list</p><h3 className="mt-1 text-lg font-bold text-slate-900">Create list from a spreadsheet</h3></div>
           <button type="button" onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100" aria-label="Close create list modal"><X size={16} /></button>

@@ -1,5 +1,5 @@
 import { createPortal } from 'react-dom';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import logo from '../../assets/images/heysasalogo.png';
 import { 
   BarChart3, 
@@ -27,6 +27,7 @@ export default function AppShell({ activeTab, setActiveTab, onBusinessClick, chi
   const [businessesLoading, setBusinessesLoading] = useState(true);
   const [businessesError, setBusinessesError] = useState('');
   const [businessMenuOpen, setBusinessMenuOpen] = useState(false);
+  const businessMenuRef = useRef(null);
   const [addBusinessOpen, setAddBusinessOpen] = useState(false);
   const [businessForm, setBusinessForm] = useState({ name: '', industry: '', websiteUrl: '', billingBusinessId: '' });
   const [businessSaving, setBusinessSaving] = useState(false);
@@ -62,6 +63,17 @@ export default function AppShell({ activeTab, setActiveTab, onBusinessClick, chi
     window.addEventListener('heysasa:business-logo-updated', handleBusinessLogoUpdate);
     return () => window.removeEventListener('heysasa:business-logo-updated', handleBusinessLogoUpdate);
   }, []);
+
+  useEffect(() => {
+    if (!businessMenuOpen) return undefined;
+
+    const handleOutsidePointerDown = (event) => {
+      if (!businessMenuRef.current?.contains(event.target)) setBusinessMenuOpen(false);
+    };
+
+    document.addEventListener('pointerdown', handleOutsidePointerDown);
+    return () => document.removeEventListener('pointerdown', handleOutsidePointerDown);
+  }, [businessMenuOpen]);
 
   const activeBusinessIndex = businesses.findIndex((business) => business.business_id === activeBusinessId);
   const activeBusiness = activeBusinessIndex >= 0 ? businesses[activeBusinessIndex] : null;
@@ -179,9 +191,9 @@ export default function AppShell({ activeTab, setActiveTab, onBusinessClick, chi
 
       {/* Main Content Area */}
       <main className="z-10 flex min-h-0 min-w-0 flex-1 flex-col md:h-full">
-        <header className="shrink-0 px-1 pb-2 pt-1 sm:px-2 md:px-0 md:pt-0">
+        <header className="relative z-20 shrink-0 px-1 pb-2 pt-1 sm:px-2 md:px-0 md:pt-0">
           <div className="flex min-h-[58px] w-full items-center justify-between gap-3 rounded-2xl border border-white/80 bg-white/65 px-3 shadow-[0_8px_24px_rgba(15,23,42,0.06)] backdrop-blur-xl sm:px-4">
-            <div className="relative flex min-w-0 items-center gap-2.5">
+            <div ref={businessMenuRef} className="relative flex min-w-0 items-center gap-2.5">
               <button
                 type="button"
                 onClick={onBusinessClick}

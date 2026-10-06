@@ -14,12 +14,16 @@ import AutoCampaignsPanel from './AutoCampaignsPanel';
 import AnCard from '../../../analytics/shared/AnCard';
 import ViewSwitcher from '../ViewSwitcher';
 import ChatDrawer from '../../../leads/drawers/ChatDrawer';
+import { useIsMobile } from '../../../../hooks/useIsMobile';
 
 export default function CampaignRunnerTab({ onNeedLists }) {
   const { businessId, lists } = useListsCampaigns();
   const [campaigns, setCampaigns] = useState(() => (businessId ? null : MOCK_CAMPAIGNS));
   const [expandedId, setExpandedId] = useState(null);
-  const [view, setView] = useState('list');
+  const [viewChoice, setView] = useState('list');
+  const isMobile = useIsMobile();
+  // Phones always use cards; the table only makes sense on wide screens.
+  const view = isMobile ? 'grid' : viewChoice;
   const [campaignSection, setCampaignSection] = useState('active');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showActivityLog, setShowActivityLog] = useState(false);
@@ -137,16 +141,16 @@ export default function CampaignRunnerTab({ onNeedLists }) {
 
   return (
     <div className="flex min-w-0 flex-col space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/80 pb-2">
-        <div className="flex flex-wrap items-center gap-3">
-          <h2 className="text-[15px] font-semibold text-slate-900">Campaigns</h2>
-          <div className="flex items-center gap-1 rounded-xl bg-slate-100 p-1" role="tablist" aria-label="Campaign status">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/80 pb-2 max-md:border-0 max-md:pb-0">
+        <div className="flex flex-wrap items-center gap-3 max-md:w-full">
+          <h2 className="text-[15px] font-semibold text-slate-900 max-md:text-[22px] max-md:font-extrabold max-md:tracking-tight">Campaigns</h2>
+          <div className="flex items-center gap-1 rounded-xl bg-slate-100 p-1 max-md:w-full max-md:rounded-2xl" role="tablist" aria-label="Campaign status">
             <button
               type="button"
               role="tab"
               aria-selected={campaignSection === 'active'}
               onClick={() => setCampaignSection('active')}
-              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${campaignSection === 'active' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition max-md:h-11 max-md:flex-1 max-md:rounded-xl max-md:text-[14px] ${campaignSection === 'active' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
             >
               Active <span className="ml-1 text-[10px] text-slate-400">{currentCampaigns.length}</span>
             </button>
@@ -155,7 +159,7 @@ export default function CampaignRunnerTab({ onNeedLists }) {
               role="tab"
               aria-selected={campaignSection === 'auto'}
               onClick={() => setCampaignSection('auto')}
-              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${campaignSection === 'auto' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition max-md:h-11 max-md:flex-1 max-md:rounded-xl max-md:text-[14px] ${campaignSection === 'auto' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
             >
               Auto <span className="ml-1 text-[10px] text-slate-400">{autoLiveCount}</span>
             </button>
@@ -164,18 +168,18 @@ export default function CampaignRunnerTab({ onNeedLists }) {
               role="tab"
               aria-selected={campaignSection === 'archived'}
               onClick={() => setCampaignSection('archived')}
-              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${campaignSection === 'archived' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition max-md:h-11 max-md:flex-1 max-md:rounded-xl max-md:text-[14px] ${campaignSection === 'archived' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
             >
               Archived <span className="ml-1 text-[10px] text-slate-400">{archivedCampaigns.length}</span>
             </button>
           </div>
-          <ViewSwitcher view={view} onChange={setView} />
+          <div className="max-md:hidden"><ViewSwitcher view={view} onChange={setView} /></div>
         </div>
-        <div className="flex items-center justify-end gap-2">
+        <div className="flex items-center justify-end gap-2 max-md:w-full max-md:justify-start max-md:overflow-x-auto max-md:pb-1 max-md:[scrollbar-width:none]">
           <button
             type="button"
             onClick={() => (hasLists ? openCreateCampaign() : onNeedLists?.())}
-            className={`flex h-7 flex-shrink-0 items-center gap-1 rounded-lg px-2.5 text-[11px] font-semibold shadow-sm ${
+            className={`flex h-7 flex-shrink-0 items-center gap-1 rounded-lg px-2.5 text-[11px] font-semibold shadow-sm max-md:h-11 max-md:rounded-full max-md:px-5 max-md:text-[14px] ${
               hasLists ? 'bg-[#28A745] text-white hover:bg-[#218838]' : 'bg-[#E8F8EC] text-[#1F7A3E] hover:bg-[#dff5e5]'
             }`}
             aria-label={hasLists ? 'Create campaign' : 'Create lists first'}
@@ -188,7 +192,7 @@ export default function CampaignRunnerTab({ onNeedLists }) {
             <button
               type="button"
               onClick={openImportCampaign}
-              className="flex h-7 flex-shrink-0 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 text-[11px] font-semibold text-slate-600 hover:bg-slate-50"
+              className="flex h-7 flex-shrink-0 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 text-[11px] font-semibold text-slate-600 hover:bg-slate-50 max-md:h-11 max-md:rounded-full max-md:px-4 max-md:text-[14px]"
               aria-label="Import campaign from a file"
               title="Import a campaign from an Excel or JSON file"
             >
@@ -199,7 +203,7 @@ export default function CampaignRunnerTab({ onNeedLists }) {
           <button
             type="button"
             onClick={() => setShowActivityLog((current) => !current)}
-            className={`flex h-7 flex-shrink-0 items-center gap-1 rounded-lg border px-2.5 text-[11px] font-semibold ${
+            className={`flex h-7 flex-shrink-0 items-center gap-1 rounded-lg border px-2.5 text-[11px] font-semibold max-md:h-11 max-md:rounded-full max-md:px-4 max-md:text-[14px] ${
               showActivityLog
                 ? 'border-[#28A745] bg-[#28A745]/10 text-[#1F7A3E]'
                 : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
