@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { useIsMobile } from '../../hooks/useIsMobile';
+import BottomSheet from '../mobile/BottomSheet';
 import { Plus, RotateCcw, Trash2 } from 'lucide-react';
 import { createSkill, deleteSkill, isValidKey, resetSkill, restoreMissingDefaults, saveSkill, slugifyKey } from '../../services/chatAiConfigService';
 import { Badge, Field, ListRow, Switch, dangerButton, ghostButton, inputClass, primaryButton } from './ConfigShared';
@@ -128,6 +130,8 @@ function SkillEditor({ businessId, skill, defaultSkill, flows, onChanged, onDele
 }
 
 export function SkillsPanel({ businessId, skills, defaults, flows, reload, showToast }) {
+  const isMobile = useIsMobile();
+  const [sheetOpen, setSheetOpen] = useState(false);
   const [selectedId, setSelectedId] = useState(skills[0]?.id ?? null);
   const defaultByKey = new Map(defaults.map((d) => [d.key, d]));
   const selected = selectedId === NEW ? null : skills.find((s) => s.id === selectedId) ?? skills[0] ?? null;
@@ -144,12 +148,34 @@ export function SkillsPanel({ businessId, skills, defaults, flows, reload, showT
     }
   };
 
+  const editor = (
+        <SkillEditor
+          key={`${activeId}-${selected?.updated_at ?? ''}`}
+          businessId={businessId}
+          skill={activeId === NEW ? null : selected}
+          defaultSkill={selected ? defaultByKey.get(selected.source_default_key) : null}
+          flows={flows}
+          showToast={showToast}
+          onChanged={reload}
+          onDeleted={async () => {
+            setSelectedId(null);
+            setSheetOpen(false);
+            await reload();
+          }}
+          onCreated={async (id) => {
+            await reload();
+            setSelectedId(id);
+            setSheetOpen(false);
+          }}
+        />
+  );
+
   return (
-    <div className="grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(8rem,0.4fr)_minmax(0,1fr)] gap-4 lg:grid-cols-[18rem_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)]">
+    <div className={isMobile ? 'flex min-h-0 flex-1 flex-col' : 'grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(8rem,0.4fr)_minmax(0,1fr)] gap-4 lg:grid-cols-[18rem_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)]'}>
       <div className="flex min-h-0 flex-col gap-2">
         <div className="flex items-center justify-between">
           <span className="text-[11px] font-semibold uppercase tracking-wide text-[#94A3B8]">{skills.length} skills</span>
-          <button type="button" className={ghostButton} onClick={() => setSelectedId(NEW)}>
+          <button type="button" className={ghostButton} onClick={() => { setSelectedId(NEW); setSheetOpen(true); }}>
             <Plus size={11} className="mr-1 inline" /> New skill
           </button>
         </div>
@@ -157,7 +183,7 @@ export function SkillsPanel({ businessId, skills, defaults, flows, reload, showT
           {skills.map((skill) => {
             const state = skillState(skill, defaultByKey.get(skill.source_default_key));
             return (
-              <ListRow key={skill.id} active={activeId === skill.id} onClick={() => setSelectedId(skill.id)}>
+              <ListRow key={skill.id} active={activeId === skill.id} onClick={() => { setSelectedId(skill.id); setSheetOpen(true); }}>
                 <div className="flex items-center gap-2">
                   <span className={`h-2 w-2 shrink-0 rounded-full ${skill.enabled ? 'bg-[#28A745]' : 'bg-slate-300'}`} />
                   <span className="truncate text-[13px] font-semibold text-[#0F172A]">{skill.title}</span>
@@ -177,25 +203,15 @@ export function SkillsPanel({ businessId, skills, defaults, flows, reload, showT
         )}
       </div>
 
-      <div className="flex min-h-0 flex-col overflow-hidden rounded-[1.25rem] border border-white/80 bg-white/70 p-4 shadow-lg shadow-[#28A745]/5">
-        <SkillEditor
-          key={`${activeId}-${selected?.updated_at ?? ''}`}
-          businessId={businessId}
-          skill={activeId === NEW ? null : selected}
-          defaultSkill={selected ? defaultByKey.get(selected.source_default_key) : null}
-          flows={flows}
-          showToast={showToast}
-          onChanged={reload}
-          onDeleted={async () => {
-            setSelectedId(null);
-            await reload();
-          }}
-          onCreated={async (id) => {
-            await reload();
-            setSelectedId(id);
-          }}
-        />
-      </div>
+      {isMobile ? (
+        <BottomSheet open={sheetOpen} onClose={() => setSheetOpen(false)} title={selected?.title || 'New skill'} tall>
+          {editor}
+        </BottomSheet>
+      ) : (
+        <div className="flex min-h-0 flex-col overflow-hidden rounded-[1.25rem] border border-white/80 bg-white/70 p-4 shadow-lg shadow-[#28A745]/5">
+          {editor}
+        </div>
+      )}
     </div>
   );
 }

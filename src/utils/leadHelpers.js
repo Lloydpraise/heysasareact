@@ -83,6 +83,10 @@ export function getLeadDisplayName(name, phone) {
   return String(phone || '').trim() || 'WhatsApp user/no name';
 }
 
+export function getWhatsAppSessionDisplayName(session) {
+  return session?.label || session?.phone_number || session?.instance_name || 'WhatsApp connection';
+}
+
 // read_receipt -> glyph + color. Kept as text glyphs (not icons) since
 // WhatsApp's own tick convention is instantly recognizable as text.
 const READ_RECEIPT_MAP = {

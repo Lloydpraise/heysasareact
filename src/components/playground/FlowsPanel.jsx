@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Plus, Sparkles, Trash2 } from 'lucide-react';
+import { useIsMobile } from '../../hooks/useIsMobile';
+import BottomSheet from '../mobile/BottomSheet';
 import AssistantButton from '../assistant/AssistantButton';
 import { useAssistant } from '../../context/useAssistant';
 import { createFlow, deleteFlow, saveFlow } from '../../services/chatAiConfigService';
@@ -185,6 +187,8 @@ function FlowEditor({ businessId, flow, skills, targets, prefill, isFirst, onCha
 export function FlowsPanel({ businessId, flows, skills, targets, reload, showToast }) {
   const [selectedId, setSelectedId] = useState(flows[0]?.id ?? NEW);
   const [prefill, setPrefill] = useState(null);
+  const isMobile = useIsMobile();
+  const [sheetOpen, setSheetOpen] = useState(false);
   const { open } = useAssistant();
 
   // No flows yet: Ask HeySasa opens by itself, once per business, instead of waiting to be found.
@@ -202,7 +206,7 @@ export function FlowsPanel({ businessId, flows, skills, targets, reload, showToa
       title: 'Your first flow',
       contextKey: 'flow:new',
       context: { first_flow: true, available_skills: skills.filter((s) => s.enabled).slice(0, 12).map((s) => ({ key: s.key, title: s.title })) },
-      onApprove: (draft) => { setSelectedId(NEW); setPrefill({ ...draft, nonce: Date.now() }); },
+      onApprove: (draft) => { setSelectedId(NEW); setPrefill({ ...draft, nonce: Date.now() }); setSheetOpen(true); },
     });
     // Runs once when the Flows tab opens with nothing in it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -210,12 +214,36 @@ export function FlowsPanel({ businessId, flows, skills, targets, reload, showToa
   const selected = selectedId === NEW ? null : flows.find((f) => f.id === selectedId) ?? null;
   const activeId = selected ? selected.id : NEW;
 
+  const editor = (
+        <FlowEditor
+          key={`${activeId}-${selected?.updated_at ?? ''}-${prefill?.nonce ?? ''}`}
+          businessId={businessId}
+          flow={selected}
+          skills={skills}
+          targets={targets}
+          prefill={prefill}
+          isFirst={flows.length === 0}
+          showToast={showToast}
+          onChanged={reload}
+          onDeleted={async () => {
+            setSelectedId(NEW);
+            setSheetOpen(false);
+            await reload();
+          }}
+          onCreated={async (id) => {
+            await reload();
+            setSelectedId(id);
+            setSheetOpen(false);
+          }}
+        />
+  );
+
   return (
-    <div className="grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(8rem,0.4fr)_minmax(0,1fr)] gap-4 lg:grid-cols-[18rem_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)]">
+    <div className={isMobile ? 'flex min-h-0 flex-1 flex-col' : 'grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(8rem,0.4fr)_minmax(0,1fr)] gap-4 lg:grid-cols-[18rem_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)]'}>
       <div className="flex min-h-0 flex-col gap-2">
         <div className="flex items-center justify-between">
           <span className="text-[11px] font-semibold uppercase tracking-wide text-[#94A3B8]">{flows.length} flows</span>
-          <button type="button" className={ghostButton} onClick={() => setSelectedId(NEW)}>
+          <button type="button" className={ghostButton} onClick={() => { setSelectedId(NEW); setSheetOpen(true); }}>
             <Plus size={11} className="mr-1 inline" /> New flow
           </button>
         </div>
@@ -223,7 +251,7 @@ export function FlowsPanel({ businessId, flows, skills, targets, reload, showToa
           {flows.map((flow) => {
             const triggers = (flow.trigger?.ad_ids?.length ?? 0) + (flow.trigger?.list_ids?.length ?? 0);
             return (
-              <ListRow key={flow.id} active={activeId === flow.id} onClick={() => setSelectedId(flow.id)}>
+              <ListRow key={flow.id} active={activeId === flow.id} onClick={() => { setSelectedId(flow.id); setSheetOpen(true); }}>
                 <div className="flex items-center gap-2">
                   <span className={`h-2 w-2 shrink-0 rounded-full ${flow.enabled ? 'bg-[#28A745]' : 'bg-slate-300'}`} />
                   <span className="truncate text-[13px] font-semibold text-[#0F172A]">{flow.name}</span>
@@ -239,27 +267,15 @@ export function FlowsPanel({ businessId, flows, skills, targets, reload, showToa
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-col overflow-hidden rounded-[1.25rem] border border-white/80 bg-white/70 p-4 shadow-lg shadow-[#28A745]/5">
-        <FlowEditor
-          key={`${activeId}-${selected?.updated_at ?? ''}-${prefill?.nonce ?? ''}`}
-          businessId={businessId}
-          flow={selected}
-          skills={skills}
-          targets={targets}
-          prefill={prefill}
-          isFirst={flows.length === 0}
-          showToast={showToast}
-          onChanged={reload}
-          onDeleted={async () => {
-            setSelectedId(NEW);
-            await reload();
-          }}
-          onCreated={async (id) => {
-            await reload();
-            setSelectedId(id);
-          }}
-        />
-      </div>
+      {isMobile ? (
+        <BottomSheet open={sheetOpen} onClose={() => setSheetOpen(false)} title={selected?.name || 'New flow'} tall>
+          {editor}
+        </BottomSheet>
+      ) : (
+        <div className="flex min-h-0 flex-col overflow-hidden rounded-[1.25rem] border border-white/80 bg-white/70 p-4 shadow-lg shadow-[#28A745]/5">
+          {editor}
+        </div>
+      )}
     </div>
   );
 }

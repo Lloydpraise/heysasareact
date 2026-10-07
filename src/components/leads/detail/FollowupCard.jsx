@@ -1,9 +1,11 @@
-﻿import { Inbox, Check, X, Pencil, Sparkles, Clock, AlertTriangle, MessageCircleOff, CheckCircle2, ListTree } from "lucide-react";
+import { useState } from "react";
+import { Inbox, Check, X, Pencil, Sparkles, Clock, AlertTriangle, MessageCircleOff, CheckCircle2, ListTree, MoreHorizontal } from "lucide-react";
 import PhaseBar from "./PhaseBar";
 import SequenceTimeline from "./SequenceTimeline";
 import { timeUntil } from "../../../utils/leadHelpers";
 
-export default function FollowupCard({ lead, onApprove, onSkip, onEdit, onRewrite, onSendConsent, onViewFullSequence, onAddToCampaign, onRemoveFromCampaign }) {
+export default function FollowupCard({ lead, onApprove, onSkip, onEdit, onRewrite, onSendConsent, onViewFullSequence, onAddToCampaign, onRemoveFromCampaign, compact = false }) {
+  const [mobileDetailsExpanded, setMobileDetailsExpanded] = useState(false);
   const fu = lead.followup;
   if (!fu) return null;
 
@@ -46,14 +48,39 @@ export default function FollowupCard({ lead, onApprove, onSkip, onEdit, onRewrit
   if (fu.status === "not_enrolled") {
     return (
       <div className="mx-4 md:mx-6 mb-4 mt-1 rounded-xl border border-dashed border-slate-300 bg-white px-4 py-3.5">
-        <div className="flex items-center justify-between gap-3">
-          <div>
+        <div className={`${compact ? 'hidden' : 'hidden md:flex'} items-center justify-between gap-3`}>
+          <div className="min-w-0">
             <p className="text-[12.5px] font-semibold text-slate-600">Not enrolled in follow-up sequence</p>
             <p className="mt-0.5 text-[11.5px] text-slate-400">Send a consent message to start the 11-step sequence.</p>
           </div>
           <div className="flex flex-shrink-0 items-center gap-1.5">
             {onAddToCampaign && <button type="button" onClick={onAddToCampaign} className="rounded-lg border border-[#28A745]/35 px-3 py-1.5 text-[12px] font-semibold text-[#218c3a] hover:bg-[#F7FBF9]">Add to campaign</button>}
             {onSendConsent && <button type="button" onClick={onSendConsent} className="rounded-lg bg-[#28A745] px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-[#1e7a35]">Send consent</button>}
+          </div>
+        </div>
+        <div className={compact ? '' : 'md:hidden'}>
+          <div className="flex min-w-0 items-start gap-2">
+            <div className="min-w-0 flex-1">
+              <p className={`text-[12.5px] font-semibold text-slate-600 ${mobileDetailsExpanded ? 'whitespace-normal break-words' : 'truncate'}`}>
+                Not enrolled in follow-up sequence
+              </p>
+              <p className={`mt-0.5 text-[11.5px] text-slate-400 ${mobileDetailsExpanded ? 'whitespace-normal break-words' : 'truncate'}`}>
+                Send a consent message to start the 11-step sequence.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setMobileDetailsExpanded((expanded) => !expanded)}
+              aria-expanded={mobileDetailsExpanded}
+              aria-label={mobileDetailsExpanded ? "Collapse follow-up details" : "Expand follow-up details"}
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100"
+            >
+              <MoreHorizontal size={18} />
+            </button>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {onAddToCampaign && <button type="button" onClick={onAddToCampaign} className="flex-1 rounded-lg border border-[#28A745]/35 px-3 py-2 text-[12px] font-semibold text-[#218c3a] hover:bg-[#F7FBF9]">Add to campaign</button>}
+            {onSendConsent && <button type="button" onClick={onSendConsent} className="flex-1 rounded-lg bg-[#28A745] px-3 py-2 text-[12px] font-semibold text-white hover:bg-[#1e7a35]">Send consent</button>}
           </div>
         </div>
       </div>

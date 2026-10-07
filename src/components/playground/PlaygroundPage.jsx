@@ -84,13 +84,15 @@ export default function PlaygroundPage({ businessId }) {
       />
 
       <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
-        <div className="flex h-full min-h-0 min-w-0 flex-col p-2 sm:p-3 md:p-4">
+        <div className="flex h-full min-h-0 min-w-0 flex-col p-2 sm:p-3 md:p-4 max-md:px-3 max-md:pb-2 max-md:pt-3">
           {!personaPack.pack && (
+            <div className={activeSection === 'test' ? 'max-md:hidden' : ''}>
             <NotificationStrip action="Generate New AI Persona" onAction={handleGeneratePersona}>
               To personalize your AI, a detailed persona pack is needed. Generate it automatically here.
             </NotificationStrip>
+            </div>
           )}
-          <section className="mx-auto flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden rounded-[1.5rem] border border-white/80 bg-white/70 p-3 shadow-xl shadow-[#28A745]/5 backdrop-blur-xl sm:p-4 lg:p-5">
+          <section className="mx-auto flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden rounded-[1.5rem] border border-white/80 bg-white/70 p-3 shadow-xl shadow-[#28A745]/5 backdrop-blur-xl sm:p-4 lg:p-5 max-md:rounded-none max-md:border-0 max-md:bg-transparent max-md:p-0 max-md:shadow-none max-md:backdrop-blur-none">
             {renderSection()}
           </section>
         </div>

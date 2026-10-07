@@ -173,7 +173,7 @@ export default function ChatDrawer({ lead, open, onClose, onSend, onMessagesRead
             </button>
           </div>
         </div>
-        <div className="flex-1 overflow-y-auto overscroll-contain px-5 py-4 max-md:px-3 max-md:bg-[#F7FBF9]">
+        <div className="flex-1 overflow-y-auto overscroll-contain px-5 py-4 max-md:px-3 max-md:bg-slate-50">
           {loading ? (
             <div className="flex h-full items-center justify-center gap-2 text-sm text-slate-400">
               <LoaderCircle size={16} className="animate-spin" /> Loading chat...

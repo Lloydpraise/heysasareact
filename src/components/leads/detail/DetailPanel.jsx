@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import DetailHeader from './DetailHeader';
 import EngagementSignals from './EngagementSignals';
 import ReadReceiptFlow from './ReadReceiptFlow';
@@ -33,10 +34,50 @@ export default function DetailPanel({
   onViewFullSequence,
   hideHeaderActions = false,
 }) {
+  const panelRef = useRef(null);
+  const [isNarrowPanel, setIsNarrowPanel] = useState(false);
+
+  useEffect(() => {
+    if (hideHeaderActions || !panelRef.current) return undefined;
+
+    const observer = new ResizeObserver(([entry]) => {
+      setIsNarrowPanel(entry.contentRect.width <= 640);
+    });
+    observer.observe(panelRef.current);
+    return () => observer.disconnect();
+  }, [hideHeaderActions]);
+
   if (!lead) return null;
 
+  const businessDetails = (
+    <>
+      <ReadReceiptFlow status={lead.read_receipt} />
+      <EngagementSignals lead={lead} />
+      <NextActionCard lead={lead} onAct={onOpenChat} />
+      <ConversationSignals
+        objections={lead.objection_tags}
+        competitors={lead.competitor_mentions}
+        questions={lead.pre_purchase_questions}
+      />
+    </>
+  );
+  const followupDetails = lead.followup && (
+    <FollowupCard
+      lead={lead}
+      onApprove={onApproveDraft}
+      onSkip={onSkipDraft}
+      onEdit={onEditDraft}
+      onRewrite={onRewriteDraft}
+      onSendConsent={onSendConsent}
+      onAddToCampaign={onAddToCampaign}
+      onRemoveFromCampaign={onRemoveFromCampaign}
+      onViewFullSequence={onViewFullSequence}
+      compact={isNarrowPanel}
+    />
+  );
+
   return (
-    <div className="flex h-full flex-col overflow-y-auto bg-[#F7FBF9]">
+    <div ref={panelRef} className="flex h-full min-h-0 flex-col overflow-hidden bg-[#F7FBF9]">
       <DetailHeader
         lead={lead}
         onOpenChat={onOpenChat}
@@ -47,38 +88,16 @@ export default function DetailPanel({
         hideActions={hideHeaderActions}
       />
 
-      {lead.lead_type === 'business' && (
-        <>
-          <ReadReceiptFlow status={lead.read_receipt} />
-          <EngagementSignals lead={lead} />
-          <NextActionCard lead={lead} onAct={onOpenChat} />
-          <ConversationSignals
-            objections={lead.objection_tags}
-            competitors={lead.competitor_mentions}
-            questions={lead.pre_purchase_questions}
-          />
-
-          {lead.followup && (
-            <FollowupCard
-              lead={lead}
-              onApprove={onApproveDraft}
-              onSkip={onSkipDraft}
-              onEdit={onEditDraft}
-              onRewrite={onRewriteDraft}
-              onSendConsent={onSendConsent}
-              onAddToCampaign={onAddToCampaign}
-              onRemoveFromCampaign={onRemoveFromCampaign}
-              onViewFullSequence={onViewFullSequence}
-            />
-          )}
-        </>
-      )}
-
-      {lead.lead_type === 'personal' && (
-        <div className="mx-4 md:mx-6 my-4 rounded-xl border border-slate-200 bg-white px-4 py-3 text-[12.5px] text-slate-500">
-          This is a personal chat, not a customer conversation{' \u2014 '}no sales signals to show.
-        </div>
-      )}
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        {lead.lead_type === 'business' && (
+          <>{businessDetails}{followupDetails}</>
+        )}
+        {lead.lead_type === 'personal' && (
+          <div className="mx-4 my-4 rounded-xl border border-slate-200 bg-white px-4 py-3 text-[12.5px] text-slate-500 md:mx-6">
+            This is a personal chat, not a customer conversation {' \u2014 '}no sales signals to show.
+          </div>
+        )}
+      </div>
     </div>
   );
 }

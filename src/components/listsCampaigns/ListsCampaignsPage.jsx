@@ -32,10 +32,10 @@ function ListsCampaignsInner() {
       <TopNav activeSection={activeTab} onSectionChange={setActiveTab} />
 
       <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden p-2 sm:p-3 md:p-4 lg:p-5">
-          <section className="mx-auto flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden rounded-[1.5rem] border border-white/80 bg-white/70 p-3 shadow-xl shadow-[#28A745]/5 backdrop-blur-xl sm:p-4 lg:p-5">
+        <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
+          <section className="mx-auto flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden">
             {activeTab === 'lists' && (
-              <div className="min-h-0 flex-1 overflow-y-auto">
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 pb-10 sm:p-4 lg:p-5">
                 <ListManagerTab
                   onLaunchCampaign={goToCampaignsWithList}
                   onEditRules={goToRulesForList}
@@ -45,12 +45,12 @@ function ListsCampaignsInner() {
               </div>
             )}
             {activeTab === 'campaigns' && (
-              <div className="min-h-0 flex-1 overflow-y-auto">
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 pb-10 sm:p-4 lg:p-5">
                 <CampaignRunnerTab onNeedLists={goToListCreation} />
               </div>
             )}
-            {activeTab === 'templates' && <div className="min-h-0 flex-1 overflow-y-auto"><WABALockScreen /></div>}
-            {activeTab === 'rules' && <div className="min-h-0 flex-1 overflow-y-auto"><AutomationRulesTab /></div>}
+            {activeTab === 'templates' && <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 pb-10 sm:p-4 lg:p-5"><WABALockScreen /></div>}
+            {activeTab === 'rules' && <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 pb-10 sm:p-4 lg:p-5"><AutomationRulesTab /></div>}
           </section>
         </div>
       </div>

@@ -14,6 +14,7 @@ import leadsService from '../../services/leadsService';
 import { fetchWhatsAppSessions } from '../../services/businessService';
 import { useAuth } from '../../context/useAuth';
 import { addExistingLeadsToManualList, enrollLeadInCampaign, removeLeadFromCampaign } from '../../services/listsCampaignsService';
+import { getWhatsAppSessionDisplayName } from '../../utils/leadHelpers';
 import AddLeadModal from './modals/AddLeadModal';
 import BoughtModal from './modals/BoughtModal';
 import ConsentModal from './modals/ConsentModal';
@@ -634,7 +635,7 @@ export default function LeadsPage() {
 
           <div className="mb-3 border-y border-slate-200/80 bg-slate-50/80 px-3 py-2 md:px-0">
             <div className="mb-1.5 flex items-center justify-between gap-2">
-              <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">WhatsApp inbox</span>
+              <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Filter by WhatsApp connection</span>
               <span className="text-[10px] font-medium text-slate-400">{instanceFilter === 'all' ? 'All contacts' : 'Filtered'}</span>
             </div>
             <div className="flex gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -648,7 +649,9 @@ export default function LeadsPage() {
                 <InstanceChip
                   key={session.id}
                   active={instanceFilter === session.id}
-                  label={session.phone_number || session.instance_name}
+                  label={getWhatsAppSessionDisplayName(session)}
+                  detail={session.label && session.phone_number && session.label !== session.phone_number ? session.phone_number : null}
+                  title={[session.label, session.phone_number, session.instance_name].filter(Boolean).join(' · ')}
                   count={leads.filter((lead) => (lead.whatsappSessionIds || []).includes(session.id)).length}
                   onClick={() => setInstanceFilter(session.id)}
                 />
@@ -751,8 +754,8 @@ export default function LeadsPage() {
       </div>
 
       {/* ── Detail panel ───────────────────────────── */}
-      <div className={`min-h-0 min-w-0 flex-1 overflow-y-auto ${isDisconnected || showHistoryPrompt ? 'pt-16' : ''}`}>
-        <div className="h-full">
+      <div className={`min-h-0 min-w-0 flex-1 overflow-hidden ${isDisconnected || showHistoryPrompt ? 'pt-16' : ''}`}>
+        <div className="h-full min-h-0">
           {activeLead ? (
             <DetailPanel
               lead={activeLead}
@@ -789,16 +792,20 @@ export default function LeadsPage() {
   );
 }
 
-function InstanceChip({ active, label, count, onClick }) {
+function InstanceChip({ active, label, detail, title, count, onClick }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      title={title || label}
       className={`flex min-w-[92px] shrink-0 items-center justify-between gap-2 rounded-lg border px-2.5 py-1.5 text-left transition ${active
         ? 'border-[#28A745] bg-[#28A745] text-white shadow-sm'
         : 'border-slate-200 bg-white text-slate-600 hover:border-[#28A745]/40 hover:bg-[#28A745]/5'}`}
     >
-      <span className="max-w-[140px] truncate text-[11px] font-semibold">{label}</span>
+      <span className="flex min-w-0 flex-col">
+        <span className="max-w-[140px] truncate text-[11px] font-semibold">{label}</span>
+        {detail && <span className={`max-w-[140px] truncate text-[9px] ${active ? 'text-white/80' : 'text-slate-400'}`}>{detail}</span>}
+      </span>
       <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${active ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'}`}>{count}</span>
     </button>
   );

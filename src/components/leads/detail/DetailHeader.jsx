@@ -99,7 +99,7 @@ export default function DetailHeader({ lead, onOpenChat, onAnalyze, analysisStat
                 aria-label="Open chat"
                 title="Open chat"
               >
-                <img src={whatsappIcon} alt="Chat" className="h-4 w-4 opacity-50" />
+                <img src={whatsappIcon} alt="Chat" className="h-4 w-4" />
               </button>
               {telLink && (
                 <a

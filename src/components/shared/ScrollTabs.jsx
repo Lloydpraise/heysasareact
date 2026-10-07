@@ -5,7 +5,7 @@ import { useEffect, useRef } from 'react';
 // soft edge fades, and the active tab glides into view when it changes.
 //
 // tabs: [{ id, label, Icon }]
-export default function ScrollTabs({ tabs, active, onChange, className = '' }) {
+export default function ScrollTabs({ tabs, active, onChange, className = '', trailing = null }) {
   const rowRef = useRef(null);
 
   useEffect(() => {
@@ -39,6 +39,7 @@ export default function ScrollTabs({ tabs, active, onChange, className = '' }) {
           </button>
         );
       })}
+      {trailing}
     </div>
   );
 }

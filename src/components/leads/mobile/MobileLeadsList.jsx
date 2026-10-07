@@ -15,12 +15,12 @@ import {
   User,
   X,
   CheckSquare,
-  ChevronRight,
 } from 'lucide-react';
 import FilterTabs from '../list/FilterTabs';
 import LeadRow from '../list/LeadRow';
 import BottomSheet, { SheetRow } from '../../mobile/BottomSheet';
 import { useLeadListPagination } from '../../../hooks/useLeadListPagination';
+import { getWhatsAppSessionDisplayName } from '../../../utils/leadHelpers';
 
 // Phone version of the Leads list: collapsing title row, one-line search with a
 // Filters sheet, a single chip row, an "attention" strip for drafts/unreplied,
@@ -181,23 +181,51 @@ export default function MobileLeadsList({
 
       {/* Lead list */}
       <div ref={scrollRootRef} onScroll={handleScroll} className="m-scroll min-h-0 flex-1 px-3 pb-28 pt-3">
-        {!selectMode && (stats.pending > 0 || stats.unread > 0) && (
-          <button
-            type="button"
-            onClick={stats.pending > 0 ? onOpenApprovals : () => onStateFilter('unread')}
-            className="m-pop-in mb-3 flex w-full items-center gap-3 rounded-2xl border border-[#FF8C00]/30 bg-[#FFF7ED] px-3.5 py-3 text-left"
-          >
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#FF8C00] text-white"><MessageCircleMore size={18} /></span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-[14px] font-bold text-slate-900">
-                {stats.pending > 0 ? `${stats.pending} follow-up${stats.pending === 1 ? '' : 's'} to approve` : `${stats.unread} unreplied chat${stats.unread === 1 ? '' : 's'}`}
-              </span>
-              <span className="block truncate text-[12.5px] text-slate-600">
-                {stats.pending > 0 ? (stats.unread > 0 ? `${stats.unread} unreplied too` : 'Review and send them') : 'Customers are waiting for you'}
-              </span>
+        {!selectMode && stateFilter === 'unread' && (
+          <div className="m-pop-in mb-3 flex items-center gap-3 rounded-2xl border border-[#FF8C00]/40 bg-[#FF8C00] px-3.5 py-3 text-white shadow-lg shadow-[#FF8C00]/25">
+            <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/20">
+              <MessageCircleMore size={18} />
+              <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 animate-ping rounded-full bg-white" />
             </span>
-            <ChevronRight size={18} className="shrink-0 text-[#FF8C00]" />
-          </button>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[14px] font-bold">Unreplied chats</span>
+              <span className="block truncate text-[12.5px] text-white/85">{filteredLeads.length} waiting for your reply</span>
+            </span>
+            <button type="button" onClick={() => onStateFilter('all')} className="flex h-9 shrink-0 items-center gap-1 rounded-full bg-white px-3.5 text-[13px] font-bold text-[#c26a00]">
+              Show all
+            </button>
+          </div>
+        )}
+
+        {!selectMode && stateFilter !== 'unread' && (stats.pending > 0 || stats.unread > 0) && (
+          <div className="m-pop-in mb-3 grid gap-2" style={{ gridTemplateColumns: stats.pending > 0 && stats.unread > 0 ? 'minmax(0,1fr) minmax(0,1fr)' : 'minmax(0,1fr)' }}>
+            {stats.pending > 0 && (
+              <button type="button" onClick={onOpenApprovals} className="flex min-w-0 items-center gap-2.5 rounded-2xl border border-[#FF8C00]/30 bg-[#FFF7ED] px-3 py-3 text-left">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#FF8C00] text-white"><Check size={18} /></span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[14px] font-bold text-slate-900">{stats.pending} to approve</span>
+                  <span className="block truncate text-[12.5px] text-slate-600">Review follow-ups</span>
+                </span>
+              </button>
+            )}
+            {stats.unread > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  setCompact(false);
+                  onStateFilter('unread');
+                  scrollRootRef.current?.scrollTo?.({ top: 0, behavior: 'smooth' });
+                }}
+                className="flex min-w-0 items-center gap-2.5 rounded-2xl border border-[#FF8C00]/30 bg-[#FFF7ED] px-3 py-3 text-left"
+              >
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#FF8C00] text-white"><MessageCircleMore size={18} /></span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[14px] font-bold text-slate-900">{stats.unread} unreplied</span>
+                  <span className="block truncate text-[12.5px] text-slate-600">See who</span>
+                </span>
+                </button>
+            )}
+          </div>
         )}
 
         {error && <div className="mb-3 rounded-2xl bg-red-50 px-4 py-3 text-[13px] font-medium text-red-600">{error}</div>}
@@ -311,14 +339,16 @@ export default function MobileLeadsList({
 
         {connectedInstances.length > 0 && (
           <>
-            <p className="mb-2 mt-5 px-1 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">WhatsApp inbox</p>
+            <p className="mb-2 mt-5 px-1 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">Filter by WhatsApp connection</p>
             <div className="flex flex-wrap gap-2">
               <InboxPill active={instanceFilter === 'all'} label="All" count={leads.length} onClick={() => onInstanceFilter('all')} />
               {connectedInstances.map((session) => (
                 <InboxPill
                   key={session.id}
                   active={instanceFilter === session.id}
-                  label={session.phone_number || session.instance_name}
+                  label={getWhatsAppSessionDisplayName(session)}
+                  detail={session.label && session.phone_number && session.label !== session.phone_number ? session.phone_number : null}
+                  title={[session.label, session.phone_number, session.instance_name].filter(Boolean).join(' · ')}
                   count={leads.filter((lead) => (lead.whatsappSessionIds || []).includes(session.id)).length}
                   onClick={() => onInstanceFilter(session.id)}
                 />
@@ -340,14 +370,18 @@ function BulkButton({ icon: Icon, label, onClick, disabled }) {
   );
 }
 
-function InboxPill({ active, label, count, onClick }) {
+function InboxPill({ active, label, detail, title, count, onClick }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`flex h-11 items-center gap-2 rounded-full border px-4 text-[14px] font-semibold ${active ? 'border-[#28A745] bg-[#28A745] text-white' : 'border-slate-200 bg-white text-slate-700'}`}
+      title={title || label}
+      className={`flex min-h-11 items-center gap-2 rounded-full border px-4 py-1.5 text-left text-[14px] font-semibold ${active ? 'border-[#28A745] bg-[#28A745] text-white' : 'border-slate-200 bg-white text-slate-700'}`}
     >
-      <span className="max-w-[170px] truncate">{label}</span>
+      <span className="flex min-w-0 flex-col">
+        <span className="max-w-[170px] truncate">{label}</span>
+        {detail && <span className={`max-w-[170px] truncate text-[10px] font-medium ${active ? 'text-white/80' : 'text-slate-400'}`}>{detail}</span>}
+      </span>
       <span className={`rounded-full px-2 py-0.5 text-[12px] font-bold ${active ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'}`}>{count}</span>
     </button>
   );

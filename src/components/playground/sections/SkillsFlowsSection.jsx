@@ -30,7 +30,7 @@ export function SkillsFlowsSection({ businessId, showToast }) {
             </button>
           ))}
         </div>
-        <p className="min-w-0 flex-1 truncate whitespace-nowrap text-[11.5px] leading-snug text-[#94A3B8]">
+        <p className="min-w-0 flex-1 truncate whitespace-nowrap text-[11.5px] leading-snug max-md:line-clamp-2 max-md:whitespace-normal text-[#94A3B8]">
           {tab === 'skills'
             ? 'Playbooks the AI loads when a customer’s situation matches. Changes affect this business only.'
             : 'Scripts for chats from selected ads or lists, with instructions and skills loaded from the start.'}
