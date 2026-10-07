@@ -20,6 +20,7 @@ import {
 import FilterTabs from '../list/FilterTabs';
 import LeadRow from '../list/LeadRow';
 import BottomSheet, { SheetRow } from '../../mobile/BottomSheet';
+import { useLeadListPagination } from '../../../hooks/useLeadListPagination';
 
 // Phone version of the Leads list: collapsing title row, one-line search with a
 // Filters sheet, a single chip row, an "attention" strip for drafts/unreplied,
@@ -28,6 +29,7 @@ import BottomSheet, { SheetRow } from '../../mobile/BottomSheet';
 export default function MobileLeadsList({
   leads,
   filteredLeads,
+  paginationResetKey,
   stats,
   loading,
   error,
@@ -71,6 +73,12 @@ export default function MobileLeadsList({
   const [toolsOpen, setToolsOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const lastTop = useRef(0);
+  const {
+    visibleItems: visibleLeads,
+    hasMore,
+    scrollRootRef,
+    sentinelRef,
+  } = useLeadListPagination(filteredLeads, paginationResetKey);
 
   const activeFilterCount = (stateFilter !== 'all' ? 1 : 0) + (typeFilter !== 'all' ? 1 : 0) + (instanceFilter !== 'all' ? 1 : 0);
   const selectedCount = selectedIds.size;
@@ -172,7 +180,7 @@ export default function MobileLeadsList({
       </div>
 
       {/* Lead list */}
-      <div onScroll={handleScroll} className="m-scroll min-h-0 flex-1 px-3 pb-28 pt-3">
+      <div ref={scrollRootRef} onScroll={handleScroll} className="m-scroll min-h-0 flex-1 px-3 pb-28 pt-3">
         {!selectMode && (stats.pending > 0 || stats.unread > 0) && (
           <button
             type="button"
@@ -223,7 +231,7 @@ export default function MobileLeadsList({
         )}
 
         <div className="flex flex-col gap-2.5">
-          {filteredLeads.map((lead, index) => (
+          {visibleLeads.map((lead, index) => (
             <div key={lead.id} className="m-stagger" style={{ '--i': index }}>
               <LeadRow
                 lead={lead}
@@ -239,6 +247,13 @@ export default function MobileLeadsList({
             </div>
           ))}
         </div>
+        {filteredLeads.length > 15 && (
+          <div ref={sentinelRef} className="py-3 text-center text-[12px] font-medium text-slate-400" role="status">
+            {hasMore
+              ? `Showing ${visibleLeads.length} of ${filteredLeads.length} leads`
+              : `All ${filteredLeads.length} leads loaded`}
+          </div>
+        )}
       </div>
 
       {/* Bulk action bar */}

@@ -21,6 +21,7 @@ import {
 import logo from '../../assets/images/heysasalogo.png';
 import { useAuth } from '../../context/useAuth';
 import { useTheme } from '../../context/useTheme';
+import { useAssistant } from '../../context/useAssistant';
 import { useBusinessList } from '../../hooks/useBusinessList';
 import { getBusinessDisplayName } from '../../utils/businessHelpers';
 import BottomSheet, { SheetRow } from './BottomSheet';
@@ -43,6 +44,7 @@ const inputClass = 'h-12 w-full rounded-xl border border-slate-200 bg-slate-50 p
 // are the same ones the desktop shell renders. Only the chrome is different.
 export default function MobileShell({ activeTab, setActiveTab, onBusinessClick, children }) {
   const { user, signOut, updatePassword, switchBusiness, addBusiness } = useAuth();
+  const { open: openAssistant } = useAssistant();
   const { isDark, toggleTheme } = useTheme();
   const { businesses, loading, error, activeBusiness, displayName, activeBusinessId } = useBusinessList();
 
@@ -145,7 +147,15 @@ export default function MobileShell({ activeTab, setActiveTab, onBusinessClick, 
             </span>
             <ChevronDown size={15} className="shrink-0 text-slate-400" />
           </button>
-          <img src={logo} alt="HeySasa" className="h-8 w-24 shrink-0 object-contain" />
+          <button
+            type="button"
+            onClick={() => openAssistant({ surface: 'general', title: 'Ask HeySasa' })}
+            aria-label="Open Ask HeySasa"
+            title="Ask HeySasa"
+            className="flex h-10 shrink-0 items-center rounded-lg transition hover:bg-slate-100 active:scale-[0.98]"
+          >
+            <img src={logo} alt="HeySasa" className="h-8 w-24 object-contain" />
+          </button>
         </div>
       </header>
 

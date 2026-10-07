@@ -18,10 +18,12 @@ import {
 } from 'lucide-react';
 import Profile from '../profile/Profile';
 import { useAuth } from '../../context/useAuth';
+import { useAssistant } from '../../context/useAssistant';
 import { getBusinessDisplayName } from '../../utils/businessHelpers';
 
 export default function AppShell({ activeTab, setActiveTab, onBusinessClick, children }) {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const { open: openAssistant } = useAssistant();
   const { user, activeBusinessId, getBusinesses, switchBusiness, addBusiness } = useAuth();
   const [businesses, setBusinesses] = useState([]);
   const [businessesLoading, setBusinessesLoading] = useState(true);
@@ -272,7 +274,15 @@ export default function AppShell({ activeTab, setActiveTab, onBusinessClick, chi
                 </div>
               )}
             </div>
-            <img src={logo} alt="HeySasa" className="h-8 w-24 shrink-0 object-contain sm:h-9 sm:w-28" />
+            <button
+              type="button"
+              onClick={() => openAssistant({ surface: 'general', title: 'Ask HeySasa' })}
+              aria-label="Open Ask HeySasa"
+              title="Ask HeySasa"
+              className="flex shrink-0 items-center rounded-lg transition hover:bg-white/60 active:scale-[0.98]"
+            >
+              <img src={logo} alt="HeySasa" className="h-8 w-24 object-contain sm:h-9 sm:w-28" />
+            </button>
           </div>
         </header>
         {/* Dynamic Page Content Rendered Here */}

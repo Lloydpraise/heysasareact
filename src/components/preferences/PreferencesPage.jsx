@@ -7,6 +7,7 @@ import { MaterialsSection } from './sections/MaterialsSection';
 import { BusinessSection } from './sections/BusinessSection';
 import { WhatsAppSection } from './sections/WhatsAppSection';
 import { BillingSection } from './sections/BillingSection';
+import { AssistantSection } from './sections/AssistantSection';
 import { Toast } from './shared/Toast';
 import { usePreferences } from '../../hooks/usePreferences';
 import { useMaterials } from '../../hooks/useMaterials';
@@ -66,6 +67,8 @@ export default function PreferencesPage({ initialSection = 'followup', startInSe
         return <BusinessSection business={business || mockBusiness} updateBusiness={updateBusiness} />;
       case 'whatsapp':
         return <WhatsAppSection />;
+      case 'assistant':
+        return <AssistantSection />;
       case 'billing':
         return <BillingSection />;
       default:
@@ -74,7 +77,7 @@ export default function PreferencesPage({ initialSection = 'followup', startInSe
   };
 
   const activeLabel = PREF_SECTIONS.find((section) => section.id === activeSection)?.label ?? 'Follow-up';
-  const showSave = activeSection !== 'billing';
+  const showSave = activeSection !== 'billing' && activeSection !== 'assistant';
 
   const body = (
     <>

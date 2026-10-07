@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import AppShell from './components/layout/AppShell';
 import MobileShell from './components/mobile/MobileShell';
+import { AssistantProvider } from './context/AssistantContext';
 import { useIsMobile } from './hooks/useIsMobile';
 import LeadsPage from './components/leads/LeadsPage';
 import ListsCampaignsPage from './components/listsCampaigns/ListsCampaignsPage';
@@ -91,7 +92,11 @@ function AuthenticatedApp() {
   }, []);
 
   const Shell = isMobile ? MobileShell : AppShell;
-  return <Shell activeTab={activeTab} setActiveTab={handleTabChange} onBusinessClick={openBusinessSettings}>{renderMainContent()}</Shell>;
+  return (
+    <AssistantProvider businessId={activeBusinessId}>
+      <Shell activeTab={activeTab} setActiveTab={handleTabChange} onBusinessClick={openBusinessSettings}>{renderMainContent()}</Shell>
+    </AssistantProvider>
+  );
 }
 
 // CHANGED: heysasa.co.ke's root used to always render either LoginPage

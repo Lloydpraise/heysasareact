@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { BriefcaseBusiness, CheckSquare, Download, LoaderCircle, MessageCircleMore, Plus, Search, RefreshCw, Sparkles, Trash2, User } from 'lucide-react';
 import { useLeads } from '../../hooks/useLeads';
 import { useLeadFilters } from '../../hooks/useLeadFilters';
+import { useLeadListPagination } from '../../hooks/useLeadListPagination';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { useToast } from '../../hooks/useToast';
 import { Toast } from '../preferences/shared/Toast';
@@ -74,6 +75,13 @@ export default function LeadsPage() {
     instanceFilter, setInstanceFilter,
     filteredLeads, stats,
   } = useLeadFilters(leads);
+  const paginationResetKey = `${searchQuery}\u0000${stateFilter}\u0000${typeFilter}\u0000${instanceFilter}`;
+  const {
+    visibleItems: visibleLeads,
+    hasMore: hasMoreLeads,
+    scrollRootRef: leadsScrollRootRef,
+    sentinelRef: leadsSentinelRef,
+  } = useLeadListPagination(filteredLeads, paginationResetKey);
   const [connectedInstances, setConnectedInstances] = useState([]);
 
   useEffect(() => {
@@ -508,6 +516,7 @@ export default function LeadsPage() {
         <MobileLeadsList
           leads={leads}
           filteredLeads={filteredLeads}
+          paginationResetKey={paginationResetKey}
           stats={stats}
           loading={loading}
           error={error}
@@ -572,7 +581,7 @@ export default function LeadsPage() {
       {connectionStrip && <div className="absolute left-0 right-0 top-0 z-20 px-3 pt-3 md:px-4">{connectionStrip}</div>}
       {/* ── List panel ─────────────────────────────── */}
       <div className={`flex min-h-0 w-full shrink-0 flex-col overflow-hidden border-b border-slate-200 bg-white/70 backdrop-blur-xl ${isDisconnected || showHistoryPrompt ? 'pt-16' : ''} md:w-[340px] md:min-w-[280px] md:max-w-[340px] md:border-b-0 md:border-r ${mobileDetailOpen ? 'hidden md:flex' : 'flex'}`}>
-        <div className="min-h-0 flex-1 overflow-y-auto px-0 pt-3 md:px-3.5 md:pt-4">
+        <div ref={leadsScrollRootRef} className="min-h-0 flex-1 overflow-y-auto px-0 pt-3 md:px-3.5 md:pt-4">
           <div className="mb-3 flex items-center justify-between px-3 md:px-0">
             <h2 className="text-lg font-bold tracking-tight text-slate-900">Leads</h2>
             <div className="flex items-center gap-2">
@@ -711,7 +720,7 @@ export default function LeadsPage() {
             </div>
           )}
           <div className="flex flex-col gap-1">
-            {filteredLeads.map((lead) => (
+            {visibleLeads.map((lead) => (
               <LeadRow
                 key={lead.id}
                 lead={lead}
@@ -726,6 +735,17 @@ export default function LeadsPage() {
               />
             ))}
           </div>
+          {filteredLeads.length > 15 && (
+            <div
+              ref={leadsSentinelRef}
+              className="py-3 text-center text-[11px] font-medium text-slate-400"
+              role="status"
+            >
+              {hasMoreLeads
+                ? `Showing ${visibleLeads.length} of ${filteredLeads.length} leads`
+                : `All ${filteredLeads.length} leads loaded`}
+            </div>
+          )}
         </div>
         </div>
       </div>

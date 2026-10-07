@@ -9,7 +9,8 @@ const STATUS_CONFIG = {
 };
 
 export default function CampaignCard({ campaign, onChanged, onEdit }) {
-  const sentPercent = campaign.enrolled ? Math.round((campaign.sent / campaign.enrolled) * 100) : 0;
+  const reached = campaign.reached ?? 0;
+  const reachedPercent = campaign.enrolled ? Math.round((reached / campaign.enrolled) * 100) : 0;
   const status = STATUS_CONFIG[campaign.status] || { label: campaign.status || 'Unknown', className: 'bg-slate-100 text-slate-600' };
 
   return (
@@ -30,9 +31,9 @@ export default function CampaignCard({ campaign, onChanged, onEdit }) {
       <div className="grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-4">
         <KpiTile label="Enrolled Leads" value={campaign.enrolled} />
         <KpiTile
-          label="Messages Sent"
-          value={`${sentPercent}%`}
-          sub={`${campaign.sent} sent`}
+          label="Leads Reached"
+          value={`${reachedPercent}%`}
+          sub={`${reached} / ${campaign.enrolled} leads · ${campaign.sent} messages sent`}
         />
         <KpiTile
           label="Response Rate"

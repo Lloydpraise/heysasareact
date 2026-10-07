@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import Stepper from './Stepper';
 import ListSelectionStep from './Listselectionstep';
@@ -38,6 +39,8 @@ function getDefaultSendTime(timeZone = 'UTC') {
 export default function CreateCampaignModal({ open, campaign, onClose, businessId, onLaunched, startWithImport = false }) {
   const [stepIndex, setStepIndex] = useState(() => (campaign ? 1 : 0));
   const [campaignName, setCampaignName] = useState(() => campaign?.name || '');
+  // Reopening Ask HeySasa for the same message resumes its chat, but a brand-new campaign starts fresh.
+  const [assistantKey] = useState(() => (campaign?.id ? `campaign_${campaign.id}` : `campaign_draft_${Date.now()}`));
   const [whatsappSessions, setWhatsappSessions] = useState([]);
   const [selectedInstanceId, setSelectedInstanceId] = useState('');
   const [selectedListIds, setSelectedListIds] = useState(() => (campaign?.listId ? [campaign.listId] : []));
@@ -238,13 +241,13 @@ export default function CreateCampaignModal({ open, campaign, onClose, businessI
 
   if (!open) return null;
 
-  return (
-    <div className="sheet-overlay fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/35 p-4 sm:p-6">
-      <div className="sheet-panel sheet-tall static w-full max-w-4xl max-h-[calc(100vh-2rem)] overflow-y-auto rounded-[1.5rem] border border-white/80 bg-white/95 shadow-2xl shadow-slate-900/15 backdrop-blur-xl sm:max-h-[calc(100vh-3rem)]">
+  return createPortal(
+    <div className="sheet-overlay fixed inset-0 z-[1100] flex items-start justify-center overflow-y-auto bg-slate-950/35 p-4 sm:p-6">
+      <div className="sheet-panel sheet-tall static w-full max-w-4xl max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-[1.5rem] border border-white/80 bg-white/95 shadow-2xl shadow-slate-900/15 backdrop-blur-xl sm:max-h-[calc(100dvh-3rem)]" role="dialog" aria-modal="true" aria-labelledby="create-campaign-title">
         <div className="flex items-center justify-between border-b border-slate-200/80 px-4 py-3 sm:px-5">
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Campaign builder</p>
-            <h3 className="mt-1 text-base font-semibold text-slate-800">{campaign ? 'Edit campaign' : 'Create campaign'}</h3>
+            <h3 id="create-campaign-title" className="mt-1 text-base font-semibold text-slate-800">{campaign ? 'Edit campaign' : 'Create campaign'}</h3>
           </div>
           <button
             type="button"
@@ -341,6 +344,8 @@ export default function CreateCampaignModal({ open, campaign, onClose, businessI
                   quietEnd={quietHours.end}
                   activeDays={activeDays}
                   timezone={timezone}
+                  assistantKey={assistantKey}
+                  assistantContext={{ campaign_name: campaignName.trim(), sequence_type: sequenceType }}
                 />
 
                 <div className="border-t border-slate-200 pt-4 space-y-3">
@@ -407,7 +412,7 @@ export default function CreateCampaignModal({ open, campaign, onClose, businessI
 
             {error && <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-600">{error}</p>}
 
-            <div className="flex items-center justify-between pt-2">
+            <div className="sticky bottom-0 z-10 -mx-4 flex items-center justify-between border-t border-slate-200 bg-white/95 px-4 py-3 pt-2 backdrop-blur sm:-mx-5 sm:px-5">
               <button
                 type="button"
                 onClick={() => (stepIndex === 0 ? handleClose() : setStepIndex(0))}
@@ -439,6 +444,7 @@ export default function CreateCampaignModal({ open, campaign, onClose, businessI
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

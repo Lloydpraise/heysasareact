@@ -2,11 +2,12 @@ import { useEffect, useState } from 'react';
 import { subscribeToCapacity } from '../../../../services/listsCampaignsService';
 
 export default function MessageUsage({ businessId, dailyCap, initialSentToday }) {
-  const [sentToday, setSentToday] = useState(initialSentToday);
+  const [liveSentToday, setLiveSentToday] = useState(null);
+  const sentToday = liveSentToday ?? initialSentToday;
 
   useEffect(() => {
     if (!businessId) return undefined;
-    const unsubscribe = subscribeToCapacity(businessId, (row) => setSentToday(row.sent_today));
+    const unsubscribe = subscribeToCapacity(businessId, (row) => setLiveSentToday(row.sent_today));
     return unsubscribe;
   }, [businessId]);
 

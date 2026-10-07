@@ -122,6 +122,7 @@ export const MOCK_CAMPAIGNS = [
     sentToday: 58,
     enrolled: 42,
     sent: 27,
+    reached: 27,
     responseRate: 24,
     repliesCount: 10,
     revenue: 68000,

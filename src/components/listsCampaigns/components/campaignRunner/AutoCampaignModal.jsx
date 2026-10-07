@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { X } from 'lucide-react';
 import MessageSequenceBuilder from './createCampaignModal/Messagesequencebuilder';
+import AssistantButton from '../../../assistant/AssistantButton';
 import { SEQUENCE_TYPE } from '../../constants';
 import {
   saveAutoCampaignConfig,
@@ -164,7 +165,19 @@ export default function AutoCampaignModal({ open, auto, businessId, onClose, onC
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-slate-700">How to follow up</label>
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium text-slate-700">How to follow up</label>
+              <AssistantButton
+                variant="pill"
+                label="Write with AI"
+                surface="auto_campaign_playbook"
+                title="Follow-up playbook"
+                contextKey={`auto_${auto.ruleId}:playbook`}
+                currentText={playbook}
+                context={{ campaign_name: auto.name, list_name: auto.listName, objective }}
+                onApprove={(draft) => setPlaybook(draft.text)}
+              />
+            </div>
             <p className="text-[11px] text-slate-500">
               Your playbook for these leads. The AI follows it when it personalises each message.
             </p>
@@ -191,6 +204,8 @@ export default function AutoCampaignModal({ open, auto, businessId, onClose, onC
               setFrequency={() => {}}
               steps={steps}
               setSteps={setSteps}
+              assistantKey={`auto_${auto.ruleId}`}
+              assistantContext={{ campaign_name: auto.name, list_name: auto.listName, objective }}
               businessId={businessId}
               firstMessageSendAt={stubSendAt}
               setFirstMessageSendAt={() => {}}

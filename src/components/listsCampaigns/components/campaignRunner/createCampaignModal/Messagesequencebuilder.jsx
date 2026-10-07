@@ -3,6 +3,7 @@ import { AlertTriangle, LoaderCircle, Paperclip, Plus, X } from 'lucide-react';
 import { MERGE_FIELDS, SEQUENCE_TYPE, EDUCATIONAL_FREQUENCY, BROADCAST_GAP_OPTIONS } from '../../../constants';
 import { formatDateTimeLocalInTimeZone, getTimeZoneHour, getTimeZoneWeekday, parseDateTimeLocalInTimeZone } from '../../../../../utils/businessTime';
 import { uploadCampaignImage } from '../../../../../services/campaignMediaService';
+import AssistantButton from '../../../../assistant/AssistantButton';
 
 function emptyStep() {
   return { content: '', gapHours: BROADCAST_GAP_OPTIONS[2].value }; // defaults to 1 day
@@ -55,6 +56,8 @@ export default function MessageSequenceBuilder({
   timezone = 'Africa/Nairobi',
   hideSchedule = false,
   hideSequenceType = false,
+  assistantKey = null,
+  assistantContext = {},
 }) {
   const textareaRefs = useRef([]);
   const isEducational = sequenceType === SEQUENCE_TYPE.EDUCATIONAL;
@@ -311,6 +314,24 @@ export default function MessageSequenceBuilder({
               <div className="flex items-center justify-between">
                 <label className="text-sm font-medium text-slate-700">Message {i + 1}</label>
                 <div className="flex items-center gap-1">
+                  {assistantKey && (
+                    <AssistantButton
+                      surface="campaign_message"
+                      title={`Message ${i + 1}`}
+                      contextKey={`${assistantKey}:step:${i + 1}`}
+                      currentText={step.content}
+                      context={{
+                        ...assistantContext,
+                        step_number: i + 1,
+                        step_count: steps.length,
+                        gap_hours_before: i > 0 ? Number(step.gapHours) : 0,
+                        available_merge_fields: MERGE_FIELDS.map((f) => `{{${f.key}}}`),
+                        other_steps: steps.map((s, n) => ({ number: n + 1, text: s.content })).filter((s, n) => n !== i && s.text),
+                      }}
+                      onApprove={(draft) => setSteps((current) => current.map((s, n) => (n === i ? { ...s, content: draft.text } : s)))}
+                      className="mr-1"
+                    />
+                  )}
                   {MERGE_FIELDS.map((f) => (
                     <button
                       key={f.key}

@@ -276,24 +276,31 @@ export async function fetchCampaigns(businessId) {
 
   if (!campaigns?.length) return [];
 
-  const { data: queueRows, error: queueError } = await supabase
-    .from('follow_up_queue')
-    .select('campaign_id, status')
-    .eq('business_id', businessId)
-    .not('campaign_id', 'is', null);
-  if (queueError) throw queueError;
-
   const deliveryCounts = new Map();
-  for (const row of queueRows || []) {
-    if (!deliveryCounts.has(row.campaign_id)) {
-      deliveryCounts.set(row.campaign_id, { sent: 0, skipped: 0, failed: 0, queued: 0, cancelled: 0 });
+  const pageSize = 1000;
+  for (let offset = 0; ; offset += pageSize) {
+    const { data: queueRows, error: queueError } = await supabase
+      .from('follow_up_queue')
+      .select('campaign_id, status')
+      .eq('business_id', businessId)
+      .not('campaign_id', 'is', null)
+      .order('campaign_id', { ascending: true })
+      .order('status', { ascending: true })
+      .range(offset, offset + pageSize - 1);
+    if (queueError) throw queueError;
+
+    for (const row of queueRows || []) {
+      if (!deliveryCounts.has(row.campaign_id)) {
+        deliveryCounts.set(row.campaign_id, { sent: 0, skipped: 0, failed: 0, queued: 0, cancelled: 0 });
+      }
+      const counts = deliveryCounts.get(row.campaign_id);
+      if (row.status === 'sent') counts.sent += 1;
+      else if (row.status === 'skipped') counts.skipped += 1;
+      else if (row.status === 'failed') counts.failed += 1;
+      else if (row.status === 'cancelled') counts.cancelled += 1;
+      else if (['pending', 'ready_to_send', 'awaiting_approval'].includes(row.status)) counts.queued += 1;
     }
-    const counts = deliveryCounts.get(row.campaign_id);
-    if (row.status === 'sent') counts.sent += 1;
-    else if (row.status === 'skipped') counts.skipped += 1;
-    else if (row.status === 'failed') counts.failed += 1;
-    else if (row.status === 'cancelled') counts.cancelled += 1;
-    else if (['pending', 'ready_to_send', 'awaiting_approval'].includes(row.status)) counts.queued += 1;
+    if (!queueRows || queueRows.length < pageSize) break;
   }
 
   const { data: allSteps, error: stepsError } = await supabase
@@ -329,6 +336,7 @@ export async function fetchCampaigns(businessId) {
       sentToday: Number(row.sent_today ?? 0),
       enrolled: Number(row.enrolled_count ?? 0),
       sent: deliveryCounts.get(row.campaign_id)?.sent ?? Number(row.sent_count ?? 0),
+      reached: Number(row.reached_count ?? 0),
       responseRate: Number(row.response_rate ?? 0),
       repliesCount: Number(row.replies_count ?? 0),
       positiveCount,
@@ -368,15 +376,23 @@ export async function fetchCampaigns(businessId) {
 export async function fetchCampaignResponses(campaignId) {
   if (!campaignId) return [];
 
-  const { data, error } = await supabase
-    .from('v_campaign_message_feedback')
-    .select('*')
-    .eq('campaign_id', campaignId)
-    .order('step_number', { ascending: true })
-    .order('sent_at', { ascending: true });
-  if (error) throw error;
+  const pageSize = 1000;
+  const data = [];
+  for (let offset = 0; ; offset += pageSize) {
+    const { data: page, error } = await supabase
+      .from('v_campaign_message_feedback')
+      .select('*')
+      .eq('campaign_id', campaignId)
+      .order('step_number', { ascending: true })
+      .order('sent_at', { ascending: true })
+      .order('step_event_id', { ascending: true })
+      .range(offset, offset + pageSize - 1);
+    if (error) throw error;
+    data.push(...(page || []));
+    if (!page || page.length < pageSize) break;
+  }
 
-  return (data || []).map((row) => ({
+  return data.map((row) => ({
     stepEventId: row.step_event_id,
     stepId: row.step_id,
     stepNumber: row.step_number,

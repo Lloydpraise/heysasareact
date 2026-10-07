@@ -10,7 +10,8 @@ const STATUS_CONFIG = {
 };
 
 export default function CampaignRow({ campaign, onChanged, onEdit, expanded, onToggleExpand }) {
-  const sentPercent = campaign.enrolled ? Math.round((campaign.sent / campaign.enrolled) * 100) : 0;
+  const reached = campaign.reached ?? 0;
+  const reachedPercent = campaign.enrolled ? Math.round((reached / campaign.enrolled) * 100) : 0;
   const status = STATUS_CONFIG[campaign.status] || { label: campaign.status || 'Unknown', className: 'bg-slate-100 text-slate-600' };
 
   return (
@@ -31,9 +32,9 @@ export default function CampaignRow({ campaign, onChanged, onEdit, expanded, onT
           <p className="mt-0.5 text-sm font-semibold text-slate-800">{campaign.enrolled}</p>
         </div>
         <div>
-          <p className="text-[10px] font-medium text-slate-400">Messages sent</p>
-          <p className="mt-0.5 text-sm font-semibold text-slate-800">{sentPercent}%</p>
-          <p className="text-[10px] text-emerald-700">{campaign.sent} sent</p>
+          <p className="text-[10px] font-medium text-slate-400">Leads reached</p>
+          <p className="mt-0.5 text-sm font-semibold text-slate-800">{reachedPercent}%</p>
+          <p className="text-[10px] text-emerald-700">{reached} / {campaign.enrolled} leads · {campaign.sent} messages</p>
         </div>
         <button
           type="button"

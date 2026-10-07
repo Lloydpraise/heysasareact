@@ -1,5 +1,7 @@
-import { useState } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Plus, Sparkles, Trash2 } from 'lucide-react';
+import AssistantButton from '../assistant/AssistantButton';
+import { useAssistant } from '../../context/useAssistant';
 import { createFlow, deleteFlow, saveFlow } from '../../services/chatAiConfigService';
 import { Badge, Field, ListRow, Switch, dangerButton, ghostButton, inputClass, primaryButton } from './ConfigShared';
 
@@ -26,12 +28,15 @@ function CheckGroup({ options, selected, onToggle, empty }) {
   );
 }
 
-function FlowEditor({ businessId, flow, skills, targets, onChanged, onDeleted, onCreated, showToast }) {
+// What Ask HeySasa's flow draft fills in. Skill keys it proposes are already limited to this business's skills.
+const fromAssistant = (d) => ({ name: d.name || '', goal: d.goal || '', instructions: d.instructions || '', skill_keys: d.skill_keys || [] });
+
+function FlowEditor({ businessId, flow, skills, targets, prefill, isFirst, onChanged, onDeleted, onCreated, showToast }) {
   const isNew = !flow;
   const initial = flow
     ? { name: flow.name, enabled: flow.enabled, priority: flow.priority, goal: flow.goal ?? '', instructions: flow.instructions, skill_keys: flow.skill_keys ?? [], trigger: { ad_ids: (flow.trigger?.ad_ids ?? []).map(String), list_ids: (flow.trigger?.list_ids ?? []).map(String) } }
     : EMPTY;
-  const [draft, setDraft] = useState(initial);
+  const [draft, setDraft] = useState(() => (isNew && prefill ? { ...EMPTY, ...fromAssistant(prefill) } : initial));
   const [adInput, setAdInput] = useState('');
   const [busy, setBusy] = useState(false);
   const set = (field) => (event) => setDraft((d) => ({ ...d, [field]: event.target.value }));
@@ -94,6 +99,30 @@ function FlowEditor({ businessId, flow, skills, targets, onChanged, onDeleted, o
     <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-1 pr-2">
       <h3 className="text-sm font-semibold text-[#0F172A]">{isNew ? 'New flow' : flow.name}</h3>
 
+      <div className={`flex flex-col gap-3 rounded-2xl border border-[#28A745]/25 bg-[#28A745]/5 p-3 sm:flex-row sm:items-center sm:justify-between ${isFirst && isNew ? 'sm:p-4' : ''}`}>
+        <div className="min-w-0">
+          <p className="flex items-center gap-1.5 text-[13px] font-semibold text-slate-800"><Sparkles size={14} className="text-[#28A745]" /> {isFirst && isNew ? 'Not sure where to start?' : 'Let Ask HeySasa write this'}</p>
+          <p className="mt-0.5 text-[12px] leading-snug text-slate-500">
+            {isFirst && isNew ? 'Tell me who your customers are and what a good chat looks like. I will draft your first flow.' : 'Describe it in your own words. You approve it before anything is filled in.'}
+          </p>
+        </div>
+        <AssistantButton
+          variant="pill"
+          label={draft.instructions.trim() ? 'Improve with AI' : 'Write with AI'}
+          surface="flow"
+          title={draft.name || 'New flow'}
+          contextKey={`flow:${flow?.id ?? 'new'}`}
+          currentText={draft.instructions}
+          context={{
+            flow_name: draft.name,
+            flow_goal: draft.goal,
+            first_flow: !!isFirst,
+            available_skills: skills.filter((s) => s.enabled).slice(0, 12).map((s) => ({ key: s.key, title: s.title })),
+          }}
+          onApprove={(d) => setDraft((cur) => ({ ...cur, ...fromAssistant(d), name: d.name || cur.name, goal: d.goal || cur.goal }))}
+        />
+      </div>
+
       <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_7rem]">
         <Field label="Name">
           <input className={inputClass} value={draft.name} onChange={set('name')} placeholder="Wig ad leads" />
@@ -155,6 +184,29 @@ function FlowEditor({ businessId, flow, skills, targets, onChanged, onDeleted, o
 
 export function FlowsPanel({ businessId, flows, skills, targets, reload, showToast }) {
   const [selectedId, setSelectedId] = useState(flows[0]?.id ?? NEW);
+  const [prefill, setPrefill] = useState(null);
+  const { open } = useAssistant();
+
+  // No flows yet: Ask HeySasa opens by itself, once per business, instead of waiting to be found.
+  useEffect(() => {
+    if (flows.length > 0 || !businessId) return;
+    const flag = `heysasa:ask:first-flow:${businessId}`;
+    try {
+      if (localStorage.getItem(flag)) return;
+      localStorage.setItem(flag, '1');
+    } catch {
+      return;
+    }
+    open({
+      surface: 'flow',
+      title: 'Your first flow',
+      contextKey: 'flow:new',
+      context: { first_flow: true, available_skills: skills.filter((s) => s.enabled).slice(0, 12).map((s) => ({ key: s.key, title: s.title })) },
+      onApprove: (draft) => { setSelectedId(NEW); setPrefill({ ...draft, nonce: Date.now() }); },
+    });
+    // Runs once when the Flows tab opens with nothing in it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const selected = selectedId === NEW ? null : flows.find((f) => f.id === selectedId) ?? null;
   const activeId = selected ? selected.id : NEW;
 
@@ -183,17 +235,19 @@ export function FlowsPanel({ businessId, flows, skills, targets, reload, showToa
               </ListRow>
             );
           })}
-          {flows.length === 0 && <p className="px-2 py-4 text-sm leading-snug text-[#94A3B8]">No flows yet. A flow gives chats from a specific ad or list their own script. Without one, the AI uses its normal behaviour.</p>}
+          {flows.length === 0 && <p className="px-2 py-4 text-sm leading-snug text-[#94A3B8]">No flows yet. A flow gives chats from a specific ad or list their own script. Without one, the AI uses its normal behaviour. Ask HeySasa can write your first one.</p>}
         </div>
       </div>
 
       <div className="flex min-h-0 flex-col overflow-hidden rounded-[1.25rem] border border-white/80 bg-white/70 p-4 shadow-lg shadow-[#28A745]/5">
         <FlowEditor
-          key={`${activeId}-${selected?.updated_at ?? ''}`}
+          key={`${activeId}-${selected?.updated_at ?? ''}-${prefill?.nonce ?? ''}`}
           businessId={businessId}
           flow={selected}
           skills={skills}
           targets={targets}
+          prefill={prefill}
+          isFirst={flows.length === 0}
           showToast={showToast}
           onChanged={reload}
           onDeleted={async () => {
