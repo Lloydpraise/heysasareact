@@ -1,4 +1,4 @@
-const CACHE_NAME = 'heysasa-static-v2'
+const CACHE_NAME = 'heysasa-static-v3'
 const APP_SHELL = [
   '/',
   '/manifest.webmanifest',
@@ -42,6 +42,7 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url)
 
   if (request.method !== 'GET' || url.origin !== self.location.origin) return
+  if (url.hostname === 'localhost' || url.hostname === '127.0.0.1') return
 
   if (request.mode === 'navigate') {
     event.respondWith(

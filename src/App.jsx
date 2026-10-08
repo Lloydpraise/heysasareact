@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Component, useEffect, useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import AppShell from './components/layout/AppShell';
 import MobileShell from './components/mobile/MobileShell';
@@ -24,6 +24,36 @@ function tabFromPath(path) {
   if (path.includes('/playground')) return 'playground';
   if (path.includes('/products')) return 'products';
   return 'analytics';
+}
+
+class WorkspaceErrorBoundary extends Component {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error, info) {
+    console.error('[Workspace] Rendering failed:', error, info.componentStack);
+  }
+
+  retry = () => this.setState({ hasError: false });
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <main role="alert" className="flex min-h-screen flex-col items-center justify-center gap-3 bg-[var(--app-bg)] px-6 text-center text-[var(--app-fg)]">
+          <h1 className="text-lg font-semibold">The workspace ran into a problem.</h1>
+          <p className="max-w-md text-sm text-slate-500">You can try reopening it without reloading the whole page.</p>
+          <button type="button" onClick={this.retry} className="rounded-full bg-[#28A745] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1f8d3d]">
+            Try again
+          </button>
+        </main>
+      );
+    }
+
+    return this.props.children;
+  }
 }
 
 // The existing logged-in app, lifted out of App() so it can be mounted as one
@@ -147,7 +177,7 @@ export default function App() {
         <Route path="/privacy" element={<PolicyPage page="privacy" />} />
         <Route path="/contact" element={<PolicyPage page="contact" />} />
         <Route path="/contact-us" element={<PolicyPage page="contact" />} />
-        <Route path="*" element={user ? <AuthenticatedApp /> : <LandingPage />} />
+        <Route path="*" element={user ? <WorkspaceErrorBoundary><AuthenticatedApp /></WorkspaceErrorBoundary> : <LandingPage />} />
       </Routes>
     </BrowserRouter>
   );

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
+import { useAssistant } from '../../../../../context/useAssistant';
+import { useIsMobile } from '../../../../../hooks/useIsMobile';
 import Stepper from './Stepper';
 import ListSelectionStep from './Listselectionstep';
 import MessageSequenceBuilder from './Messagesequencebuilder';
@@ -37,6 +39,8 @@ function getDefaultSendTime(timeZone = 'UTC') {
 }
 
 export default function CreateCampaignModal({ open, campaign, onClose, businessId, onLaunched, startWithImport = false }) {
+  const { isOpen: assistantOpen } = useAssistant();
+  const isMobile = useIsMobile();
   const [stepIndex, setStepIndex] = useState(() => (campaign ? 1 : 0));
   const [campaignName, setCampaignName] = useState(() => campaign?.name || '');
   // Reopening Ask HeySasa for the same message resumes its chat, but a brand-new campaign starts fresh.
@@ -242,7 +246,10 @@ export default function CreateCampaignModal({ open, campaign, onClose, businessI
   if (!open) return null;
 
   return createPortal(
-    <div className="sheet-overlay fixed inset-0 z-[1100] flex items-start justify-center overflow-y-auto bg-slate-950/35 p-4 sm:p-6">
+    <div
+      className="sheet-overlay fixed inset-0 z-[1100] flex items-start justify-center overflow-y-auto bg-slate-950/35 p-4 sm:p-6"
+      style={{ right: assistantOpen && !isMobile ? 'clamp(300px, 32vw, 440px)' : 0 }}
+    >
       <div className="sheet-panel sheet-tall static w-full max-w-4xl max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-[1.5rem] border border-white/80 bg-white/95 shadow-2xl shadow-slate-900/15 backdrop-blur-xl sm:max-h-[calc(100dvh-3rem)]" role="dialog" aria-modal="true" aria-labelledby="create-campaign-title">
         <div className="flex items-center justify-between border-b border-slate-200/80 px-4 py-3 sm:px-5">
           <div>
