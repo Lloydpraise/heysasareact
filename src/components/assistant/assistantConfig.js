@@ -26,8 +26,8 @@ export const SURFACE_UI = {
   },
   general: {
     title: 'Ask HeySasa',
-    placeholder: 'Ask anything about selling with HeySasa…',
-    starters: [],
+    placeholder: 'Ask me anything, or tell me what to do…',
+    starters: ['What should I do first?', 'How is my business doing?', 'Who should I follow up with today?', 'Explain my numbers to me', 'Make a list of people who asked about price'],
     chips: [],
   },
 };

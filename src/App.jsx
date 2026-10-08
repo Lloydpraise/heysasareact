@@ -91,9 +91,29 @@ function AuthenticatedApp() {
     return () => window.removeEventListener('heysasa:open-preferences', handleOpenPreferences);
   }, []);
 
+  // The assistant's "Take me there" button asks the app to switch page (it never reaches into pages itself).
+  useEffect(() => {
+    const handleNavigate = (event) => {
+      const { tab, section } = event.detail || {};
+      if (!tab) return;
+      if (tab === 'preferences' && section) {
+        setPreferencesSection(section);
+        setPreferencesDirect(true);
+        setActiveTab('preferences');
+        window.history.pushState(null, '', '/preferences');
+        return;
+      }
+      setActiveTab(tab);
+      setPreferencesDirect(false);
+      if (window.location.pathname !== `/${tab}`) window.history.pushState(null, '', `/${tab}`);
+    };
+    window.addEventListener('heysasa:navigate', handleNavigate);
+    return () => window.removeEventListener('heysasa:navigate', handleNavigate);
+  }, []);
+
   const Shell = isMobile ? MobileShell : AppShell;
   return (
-    <AssistantProvider businessId={activeBusinessId}>
+    <AssistantProvider businessId={activeBusinessId} page={activeTab}>
       <Shell activeTab={activeTab} setActiveTab={handleTabChange} onBusinessClick={openBusinessSettings}>{renderMainContent()}</Shell>
     </AssistantProvider>
   );

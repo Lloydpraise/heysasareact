@@ -18,7 +18,8 @@ async function request(businessId, path, { method = 'GET', body } = {}) {
 }
 
 // Sends one message and reads the Server-Sent-Events stream. `onEvent` gets:
-//   conversation {conversation_id} | status {text} | reset | reply {text} | draft_start | done {message_id, reply, draft} | error {message}
+//   conversation {conversation_id} | status {text} | reset | reply {text} | draft_start | action {action} | action_done {action}
+//   | guide {place, label, steps, nav} | done {message_id, reply, draft, action_ids} | error {message}
 // Resolves with the `done` event. Pass an AbortSignal to stop listening.
 export async function streamChat(businessId, payload, onEvent, signal) {
   const res = await fetch(`${BACKEND_API_URL}/assistant/chat`, {
@@ -66,3 +67,17 @@ export const deleteNote = (businessId, id) => request(businessId, `/notes/${id}`
 export const getPreferences = (businessId) => request(businessId, '/preferences').then((r) => r.preferences);
 export const savePreferences = (businessId, prefs) => request(businessId, '/preferences', { method: 'PUT', body: prefs }).then((r) => r.preferences);
 export const listSkills = (businessId) => request(businessId, '/skills').then((r) => r.skills);
+
+// ── Changes the assistant prepares: approve, say no, undo, the Activity log, and "always allow" ──
+export const fetchPendingActions = (businessId) => request(businessId, '/actions/pending').then((r) => r.actions);
+export const approveAction = (businessId, id, { alwaysAllow = false } = {}) => request(businessId, `/actions/${id}/approve`, { method: 'POST', body: alwaysAllow ? { always_allow: true } : {} }).then((r) => r.action);
+export const rejectAction = (businessId, id) => request(businessId, `/actions/${id}/reject`, { method: 'POST' }).then((r) => r.action);
+export const undoAction = (businessId, id) => request(businessId, `/actions/${id}/undo`, { method: 'POST' }).then((r) => r.action);
+export const fetchActivity = (businessId, { before, area, limit = 30 } = {}) => {
+  const q = new URLSearchParams({ limit: String(limit) });
+  if (before) q.set('before', before);
+  if (area) q.set('area', area);
+  return request(businessId, `/activity?${q}`);
+};
+export const fetchActionPrefs = (businessId) => request(businessId, '/action-prefs').then((r) => r.actions);
+export const setActionPref = (businessId, type, alwaysAllow) => request(businessId, '/action-prefs', { method: 'PUT', body: { type, always_allow: alwaysAllow } });

@@ -1,13 +1,21 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ArrowLeft, History, Loader2, Plus, RotateCcw, Send, X } from 'lucide-react';
-import { approveMessage, getConversation, listConversations, streamChat } from '../../services/assistantService';
-import { useBackClose } from '../../hooks/useBackClose';
+import { ArrowLeft, ChevronDown, History, ListChecks, Loader2, Plus, RotateCcw, Send, X } from 'lucide-react';
+import { approveMessage, fetchPendingActions, getConversation, listConversations, streamChat } from '../../services/assistantService';
 import { SURFACE_LABEL, SURFACE_UI } from './assistantConfig';
 import DraftCard, { WritingDraft } from './DraftCard';
+import ActionCard from './ActionCard';
+import GuideCard from './GuideCard';
+import ActivityView from './ActivityView';
 import assistantIcon from '../../assets/images/favicon.ico';
 
 const PENDING = 'pending';
+
+// A saved conversation comes back with its change cards attached to the message that prepared them.
+const withActions = (full) => {
+  const byId = new Map((full.actions ?? []).map((a) => [a.id, a]));
+  return full.messages.map((m) => ({ ...m, actions: (m.action_ids ?? []).map((id) => byId.get(id)).filter(Boolean) }));
+};
 
 const timeAgo = (iso) => {
   const mins = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
@@ -19,7 +27,7 @@ const timeAgo = (iso) => {
 
 // Ask HeySasa: a docked right-hand chat (full-screen overlay on phones). The owner types a rough idea, the AI writes the copy,
 // they go back and forth, then Approve pastes the draft into the box the panel was opened from.
-export default function AssistantPanel({ businessId, target, onClose, isMobile }) {
+export default function AssistantPanel({ businessId, target, onClose, isMobile, minimized = false, onMinimize = () => {}, onBadge = () => {}, pageLabel = '', goTo = () => {} }) {
   const surface = SURFACE_UI[target.surface] ? target.surface : 'general';
   const ui = SURFACE_UI[surface];
 
@@ -36,6 +44,8 @@ export default function AssistantPanel({ businessId, target, onClose, isMobile }
   const [history, setHistory] = useState(null);
   const [historyError, setHistoryError] = useState('');
   const [closing, setClosing] = useState(false);
+  const [pendingAll, setPendingAll] = useState([]);
+  const [overrides, setOverrides] = useState({});
   const abortRef = useRef(null);
   const scrollRef = useRef(null);
   const textareaRef = useRef(null);
@@ -45,13 +55,7 @@ export default function AssistantPanel({ businessId, target, onClose, isMobile }
     setClosing(true);
     setTimeout(onClose, 160);
   }, [onClose]);
-  useBackClose(true, close);
-
-  useEffect(() => {
-    const onKey = (e) => e.key === 'Escape' && close();
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [close]);
+  // Deliberately NOT closed by Escape or the Back button: the general chat stays put while the owner moves around the app.
 
   useEffect(() => () => abortRef.current?.abort(), []);
 
@@ -66,7 +70,7 @@ export default function AssistantPanel({ businessId, target, onClose, isMobile }
         const full = await getConversation(businessId, latest.id);
         if (cancelled) return;
         setConversationId(full.conversation.id);
-        setMessages(full.messages);
+        setMessages(withActions(full));
         setResumed(true);
       } catch { /* resuming is a nicety; start fresh if it fails */ }
     })();
@@ -92,7 +96,7 @@ export default function AssistantPanel({ businessId, target, onClose, isMobile }
     try {
       const full = await getConversation(businessId, id);
       setConversationId(full.conversation.id);
-      setMessages(full.messages);
+      setMessages(withActions(full));
       setResumed(false);
     } catch (e) { setError(e.message); }
   };
@@ -110,7 +114,8 @@ export default function AssistantPanel({ businessId, target, onClose, isMobile }
     abortRef.current = controller;
     try {
       const done = await streamChat(businessId, {
-        conversation_id: conversationId, surface, context_key: target.contextKey, context: target.context,
+        conversation_id: conversationId, surface, context_key: target.contextKey,
+        context: { ...(target.context || {}), ...(surface === 'general' && pageLabel ? { current_page: pageLabel } : {}) },
         message: text, current_text: target.currentText || '', retry,
       }, (event) => {
         if (event.type === 'conversation') setConversationId(event.conversation_id);
@@ -118,10 +123,17 @@ export default function AssistantPanel({ businessId, target, onClose, isMobile }
         else if (event.type === 'reset') setMessages((m) => m.map((x) => (x.id === PENDING ? { ...x, content: '' } : x)));
         else if (event.type === 'reply') { setStatus(''); setMessages((m) => m.map((x) => (x.id === PENDING ? { ...x, content: x.content + event.text } : x))); }
         else if (event.type === 'draft_start') setWritingDraft(true);
+        else if (event.type === 'action' || event.type === 'action_done') setMessages((m) => m.map((x) => (x.id === PENDING ? { ...x, actions: [...(x.actions || []), event.action] } : x)));
+        else if (event.type === 'guide') setMessages((m) => m.map((x) => (x.id === PENDING ? { ...x, guides: [...(x.guides || []), event] } : x)));
       }, controller.signal);
-      setMessages((m) => m.map((x) => (x.id === PENDING ? { id: done.message_id, role: 'assistant', content: done.reply, draft: done.draft, approved: false } : x)));
+      setMessages((m) => m.map((x) => (x.id === PENDING ? { id: done.message_id, role: 'assistant', content: done.reply, draft: done.draft, approved: false, actions: x.actions, guides: x.guides } : x)));
     } catch (e) {
       if (e.name === 'AbortError') return;
+      console.error('[Ask HeySasa] Chat request failed:', {
+        name: e instanceof Error ? e.name : 'UnknownError',
+        message: e instanceof Error ? e.message : String(e),
+        code: e?.code ?? null,
+      });
       setMessages((m) => m.filter((x) => x.id !== PENDING));
       setError(e.message || 'Something went wrong.');
       setFailedText(text);
@@ -138,6 +150,30 @@ export default function AssistantPanel({ businessId, target, onClose, isMobile }
   };
 
   const hasDraft = messages.some((m) => m.draft);
+
+  // Changes the assistant prepared: the ones in this chat, plus any still waiting from an earlier chat.
+  useEffect(() => {
+    if (surface !== 'general') return undefined;
+    let cancelled = false;
+    fetchPendingActions(businessId).then((list) => { if (!cancelled) setPendingAll(list); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [businessId, surface]);
+
+  const viewOf = (a) => overrides[a.id] ?? a;
+  const inChatIds = new Set(messages.flatMap((m) => (m.actions || []).map((a) => a.id)));
+  const orphans = pendingAll.filter((a) => !inChatIds.has(a.id));
+  const cards = [...messages.flatMap((m) => m.actions || []), ...orphans].map(viewOf);
+  const pendingCount = cards.filter((a) => a.status === 'pending').length;
+  useEffect(() => { onBadge(pendingCount); }, [pendingCount, onBadge]);
+
+  const onCardChange = (next) => setOverrides((o) => ({ ...o, [next.id]: next }));
+  // When the last waiting card is answered, tell the assistant so it carries on (it sees the result too).
+  const onDecided = (next, kind) => {
+    if (kind === 'undo' || busy) return;
+    if (cards.some((c) => c.id !== next.id && c.status === 'pending')) return;
+    const say = next.status === 'done' ? 'Approved.' : next.status === 'failed' ? 'That did not work. What can we do?' : next.status === 'rejected' ? 'Not now, leave that.' : null;
+    if (say) send(say);
+  };
   const onKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey && window.matchMedia('(min-width: 768px)').matches) { e.preventDefault(); send(input); }
   };
@@ -145,25 +181,29 @@ export default function AssistantPanel({ businessId, target, onClose, isMobile }
   const content = (
     <>
         <header className="flex shrink-0 items-center gap-2 border-b border-slate-200 bg-white px-3 py-3 max-md:pt-[calc(env(safe-area-inset-top)+0.5rem)]">
-          {view === 'history' ? (
+          {view !== 'chat' ? (
             <button type="button" onClick={() => setView('chat')} aria-label="Back to chat" className="flex h-10 w-10 items-center justify-center rounded-full text-slate-600 hover:bg-slate-100"><ArrowLeft size={20} /></button>
           ) : (
             <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#28A745]/10"><img src={assistantIcon} alt="" className="h-6 w-6 object-contain" /></span>
           )}
           <div className="min-w-0 flex-1">
-            <h2 className="truncate text-[15px] font-bold text-slate-900">{view === 'history' ? 'Past chats' : 'Ask HeySasa'}</h2>
-            <p className="truncate text-[12px] text-slate-500">{view === 'history' ? 'Pick one to continue it' : (target.title || ui.title)}</p>
+            <h2 className="truncate text-[15px] font-bold text-slate-900">{view === 'history' ? 'Past chats' : view === 'activity' ? 'What I have done' : 'Ask HeySasa'}</h2>
+            <p className="truncate text-[12px] text-slate-500">{view === 'history' ? 'Pick one to continue it' : view === 'activity' ? 'Every change I made for you' : (target.title || ui.title)}</p>
           </div>
           {view === 'chat' && (
             <>
               <button type="button" onClick={startNew} aria-label="New chat" title="New chat" className="flex h-10 w-10 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100"><Plus size={19} /></button>
               <button type="button" onClick={openHistory} aria-label="Past chats" title="Past chats" className="flex h-10 w-10 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100"><History size={19} /></button>
+              <button type="button" onClick={() => setView('activity')} aria-label="What I have done" title="What I have done" className="relative flex h-10 w-10 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100"><ListChecks size={19} />{pendingCount > 0 && <span className="absolute right-1 top-1 h-2.5 w-2.5 rounded-full bg-amber-500" />}</button>
             </>
           )}
+          {isMobile && <button type="button" onClick={onMinimize} aria-label="Tuck away" title="Tuck away" className="flex h-10 w-10 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100"><ChevronDown size={20} /></button>}
           <button type="button" onClick={close} aria-label="Close" className="flex h-10 w-10 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100"><X size={20} /></button>
         </header>
 
-        {view === 'history' ? (
+        {view === 'activity' ? (
+          <ActivityView businessId={businessId} />
+        ) : view === 'history' ? (
           <div className="m-scroll min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
             {!history && !historyError && <p className="flex items-center gap-2 p-4 text-sm text-slate-500"><Loader2 size={15} className="animate-spin" /> Loading…</p>}
             {historyError && <p className="p-4 text-sm text-red-600">{historyError}</p>}
@@ -180,8 +220,8 @@ export default function AssistantPanel({ businessId, target, onClose, isMobile }
             <div ref={scrollRef} className="m-scroll min-h-0 flex-1 space-y-3 overflow-y-auto px-3 py-4">
               {messages.length === 0 && (
                 <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
-                  <p className="font-semibold text-slate-800">Tell me the rough idea. I'll write it.</p>
-                  <p className="mt-1 text-[13px]">You can go back and forth until it sounds right, then press Approve to use it.</p>
+                  <p className="font-semibold text-slate-800">{surface === 'general' ? 'Hi! I can look at your business and do things for you.' : "Tell me the rough idea. I'll write it."}</p>
+                  <p className="mt-1 text-[13px]">{surface === 'general' ? 'I can explain your numbers, find and group your leads, plan campaigns and change settings. I always show you what I will do and wait for your OK first.' : 'You can go back and forth until it sounds right, then press Approve to use it.'}</p>
                   {ui.starters.length > 0 && (
                     <div className="mt-3 flex flex-wrap gap-2">
                       {ui.starters.map((s) => (
@@ -207,10 +247,19 @@ export default function AssistantPanel({ businessId, target, onClose, isMobile }
                       {m.streaming && m.content && status && <p className="mt-1 text-[11px] text-slate-400">{status}</p>}
                       {m.streaming && writingDraft && <WritingDraft />}
                       {m.draft && <DraftCard draft={m.draft} approved={m.approved} canApprove={!!target.onApprove} onApprove={(d) => approve(m, d)} />}
+                      {(m.actions || []).map((a) => <ActionCard key={a.id} businessId={businessId} action={viewOf(a)} onChange={onCardChange} onDecided={onDecided} />)}
+                      {(m.guides || []).map((g, i) => <GuideCard key={`${g.place}-${i}`} guide={g} goTo={goTo} />)}
                     </div>
                   )}
                 </div>
               ))}
+
+              {orphans.length > 0 && (
+                <div className="max-w-[95%]">
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">Still waiting for your OK</p>
+                  {orphans.map((a) => <ActionCard key={a.id} businessId={businessId} action={viewOf(a)} onChange={onCardChange} onDecided={onDecided} />)}
+                </div>
+              )}
 
               {error && (
                 <div className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
@@ -263,7 +312,7 @@ export default function AssistantPanel({ businessId, target, onClose, isMobile }
   }
 
   const panel = (
-    <div className="fixed inset-0 z-[70] flex justify-end">
+    <div className={`fixed inset-0 z-[70] flex justify-end ${minimized ? 'hidden' : ''}`}>
       <div className={`absolute inset-0 bg-slate-900/30 backdrop-blur-[2px] ${closing ? 'm-fade-out' : 'm-fade-in'}`} onClick={close} aria-hidden="true" />
       <div
         role="dialog" aria-modal="true" aria-label="Ask HeySasa"
