@@ -60,19 +60,26 @@ function normalizeReceiptStatus(status) {
   return 'sent';
 }
 
+const KNOWN_LEAD_TYPES = ['business', 'personal', 'vendor', 'staff', 'junk', 'unknown'];
+
 function normalizeLead(lead) {
-  const leadType = ['business', 'personal'].includes(lead.lead_type)
+  const leadType = KNOWN_LEAD_TYPES.includes(lead.lead_type)
     ? lead.lead_type
     : lead.is_business_chat === false ? 'personal' : 'business';
 
   return {
     id: lead.id,
-    name: lead.name || 'Unknown',
+    name: lead.name || '',
     phone: lead.phone || '',
+    social_username: lead.social_username || null,
+    wa_business_profile: lead.wa_business_profile || null,
+    created_at: lead.created_at || null,
+    added_date: lead.added_date || null,
     whatsappSessionIds: Array.isArray(lead.whatsapp_session_ids) ? lead.whatsapp_session_ids : [],
     lead_state: lead.lead_state || 'new',
     lead_type: leadType,
-    lead_quality: lead.lead_quality || 'warm',
+    // Never invent a quality: a lead nobody has analysed has none.
+    lead_quality: lead.lead_quality || null,
     is_ad_lead: !!lead.is_ad_lead,
     ad_id: lead.ad_id || null,
     ad_platform: lead.ad_platform || null,
@@ -82,11 +89,15 @@ function normalizeLead(lead) {
     original_ad_id: lead.original_ad_id || null,
     unread_count: lead.unread_count || 0,
     awaiting_business_reply: lead.awaiting_business_reply === true,
-    last_seen: lead.last_seen || new Date().toISOString(),
+    last_seen: lead.last_seen || null,
+    last_inbound_at: lead.last_inbound_at || null,
+    last_outbound_at: lead.last_outbound_at || null,
     context_summary: lead.context_summary || '',
+    lead_summary: lead.lead_summary || '',
     customer_intent: lead.customer_intent || '',
+    intent_evidence: lead.intent_evidence || '',
     psychology: lead.psychology || '',
-    conv_stage: lead.conv_stage || 'New Lead',
+    conv_stage: lead.conv_stage || null,
     follow_up_count: lead.follow_up_count || 0,
     product_interests: Array.isArray(lead.product_interests) ? lead.product_interests : [],
     cart_state: Array.isArray(lead.cart_state) ? lead.cart_state : [],
@@ -96,6 +107,7 @@ function normalizeLead(lead) {
     product_sold: lead.product_sold || null,
     deal_value: lead.deal_value || null,
     purchase_date: lead.purchase_date || null,
+    do_not_contact: lead.do_not_contact === true,
     is_business_chat: lead.is_business_chat !== false,
     read_receipt: normalizeReceiptStatus(lead.read_receipt),
     last_seen_online: lead.presence_updated_at || lead.last_seen_online || null,
@@ -105,6 +117,8 @@ function normalizeLead(lead) {
     sent_media: !!lead.sent_media,
     sent_reaction: !!lead.sent_reaction,
     intent_score: lead.intent_score ?? null,
+    nlp_enriched_at: lead.nlp_enriched_at || null,
+    structural_enriched_at: lead.structural_enriched_at || null,
     competitor_mentions: Array.isArray(lead.competitor_mentions) ? lead.competitor_mentions : [],
     objection_tags: Array.isArray(lead.objection_tags) ? lead.objection_tags : [],
     pre_purchase_questions: Array.isArray(lead.pre_purchase_questions) ? lead.pre_purchase_questions : [],
@@ -129,21 +143,7 @@ function normalizeLead(lead) {
   };
 }
 
-async function fetchLiveLeads(businessId) {
-  const id = getBusinessId(businessId);
-  if (!supabase) {
-    console.error('[leadsService] Supabase client not initialized.');
-    return null;
-  }
-  if (!id) {
-    console.error('[leadsService] fetchLiveLeads missing businessId.');
-    return null;
-  }
-
-  try {
-    const { data, error } = await supabase
-      .from('v_lead_summary')
-      .select(`
+const LEAD_SUMMARY_COLUMNS = `
         id,
         name,
         phone,
@@ -197,11 +197,38 @@ async function fetchLiveLeads(businessId) {
         followup_pending_approval,
         followup_draft,
         followup_next_due
-      `)
-      .eq('business_id', id)
-      .order('intent_score', { ascending: false, nullsLast: true });
+      `;
 
+// Reads every row of a query, 1000 at a time. A plain select stops at the project row limit and the list
+// would silently lose leads.
+async function fetchAllPages(buildQuery, pageSize = 1000) {
+  const rows = [];
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await buildQuery().range(offset, offset + pageSize - 1);
     if (error) throw error;
+    rows.push(...(data || []));
+    if (!data || data.length < pageSize) break;
+  }
+  return rows;
+}
+
+async function fetchLiveLeads(businessId) {
+  const id = getBusinessId(businessId);
+  if (!supabase) {
+    console.error('[leadsService] Supabase client not initialized.');
+    return null;
+  }
+  if (!id) {
+    console.error('[leadsService] fetchLiveLeads missing businessId.');
+    return null;
+  }
+
+  try {
+    const data = await fetchAllPages(() => supabase
+      .from('v_lead_summary')
+      .select(LEAD_SUMMARY_COLUMNS)
+      .eq('business_id', id)
+      .order('id', { ascending: true }));
 
     const manualListLeadIds = await fetchManualListLeadIds(id);
     const { data: enrolledRows, error: enrolledError } = await supabase
@@ -217,63 +244,76 @@ async function fetchLiveLeads(businessId) {
     })));
     const enrollmentByLeadId = new Map(enrolledLeads.map((item) => [item.id, item.campaignEnrollment]).filter((item) => item[1]));
     const leadsWithCampaigns = leads.map((lead) => ({ ...lead, campaignEnrollment: enrollmentByLeadId.get(lead.id) || null }));
-    const contactIds = leadsWithCampaigns.map((lead) => lead.id).filter(Boolean);
-    if (!contactIds.length) return leadsWithCampaigns;
+    if (!leadsWithCampaigns.length) return leadsWithCampaigns;
 
+    // Newest message per customer: its direction says who spoke last, and the newest inbound one is
+    // when they last wrote to us. Read by business, so there is no long list of ids in the request.
     const latestMessageDirectionByContact = new Map();
-    const messagePageSize = 1000;
-    for (let offset = 0; ; offset += messagePageSize) {
-      const { data: messages, error: messagesError } = await supabase
-        .from('messages')
-        .select('contact_id, direction')
-        .in('contact_id', contactIds)
-        .order('created_at', { ascending: false })
-        .range(offset, offset + messagePageSize - 1);
-      if (messagesError) throw messagesError;
-
-      (messages || []).forEach((message) => {
-        if (!latestMessageDirectionByContact.has(message.contact_id)) {
-          latestMessageDirectionByContact.set(message.contact_id, message.direction);
-        }
-      });
-      if (!messages || messages.length < messagePageSize) break;
-    }
-
-    const { data: contacts, error: contactsError } = await supabase
-      .from('contacts')
-      .select('id, presence_status, presence_updated_at')
+    const lastInboundByContact = new Map();
+    const lastOutboundByContact = new Map();
+    const messages = await fetchAllPages(() => supabase
+      .from('messages')
+      .select('contact_id, direction, created_at')
       .eq('business_id', id)
-      .in('id', contactIds);
-    if (contactsError) throw contactsError;
+      .order('created_at', { ascending: false }));
+    messages.forEach((message) => {
+      if (!latestMessageDirectionByContact.has(message.contact_id)) {
+        latestMessageDirectionByContact.set(message.contact_id, message.direction);
+      }
+      if (message.direction === 'in' && !lastInboundByContact.has(message.contact_id)) {
+        lastInboundByContact.set(message.contact_id, message.created_at);
+      }
+      if (message.direction === 'out' && !lastOutboundByContact.has(message.contact_id)) {
+        lastOutboundByContact.set(message.contact_id, message.created_at);
+      }
+    });
 
-    const presenceById = new Map((contacts || []).map((contact) => [contact.id, contact]));
-    const { data: instanceLinks, error: instanceLinksError } = await supabase
-      .from('contact_whatsapp_sessions')
-      .select('contact_id, whatsapp_session_id')
-      .in('contact_id', contactIds);
-    if (instanceLinksError) console.warn('[leadsService] Contact session links unavailable:', instanceLinksError.message);
+    // Columns the summary view does not carry: when the lead came in, aliases, and why the score is what it is.
+    const contacts = await fetchAllPages(() => supabase
+      .from('contacts')
+      .select('id, created_at, added_date, social_username, wa_business_profile, intent_evidence, lead_summary, last_inbound_at, last_outbound_at, presence_status, presence_updated_at')
+      .eq('business_id', id)
+      .order('id', { ascending: true }));
+    const extraById = new Map(contacts.map((contact) => [contact.id, contact]));
+
+    const instanceLinkRows = [];
+    const contactIds = leadsWithCampaigns.map((lead) => lead.id).filter(Boolean);
+    for (let i = 0; i < contactIds.length; i += 300) {
+      const { data: instanceLinks, error: instanceLinksError } = await supabase
+        .from('contact_whatsapp_sessions')
+        .select('contact_id, whatsapp_session_id')
+        .in('contact_id', contactIds.slice(i, i + 300));
+      if (instanceLinksError) {
+        console.warn('[leadsService] Contact session links unavailable:', instanceLinksError.message);
+        break;
+      }
+      instanceLinkRows.push(...(instanceLinks || []));
+    }
     const sessionIdsByContact = new Map();
-    (instanceLinks || []).forEach((link) => {
+    instanceLinkRows.forEach((link) => {
       const current = sessionIdsByContact.get(link.contact_id) || [];
       current.push(link.whatsapp_session_id);
       sessionIdsByContact.set(link.contact_id, current);
     });
+
     return leadsWithCampaigns.map((lead) => {
-      const presence = presenceById.get(lead.id);
-      return presence
-        ? {
-            ...lead,
-            awaiting_business_reply: latestMessageDirectionByContact.get(lead.id) === 'in',
-            whatsappSessionIds: sessionIdsByContact.get(lead.id) || [],
-            presence_status: presence.presence_status || null,
-            presence_updated_at: presence.presence_updated_at || null,
-            last_seen_online: presence.presence_updated_at || null,
-          }
-        : {
-            ...lead,
-            awaiting_business_reply: latestMessageDirectionByContact.get(lead.id) === 'in',
-            whatsappSessionIds: sessionIdsByContact.get(lead.id) || [],
-          };
+      const extra = extraById.get(lead.id) || {};
+      return {
+        ...lead,
+        created_at: extra.created_at || lead.created_at,
+        added_date: extra.added_date || lead.added_date,
+        social_username: extra.social_username || lead.social_username,
+        wa_business_profile: extra.wa_business_profile || lead.wa_business_profile,
+        intent_evidence: extra.intent_evidence || lead.intent_evidence,
+        lead_summary: extra.lead_summary || lead.lead_summary,
+        last_inbound_at: lastInboundByContact.get(lead.id) || extra.last_inbound_at || null,
+        last_outbound_at: lastOutboundByContact.get(lead.id) || extra.last_outbound_at || null,
+        awaiting_business_reply: latestMessageDirectionByContact.get(lead.id) === 'in',
+        whatsappSessionIds: sessionIdsByContact.get(lead.id) || [],
+        presence_status: extra.presence_status || lead.presence_status || null,
+        presence_updated_at: extra.presence_updated_at || lead.presence_updated_at || null,
+        last_seen_online: extra.presence_updated_at || lead.last_seen_online || null,
+      };
     });
   } catch (error) {
     console.error('[leadsService] fetchLiveLeads failed:', error.message);

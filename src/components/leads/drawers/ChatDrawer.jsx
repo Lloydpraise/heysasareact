@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { History, LoaderCircle, Send, MessageCircle } from 'lucide-react';
 import Drawer from './Drawer';
-import { readReceiptIcon, timeAgo } from '../../../utils/leadHelpers';
+import { getLeadDisplayName, readReceiptIcon, timeAgo } from '../../../utils/leadHelpers';
 import leadsService from '../../../services/leadsService';
 
 function mergeMessages(current, incoming) {
@@ -10,8 +10,9 @@ function mergeMessages(current, incoming) {
   return [...messagesById.values()].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 }
 
-export default function ChatDrawer({ lead, open, onClose, onSend, onMessagesRead }) {
+export default function ChatDrawer({ lead, open, onClose, onSend, onMessagesRead, initialDraft = '', draftNote = '', onDraftUsed }) {
   const [draft, setDraft] = useState('');
+  const [adoptedDraft, setAdoptedDraft] = useState('');
   const [transcript, setTranscript] = useState([]);
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
@@ -107,6 +108,14 @@ export default function ChatDrawer({ lead, open, onClose, onSend, onMessagesRead
     if (open) messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [open, transcript]);
 
+  // A message written for you (for example by "Let HeySasa do it") lands in the box, ready to read, edit and send.
+  if (initialDraft && initialDraft !== adoptedDraft) {
+    setAdoptedDraft(initialDraft);
+    setDraft(initialDraft);
+  } else if (!initialDraft && adoptedDraft) {
+    setAdoptedDraft('');
+  }
+
   if (!lead) return null;
 
   const handleSend = async () => {
@@ -124,6 +133,7 @@ export default function ChatDrawer({ lead, open, onClose, onSend, onMessagesRead
         status: 'sent',
       }]);
       setDraft('');
+      onDraftUsed?.();
     } catch (sendError) {
       setError(sendError.message || 'Could not send this message.');
     } finally {
@@ -151,7 +161,7 @@ export default function ChatDrawer({ lead, open, onClose, onSend, onMessagesRead
   };
 
   return (
-    <Drawer open={open} onClose={onClose} title={`Chat \u2014 ${lead.name}`}>
+    <Drawer open={open} onClose={onClose} title={`Chat \u2014 ${getLeadDisplayName(lead.name, lead.phone, lead)}`}>
       <div className="flex h-full flex-col">
         <div className="flex flex-shrink-0 items-center justify-between border-b border-slate-100 px-4 py-2">
           <span className="text-[11px] text-slate-400">Recent messages</span>
@@ -225,16 +235,19 @@ export default function ChatDrawer({ lead, open, onClose, onSend, onMessagesRead
         </div>
 
         {error && <p className="flex-shrink-0 px-4 pt-2 text-xs text-red-500">{error}</p>}
+        {draftNote && draft && (
+          <p className="flex-shrink-0 bg-[#F7FBF9] px-4 py-1.5 text-[11px] font-medium text-[#218c3a]">{draftNote}</p>
+        )}
         <div className="flex-shrink-0 border-t border-slate-200 bg-white px-4 py-3 max-md:px-3 max-md:pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
           <div className="flex items-center gap-2">
-            <input
-              type="text"
+            <textarea
+              rows={draft.length > 90 ? 4 : 1}
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
               placeholder={onSend ? 'Type a message...' : 'Sending not wired up yet'}
               disabled={!onSend}
-              className="flex-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-[13px] text-slate-700 placeholder:text-slate-400 focus:border-[#28A745] focus:bg-white focus:outline-none disabled:opacity-60 max-md:h-12 max-md:rounded-full max-md:px-4"
+              className="flex-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-[13px] text-slate-700 placeholder:text-slate-400 focus:border-[#28A745] focus:bg-white focus:outline-none disabled:opacity-60 max-md:min-h-12 max-md:rounded-2xl max-md:px-4 resize-none"
             />
             <button
               type="button"

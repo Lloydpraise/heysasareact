@@ -1,6 +1,5 @@
-import { Check, LoaderCircle, Phone, ExternalLink, ShoppingBag, Sparkles, User2, Megaphone } from 'lucide-react';
-import { getLeadDisplayName, isLikelyWhatsAppIdentifier, isValidPhoneNumber } from '../../../utils/leadHelpers';
-import { stateConfig, qualityLabel, timeAgo } from '../../../utils/leadHelpers';
+import { CalendarClock, Check, LoaderCircle, Phone, ExternalLink, ShoppingBag, Sparkles, User2, Megaphone } from 'lucide-react';
+import { cameInLabel, getLeadDisplayName, getPhoneDisplay, getTemperature, isNonCustomer, NON_CUSTOMER_LABELS, stateConfig, timeAgo } from '../../../utils/leadHelpers';
 import whatsappIcon from '../../../assets/images/whatsappicon.svg';
 
 // Header block for the detail panel: avatar, name, state/quality badges,
@@ -13,18 +12,19 @@ import whatsappIcon from '../../../assets/images/whatsappicon.svg';
 //   onMarkBought — () => void, opens the "mark as bought" flow (modal/form
 //                  lives in LeadsPage or a future BoughtModal — this button
 //                  just triggers it)
-export default function DetailHeader({ lead, onOpenChat, onAnalyze, analysisState, onMarkBought, onEdit, hideActions = false }) {
+export default function DetailHeader({ lead, onOpenChat, onAnalyze, analysisState, onMarkBought, onEdit, onCall, onMeeting, hideActions = false }) {
   const state = stateConfig(lead.lead_state);
-  const quality = qualityLabel(lead.lead_quality);
-  const displayName = getLeadDisplayName(lead.name, lead.phone);
+  const temperature = getTemperature(lead);
+  const displayName = getLeadDisplayName(lead.name, lead.phone, lead);
   const initial = displayName.charAt(0).toUpperCase();
-  const phoneIsValid = isValidPhoneNumber(lead.phone);
-  const isWhatsAppIdentifier = isLikelyWhatsAppIdentifier(lead.phone);
+  const phone = getPhoneDisplay(lead.phone);
+  const phoneIsValid = phone.kind === 'valid';
   const waLink = phoneIsValid ? `https://wa.me/${lead.phone.replace(/[^\d]/g, '')}` : null;
-  const telLink = lead.phone ? `tel:${lead.phone}` : null;
+  const cameIn = cameInLabel(lead);
+  const nonCustomer = isNonCustomer(lead);
 
   const isWon = lead.lead_state === 'won';
-  const canMarkBought = lead.lead_type === 'business' && !isWon;
+  const canMarkBought = !nonCustomer && !isWon;
 
   return (
     <div className="border-b border-slate-200 bg-white px-4 py-4 md:px-6 md:py-5">
@@ -53,18 +53,23 @@ export default function DetailHeader({ lead, onOpenChat, onAnalyze, analysisStat
                 <span className={`h-1.5 w-1.5 rounded-full ${state.dotClass}`} />
                 {state.label}
               </span>
-              {quality && (
-                <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10.5px] font-semibold text-slate-500">
-                  {quality}
+              {!nonCustomer && ['hot', 'warm', 'cold'].includes(temperature.key) && (
+                <span title={temperature.reason} className={`shrink-0 rounded-full px-2 py-0.5 text-[10.5px] font-semibold ${temperature.key === 'hot' ? 'bg-red-50 text-red-600' : temperature.key === 'warm' ? 'bg-[#FF8C00]/10 text-[#c26a00]' : 'bg-slate-100 text-slate-500'}`}>
+                  {temperature.label}
                 </span>
               )}
-              {lead.lead_type === 'personal' && (
+              {nonCustomer && (
                 <span className="flex shrink-0 items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10.5px] font-semibold text-slate-500">
-                  <User2 size={10} /> Personal
+                  <User2 size={10} /> {NON_CUSTOMER_LABELS[lead.lead_type] || 'Not a customer'}
                 </span>
               )}
               </div>
-              <p className={`mt-0.5 text-[12.5px] ${phoneIsValid || isWhatsAppIdentifier ? 'text-slate-400' : 'font-semibold text-red-600'}`}>{isWhatsAppIdentifier ? 'WhatsApp username' : (lead.phone || 'No phone number')}{!phoneIsValid && !isWhatsAppIdentifier && ' · Invalid phone number'}</p>
+              <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[12.5px] text-slate-400">
+                {phoneIsValid ? <span>{phone.text}</span> : (
+                  <span title={phone.hint || ''} className="rounded px-1 font-medium underline decoration-dotted underline-offset-2">{phone.text}</span>
+                )}
+                {cameIn && <><span className="text-slate-300">·</span><span>Came in {cameIn}</span></>}
+              </p>
             </div>
 
             {lead.is_ad_lead && (
@@ -101,15 +106,27 @@ export default function DetailHeader({ lead, onOpenChat, onAnalyze, analysisStat
               >
                 <img src={whatsappIcon} alt="Chat" className="h-4 w-4" />
               </button>
-              {telLink && (
-                <a
-                  href={telLink}
+              {onCall && (
+                <button
+                  type="button"
+                  onClick={onCall}
                   className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-[#28A745]"
                   aria-label="Call"
-                  title="Call"
+                  title="Call or log a call"
                 >
                   <Phone size={16} />
-                </a>
+                </button>
+              )}
+              {onMeeting && !nonCustomer && (
+                <button
+                  type="button"
+                  onClick={onMeeting}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-[#28A745]"
+                  aria-label="Book a meeting"
+                  title="Book a meeting with reminders"
+                >
+                  <CalendarClock size={16} />
+                </button>
               )}
               {waLink && (
                 <a
@@ -150,9 +167,6 @@ export default function DetailHeader({ lead, onOpenChat, onAnalyze, analysisStat
         </div>
       )}
 
-      {lead.context_summary && (
-        <p className="mt-3 text-[13px] leading-relaxed text-slate-600 max-md:text-[15px]">{lead.context_summary}</p>
-      )}
     </div>
   );
 }

@@ -13,27 +13,30 @@ import { useWhatsAppHistory } from '../../hooks/useWhatsAppHistory';
 import leadsService from '../../services/leadsService';
 import { fetchWhatsAppSessions } from '../../services/businessService';
 import { useAuth } from '../../context/useAuth';
-import { addExistingLeadsToManualList, enrollLeadInCampaign, removeLeadFromCampaign } from '../../services/listsCampaignsService';
-import { getWhatsAppSessionDisplayName } from '../../utils/leadHelpers';
+import { enrollLeadInCampaign, removeLeadFromCampaign } from '../../services/listsCampaignsService';
+import {
+  addLeadsToList, addNote, draftNextMessage, markMeeting, recordTimeline, setTaskStatus,
+} from '../../services/leadWorkspaceService';
+import { getLeadDisplayName, getWhatsAppSessionDisplayName } from '../../utils/leadHelpers';
 import AddLeadModal from './modals/AddLeadModal';
 import BoughtModal from './modals/BoughtModal';
-import ConsentModal from './modals/ConsentModal';
+import CallModal from './modals/CallModal';
+import MeetingModal from './modals/MeetingModal';
+import AddLeadsToListModal from './modals/AddLeadsToListModal';
 import EditLeadModal from './modals/EditLeadModal';
 import StatChips from './list/StatChips';
-import FilterTabs from './list/FilterTabs';
+import FilterTabs, { ViewRuleBanner } from './list/FilterTabs';
 import LeadRow from './list/LeadRow';
 import DetailPanel from './detail/DetailPanel';
-import FollowupsDrawer from './drawers/FollowupsDrawer';
 import ChatDrawer from './drawers/ChatDrawer';
 import ApprovalDrawer from './drawers/ApprovalDrawer';
-import AddToListModal from './modals/AddToListModal';
 import AddToCampaignModal from './modals/AddToCampaignModal';
 import MobileLeadsList from './mobile/MobileLeadsList';
 import MobileLeadDetail from './mobile/MobileLeadDetail';
 
 // Which drawer (if any) is open. Only one at a time — matches the old
 // closeAllDrawers-before-open behavior from leads.js.
-const DRAWER = { NONE: null, FOLLOWUPS: 'followups', CHAT: 'chat', APPROVALS: 'approvals' };
+const DRAWER = { NONE: null, CHAT: 'chat', APPROVALS: 'approvals' };
 
 function csvCell(value) {
   let text = value === null || value === undefined
@@ -63,7 +66,7 @@ function downloadLeadsCsv(rows) {
 }
 
 export default function LeadsPage() {
-  const { leads, loading, error, refetch, patchLead, addLead, addBulkLeads, getChats, approveDraft, skipDraft, sendConsentMessage, updateLead, deleteLead, markAsBought } = useLeads();
+  const { leads, loading, error, refetch, patchLead, addLead, addBulkLeads, getChats, approveDraft, skipDraft, updateLead, deleteLead, markAsBought } = useLeads();
   const { business, loading: businessLoading, refetch: refetchBusiness } = useBusinessConnection();
   const { user, activeBusinessId } = useAuth();
   const { loading: historyLoading, error: historyError, loadHistory } = useWhatsAppHistory(refetch);
@@ -74,9 +77,11 @@ export default function LeadsPage() {
     stateFilter, setStateFilter,
     typeFilter, setTypeFilter,
     instanceFilter, setInstanceFilter,
+    adFilter, setAdFilter, adOptions,
+    counts, activeRule, resetAll,
     filteredLeads, stats,
   } = useLeadFilters(leads);
-  const paginationResetKey = `${searchQuery}\u0000${stateFilter}\u0000${typeFilter}\u0000${instanceFilter}`;
+  const paginationResetKey = `${searchQuery}\u0000${stateFilter}\u0000${typeFilter}\u0000${instanceFilter}\u0000${adFilter}`;
   const {
     visibleItems: visibleLeads,
     hasMore: hasMoreLeads,
@@ -105,9 +110,14 @@ export default function LeadsPage() {
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
   const [showAddLeadModal, setShowAddLeadModal] = useState(false);
   const [showBoughtModal, setShowBoughtModal] = useState(false);
-  const [showAddToListModal, setShowAddToListModal] = useState(false);
+  const [listTargetIds, setListTargetIds] = useState(null);
   const [showAddToCampaignModal, setShowAddToCampaignModal] = useState(false);
-  const [showConsentModal, setShowConsentModal] = useState(false);
+  const [showCallModal, setShowCallModal] = useState(false);
+  const [showMeetingModal, setShowMeetingModal] = useState(false);
+  const [workspaceKey, setWorkspaceKey] = useState(0);
+  const [pendingSteps, setPendingSteps] = useState([]);
+  const [chatDraft, setChatDraft] = useState('');
+  const [heySasaState, setHeySasaState] = useState('idle');
   const [isConnectionOpen, setIsConnectionOpen] = useState(false);
   const [gettingChats, setGettingChats] = useState(false);
   const [selectMode, setSelectMode] = useState(false);
@@ -124,13 +134,19 @@ export default function LeadsPage() {
 
   const handleStateFilter = (value) => {
     setStateFilter(value);
-    if (value !== 'all') setTypeFilter('all');
+    setTypeFilter('all');
+    setAdFilter('all');
   };
 
   const handleTypeFilter = (value) => {
     setTypeFilter(value);
-    if (value !== 'all') setStateFilter('all');
+    setStateFilter('all');
+    setAdFilter('all');
   };
+
+  const isFiltered = stateFilter !== 'all' || typeFilter !== 'all' || adFilter !== 'all' || instanceFilter !== 'all' || Boolean(searchQuery.trim());
+  const bumpWorkspace = () => setWorkspaceKey((key) => key + 1);
+  const businessIdForActions = leadsService.getBusinessId();
 
   const selectLead = (leadId) => {
     setActiveLeadId(leadId);
@@ -212,6 +228,8 @@ export default function LeadsPage() {
     await markAsBought(activeLead.id, boughtData);
     showToast('Sale Recorded Successfully! Congratulations!');
     setShowBoughtModal(false);
+    bumpWorkspace();
+    continueSteps();
   };
 
   const handleDeleteLead = async (leadId) => {
@@ -240,7 +258,7 @@ export default function LeadsPage() {
     if (lead.lead_type === 'personal') return;
     try {
       await updateLead(lead.id, { lead_type: 'personal' });
-      showToast(`${lead.name} marked as personal.`);
+      showToast(`${getLeadDisplayName(lead.name, lead.phone, lead)} marked as personal.`);
     } catch (updateError) {
       showToast(updateError.message || 'Could not mark lead as personal.', 'error');
     }
@@ -351,44 +369,104 @@ export default function LeadsPage() {
     }
   };
 
-  const handleAddToList = async (listName) => {
-    await addExistingLeadsToManualList(leadsService.getBusinessId(), listName, [...selectedIds]);
-    setShowAddToListModal(false);
-    setSelectMode(false);
-    setSelectedIds(new Set());
-    showToast('Selected leads added to the list.');
+  // ── Lists, campaigns and the steps that can follow a call ─────────────────────────────────────
+  const openAddToList = (ids) => setListTargetIds(ids);
+
+  const handleAddToList = async ({ listId, newListName }) => {
+    const ids = listTargetIds || [];
+    const result = await addLeadsToList({ businessId: businessIdForActions, leadIds: ids, listId, newListName });
+    setListTargetIds(null);
+    if (selectMode) { setSelectMode(false); setSelectedIds(new Set()); }
+    bumpWorkspace();
+    showToast(ids.length === 1 ? `Added to ${result.name || 'the list'}.` : `${ids.length} leads added to ${result.name || 'the list'}.`);
   };
 
-  const handleSendConsent = async (message) => {
-    if (!activeLead) return;
-    try {
-      await sendConsentMessage(activeLead.id, message);
-      setShowConsentModal(false);
-      showToast('Consent message sent. The sequence will begin when they opt in.');
-    } catch (error) {
-      showToast(error.message || 'Could not send consent message.', 'error');
-    }
+  // Steps picked after a call that need their own screen run one after another.
+  const continueSteps = (queue = pendingSteps) => {
+    const [next, ...rest] = queue;
+    setPendingSteps(rest);
+    if (!next) return;
+    if (next === 'put_on_sequence' || next === 'add_to_campaign') setShowAddToCampaignModal(true);
+    else if (next === 'bought') setShowBoughtModal(true);
+    else if (next === 'schedule_meeting') setShowMeetingModal(true);
+  };
+
+  const handleCallSaved = (steps) => {
+    setShowCallModal(false);
+    bumpWorkspace();
+    showToast('Call logged.');
+    continueSteps(steps);
+  };
+
+  const handleMeetingSaved = ({ reminders }) => {
+    setShowMeetingModal(false);
+    bumpWorkspace();
+    showToast(reminders ? `Meeting booked with ${reminders} reminder${reminders === 1 ? '' : 's'}.` : 'Meeting booked.');
+    continueSteps();
   };
 
   const handleAddToCampaign = async (campaign) => {
     if (!activeLead) return;
-    const businessId = leadsService.getBusinessId();
-    const enrollment = await enrollLeadInCampaign(businessId, campaign.id, activeLead.id);
+    const enrollment = await enrollLeadInCampaign(businessIdForActions, campaign.id, activeLead.id);
     patchLead(activeLead.id, { campaignEnrollment: { ...enrollment, campaignName: enrollment.campaignName || campaign.name } });
+    try { await recordTimeline(businessIdForActions, activeLead.id, 'campaign_enrolled', `Put on campaign: ${campaign.name}`); } catch { /* the enrolment itself already shows on the timeline */ }
     setShowAddToCampaignModal(false);
-    showToast(`${activeLead.name} added to ${campaign.name}.`);
+    bumpWorkspace();
+    showToast(`${getLeadDisplayName(activeLead.name, activeLead.phone, activeLead)} added to ${campaign.name}.`);
+    continueSteps();
   };
 
-  const handleRemoveFromCampaign = async () => {
-    if (!activeLead?.campaignEnrollment) return;
-    if (!window.confirm(`Remove ${activeLead.name} from ${activeLead.campaignEnrollment.campaignName}?`)) return;
+  const handleRemoveFromCampaign = async (followup) => {
+    if (!activeLead || !followup?.campaignId) return;
+    if (!window.confirm(`Take ${getLeadDisplayName(activeLead.name, activeLead.phone, activeLead)} out of ${followup.name}?`)) return;
     try {
-      await removeLeadFromCampaign(leadsService.getBusinessId(), activeLead.campaignEnrollment.campaignId, activeLead.id);
+      await removeLeadFromCampaign(businessIdForActions, followup.campaignId, activeLead.id);
       patchLead(activeLead.id, { campaignEnrollment: null });
-      showToast('Lead removed from campaign.');
+      bumpWorkspace();
+      showToast('Lead removed from the follow-up.');
     } catch (error) {
-      showToast(error.message || 'Could not remove lead from campaign.', 'error');
+      showToast(error.message || 'Could not remove lead from the follow-up.', 'error');
     }
+  };
+
+  // "Let HeySasa do it": the backend writes the message for this lead's next action and it lands in the chat box.
+  const handleLetHeySasa = async () => {
+    if (!activeLead || heySasaState === 'writing') return;
+    setHeySasaState('writing');
+    try {
+      const { text } = await draftNextMessage({ businessId: businessIdForActions, leadId: activeLead.id, goal: activeLead.next_action_plan });
+      setChatDraft(text);
+      setOpenDrawer(DRAWER.CHAT);
+    } catch (draftError) {
+      showToast(draftError.message || 'HeySasa could not write this message right now.', 'error');
+    } finally {
+      setHeySasaState('idle');
+    }
+  };
+
+  const handleCompleteTask = async (task) => {
+    try {
+      await setTaskStatus(task.id, 'done');
+      bumpWorkspace();
+    } catch (taskError) {
+      showToast(taskError.message || 'Could not update the task.', 'error');
+    }
+  };
+
+  const handleMarkMeeting = async (meeting, status) => {
+    try {
+      await markMeeting(meeting.id, status);
+      bumpWorkspace();
+      showToast(status === 'no_show' ? 'Marked as a no-show. The follow-up message is on its way.' : status === 'attended' ? 'Marked as attended.' : 'Meeting cancelled.');
+    } catch (meetingError) {
+      showToast(meetingError.message || 'Could not update the meeting.', 'error');
+    }
+  };
+
+  const handleAddNote = async (text) => {
+    if (!activeLead) return;
+    await addNote(businessIdForActions, activeLead.id, text);
+    bumpWorkspace();
   };
 
   const connectionStrip = (isDisconnected || showHistoryPrompt) ? (
@@ -400,25 +478,15 @@ export default function LeadsPage() {
   const overlays = (
     <>
       {/* ── Drawers (only one open at a time) ─────────── */}
-      <FollowupsDrawer
-        lead={activeLead}
-        open={openDrawer === DRAWER.FOLLOWUPS}
-        onClose={closeDrawer}
-        onApprove={() => activeLead && approveDraft(activeLead.id)}
-        onSkip={() => activeLead && skipDraft(activeLead.id)}
-        onEdit={() => {} /* TODO: no backing service method yet */}
-        onRewrite={() => {} /* TODO: no backing service method yet */}
-        onSendConsent={() => setShowConsentModal(true)}
-        onAddToCampaign={() => setShowAddToCampaignModal(true)}
-        onRemoveFromCampaign={handleRemoveFromCampaign}
-      />
-
       <ChatDrawer
         lead={activeLead}
         open={openDrawer === DRAWER.CHAT}
         onClose={closeDrawer}
         onSend={handleChatSend}
         onMessagesRead={handleMessagesRead}
+        initialDraft={chatDraft}
+        draftNote="Written by HeySasa. Read it, change anything you like, then press send."
+        onDraftUsed={() => setChatDraft('')}
       />
 
       <ApprovalDrawer
@@ -437,10 +505,11 @@ export default function LeadsPage() {
         onCreateBulkLeads={handleCreateBulkLeads}
       />
 
-      <AddToListModal
-        open={showAddToListModal}
-        leads={leads.filter((lead) => selectedIds.has(lead.id))}
-        onClose={() => setShowAddToListModal(false)}
+      <AddLeadsToListModal
+        open={Boolean(listTargetIds)}
+        leads={leads.filter((lead) => (listTargetIds || []).includes(lead.id))}
+        businessId={businessIdForActions}
+        onClose={() => setListTargetIds(null)}
         onConfirm={handleAddToList}
       />
 
@@ -449,7 +518,7 @@ export default function LeadsPage() {
           lead={activeLead}
           open={showAddToCampaignModal}
           businessId={leadsService.getBusinessId()}
-          onClose={() => setShowAddToCampaignModal(false)}
+          onClose={() => { setShowAddToCampaignModal(false); continueSteps(); }}
           onConfirm={handleAddToCampaign}
         />
       )}
@@ -458,7 +527,7 @@ export default function LeadsPage() {
         <BoughtModal
           lead={activeLead}
           open={showBoughtModal}
-          onClose={() => setShowBoughtModal(false)}
+          onClose={() => { setShowBoughtModal(false); continueSteps(); }}
           onConfirm={handleMarkBought}
         />
       )}
@@ -476,11 +545,23 @@ export default function LeadsPage() {
       )}
 
       {activeLead && (
-        <ConsentModal
+        <CallModal
+          open={showCallModal}
           lead={activeLead}
-          open={showConsentModal}
-          onClose={() => setShowConsentModal(false)}
-          onSend={handleSendConsent}
+          businessId={businessIdForActions}
+          onClose={() => setShowCallModal(false)}
+          onSaved={handleCallSaved}
+          onEditLead={() => setEditingLead(activeLead)}
+        />
+      )}
+
+      {activeLead && (
+        <MeetingModal
+          open={showMeetingModal}
+          lead={activeLead}
+          businessId={businessIdForActions}
+          onClose={() => { setShowMeetingModal(false); continueSteps(); }}
+          onSaved={handleMeetingSaved}
         />
       )}
 
@@ -496,19 +577,23 @@ export default function LeadsPage() {
 
   const detailPanelProps = activeLead ? {
     lead: activeLead,
+    businessId: businessIdForActions,
+    refreshKey: workspaceKey,
     onEdit: () => setEditingLead(activeLead),
     onOpenChat: () => setOpenDrawer(DRAWER.CHAT),
     onAnalyze: () => handleAnalyzeLead(activeLead.id),
     analysisState: analysisStates[activeLead.id],
     onMarkBought: () => setShowBoughtModal(true),
-    onApproveDraft: () => approveDraft(activeLead.id),
-    onSkipDraft: () => skipDraft(activeLead.id),
-    onEditDraft: () => {},
-    onRewriteDraft: () => {},
-    onSendConsent: () => setShowConsentModal(true),
+    onCall: () => setShowCallModal(true),
+    onMeeting: () => setShowMeetingModal(true),
+    onLetHeySasa: handleLetHeySasa,
+    heySasaState,
+    onAddToList: () => openAddToList([activeLead.id]),
     onAddToCampaign: () => setShowAddToCampaignModal(true),
     onRemoveFromCampaign: handleRemoveFromCampaign,
-    onViewFullSequence: () => setOpenDrawer(DRAWER.FOLLOWUPS),
+    onCompleteTask: handleCompleteTask,
+    onMarkMeeting: handleMarkMeeting,
+    onAddNote: handleAddNote,
   } : null;
 
   if (isMobile) {
@@ -530,6 +615,13 @@ export default function LeadsPage() {
           onStateFilter={handleStateFilter}
           onTypeFilter={handleTypeFilter}
           onInstanceFilter={setInstanceFilter}
+          counts={counts}
+          adFilter={adFilter}
+          onAdFilter={setAdFilter}
+          adOptions={adOptions}
+          activeRule={activeRule}
+          isFiltered={isFiltered}
+          onClearFilters={resetAll}
           connectedInstances={connectedInstances}
           onSelectLead={selectLead}
           selectMode={selectMode}
@@ -550,7 +642,7 @@ export default function LeadsPage() {
           onRefresh={refetch}
           onOpenApprovals={() => setOpenDrawer(DRAWER.APPROVALS)}
           onBulkMarkBusiness={handleBulkMarkBusiness}
-          onBulkAddToList={() => setShowAddToListModal(true)}
+          onBulkAddToList={() => openAddToList([...selectedIds])}
           onBulkAnalyze={handleBulkAnalyze}
           onBulkDelete={handleBulkDelete}
           onEditLead={setEditingLead}
@@ -567,6 +659,8 @@ export default function LeadsPage() {
           onAnalyze={() => activeLead && handleAnalyzeLead(activeLead.id)}
           analysisState={activeLead ? analysisStates[activeLead.id] : undefined}
           onMarkBought={() => setShowBoughtModal(true)}
+          onCall={() => setShowCallModal(true)}
+          onMeeting={() => setShowMeetingModal(true)}
           onMarkPersonal={activeLead ? () => handleMarkPersonal(activeLead) : undefined}
         >
           {detailPanelProps && <DetailPanel {...detailPanelProps} hideHeaderActions />}
@@ -661,6 +755,8 @@ export default function LeadsPage() {
 
           <StatChips
             stats={stats}
+            activeView={stateFilter}
+            activeType={typeFilter}
             onSetTypeFilter={handleTypeFilter}
             onSetStateFilter={handleStateFilter}
             onOpenApprovals={() => setOpenDrawer(DRAWER.APPROVALS)}
@@ -671,13 +767,20 @@ export default function LeadsPage() {
             onSetStateFilter={handleStateFilter}
             typeFilter={typeFilter}
             onSetTypeFilter={handleTypeFilter}
+            counts={counts}
+            adFilter={adFilter}
+            onSetAdFilter={setAdFilter}
+            adOptions={adOptions}
           />
 
-          {typeFilter === 'personal' && (
-            <div className="mx-3 mb-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] leading-relaxed text-slate-500 md:mx-0">
-              These contacts cannot be followed up or analysed for business.
-            </div>
-          )}
+          <ViewRuleBanner
+            rule={activeRule?.rule}
+            label={activeRule?.label}
+            shown={filteredLeads.length}
+            total={leads.length}
+            isFiltered={isFiltered}
+            onClear={resetAll}
+          />
 
           <div className="mb-2 flex items-center gap-2 px-3 md:px-0">
             <label className="flex cursor-pointer items-center">
@@ -700,7 +803,7 @@ export default function LeadsPage() {
                   <button type="button" onClick={handleBulkMarkBusiness} disabled={!selectedIds.size} className="inline-flex items-center gap-1 rounded-lg border border-[#28A745]/30 px-2 py-1.5 text-[10px] font-semibold text-[#218c3a] disabled:opacity-40"><BriefcaseBusiness size={12} /> Mark Business</button>
                 ) : (
                   <>
-                    <button type="button" onClick={() => setShowAddToListModal(true)} disabled={!selectedIds.size} className="inline-flex items-center gap-1 rounded-lg border border-[#28A745]/30 px-2 py-1.5 text-[10px] font-semibold text-[#218c3a] disabled:opacity-40">Add to list</button>
+                    <button type="button" onClick={() => openAddToList([...selectedIds])} disabled={!selectedIds.size} className="inline-flex items-center gap-1 rounded-lg border border-[#28A745]/30 px-2 py-1.5 text-[10px] font-semibold text-[#218c3a] disabled:opacity-40">Add to list</button>
                     <button type="button" onClick={handleBulkAnalyze} disabled={!selectedIds.size} className="inline-flex items-center gap-1 rounded-lg border border-[#28A745]/30 px-2 py-1.5 text-[10px] font-semibold text-[#218c3a] disabled:opacity-40"><Sparkles size={12} /> Analyse</button>
                   </>
                 )}
@@ -757,22 +860,7 @@ export default function LeadsPage() {
       <div className={`min-h-0 min-w-0 flex-1 overflow-hidden ${isDisconnected || showHistoryPrompt ? 'pt-16' : ''}`}>
         <div className="h-full min-h-0">
           {activeLead ? (
-            <DetailPanel
-              lead={activeLead}
-              onEdit={() => setEditingLead(activeLead)}
-              onOpenChat={() => setOpenDrawer(DRAWER.CHAT)}
-              onAnalyze={() => handleAnalyzeLead(activeLead.id)}
-              analysisState={analysisStates[activeLead.id]}
-              onMarkBought={() => setShowBoughtModal(true)}
-              onApproveDraft={() => approveDraft(activeLead.id)}
-              onSkipDraft={() => skipDraft(activeLead.id)}
-              onEditDraft={() => {} /* TODO: no backing service method yet */}
-              onRewriteDraft={() => {} /* TODO: no backing service method yet */}
-              onSendConsent={() => setShowConsentModal(true)}
-              onAddToCampaign={() => setShowAddToCampaignModal(true)}
-              onRemoveFromCampaign={handleRemoveFromCampaign}
-              onViewFullSequence={() => setOpenDrawer(DRAWER.FOLLOWUPS)}
-            />
+            <DetailPanel {...detailPanelProps} />
           ) : (
             <div className="flex h-full items-center justify-start pl-[clamp(1.5rem,5vw,4rem)]">
               <div className="flex flex-col items-start gap-2 text-left text-slate-400">

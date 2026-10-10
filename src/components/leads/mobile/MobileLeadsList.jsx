@@ -16,7 +16,7 @@ import {
   X,
   CheckSquare,
 } from 'lucide-react';
-import FilterTabs from '../list/FilterTabs';
+import FilterTabs, { ViewRuleBanner } from '../list/FilterTabs';
 import LeadRow from '../list/LeadRow';
 import BottomSheet, { SheetRow } from '../../mobile/BottomSheet';
 import { useLeadListPagination } from '../../../hooks/useLeadListPagination';
@@ -42,6 +42,13 @@ export default function MobileLeadsList({
   onStateFilter,
   onTypeFilter,
   onInstanceFilter,
+  counts,
+  adFilter,
+  onAdFilter,
+  adOptions,
+  activeRule,
+  isFiltered,
+  onClearFilters,
   connectedInstances,
   onSelectLead,
   selectMode,
@@ -80,7 +87,7 @@ export default function MobileLeadsList({
     sentinelRef,
   } = useLeadListPagination(filteredLeads, paginationResetKey);
 
-  const activeFilterCount = (stateFilter !== 'all' ? 1 : 0) + (typeFilter !== 'all' ? 1 : 0) + (instanceFilter !== 'all' ? 1 : 0);
+  const activeFilterCount = (stateFilter !== 'all' ? 1 : 0) + (typeFilter !== 'all' ? 1 : 0) + (instanceFilter !== 'all' ? 1 : 0) + (adFilter !== 'all' ? 1 : 0);
   const selectedCount = selectedIds.size;
 
   const handleScroll = (event) => {
@@ -96,6 +103,7 @@ export default function MobileLeadsList({
     onStateFilter('all');
     onTypeFilter('all');
     onInstanceFilter('all');
+    onAdFilter?.('all');
   };
 
   const quickViews = [
@@ -103,7 +111,7 @@ export default function MobileLeadsList({
     { label: 'Ad leads', value: stats.adLeads, onClick: () => onTypeFilter('ad') },
     { label: 'Unreplied', value: stats.unread, tone: stats.unread > 0 ? 'warn' : 'default', onClick: () => onStateFilter('unread') },
     { label: 'Going cold', value: stats.urgent, tone: stats.urgent > 0 ? 'warn' : 'default', onClick: () => onStateFilter('stalled') },
-    { label: 'Ready to buy', value: stats.ready, tone: stats.ready > 0 ? 'good' : 'default', onClick: () => onStateFilter('engaged') },
+    { label: 'Hot', value: stats.hot, tone: stats.hot > 0 ? 'good' : 'default', onClick: () => onStateFilter('hot') },
     { label: 'Approvals', value: stats.pending, tone: stats.pending > 0 ? 'warn' : 'default', onClick: onOpenApprovals },
   ];
 
@@ -176,7 +184,17 @@ export default function MobileLeadsList({
           </button>
         </div>
 
-        <FilterTabs stateFilter={stateFilter} onSetStateFilter={onStateFilter} typeFilter={typeFilter} onSetTypeFilter={onTypeFilter} />
+        <FilterTabs
+          stateFilter={stateFilter}
+          onSetStateFilter={onStateFilter}
+          typeFilter={typeFilter}
+          onSetTypeFilter={onTypeFilter}
+          counts={counts}
+          adFilter={adFilter}
+          onSetAdFilter={onAdFilter}
+          adOptions={adOptions}
+        />
+        <ViewRuleBanner rule={activeRule?.rule} label={activeRule?.label} shown={filteredLeads.length} total={leads.length} isFiltered={isFiltered} onClear={() => { onClearFilters?.(); }} />
       </div>
 
       {/* Lead list */}
@@ -249,12 +267,6 @@ export default function MobileLeadsList({
             {(activeFilterCount > 0 || searchQuery) && (
               <button type="button" onClick={() => { resetFilters(); onSearch(''); }} className="mt-2 h-11 rounded-full bg-[#28A745] px-5 text-[14px] font-bold text-white">Clear filters</button>
             )}
-          </div>
-        )}
-
-        {typeFilter === 'personal' && filteredLeads.length > 0 && (
-          <div className="mb-3 rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-[12.5px] leading-relaxed text-slate-500">
-            These contacts cannot be followed up or analysed for business.
           </div>
         )}
 

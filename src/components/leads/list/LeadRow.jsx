@@ -1,31 +1,33 @@
-﻿import { useState } from 'react';
+import { useState } from 'react';
 import { Megaphone, Mic, Image as ImageIcon, MoreVertical, Pencil, ThumbsUp, Trash2, User } from 'lucide-react';
 import { useIsMobile } from '../../../hooks/useIsMobile';
 import BottomSheet, { SheetRow } from '../../mobile/BottomSheet';
 import {
   stateConfig,
-  qualityLabel,
   formatInterest,
   readReceiptIcon,
   intentColor,
   timeAgo,
+  formatDate,
   getLeadDisplayName,
-  isValidPhoneNumber,
-  isLikelyWhatsAppIdentifier,
+  getPhoneDisplay,
+  getTemperature,
+  isNonCustomer,
+  NON_CUSTOMER_LABELS,
 } from '../../../utils/leadHelpers';
 
 function LeadRow({ lead, isActive, onClick, selectMode, selected, onToggleSelect, onEdit, onMarkPersonal, onDelete }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const isMobile = useIsMobile();
   const sc = stateConfig(lead.lead_state);
-  const ql = qualityLabel(lead.lead_quality);
+  const temperature = getTemperature(lead);
   const rr = lead.read_receipt ? readReceiptIcon(lead.read_receipt) : null;
-  const isPersonal = lead.lead_type === 'personal';
-  const score = lead.intent_score;
+  const isPersonal = isNonCustomer(lead);
+  const score = temperature.key === 'hot' || temperature.key === 'warm' || temperature.key === 'cold' ? lead.intent_score : null;
   const isWon = lead.lead_state === 'won';
-  const displayName = getLeadDisplayName(lead.name, lead.phone);
-  const phoneIsValid = isValidPhoneNumber(lead.phone);
-  const isWhatsAppIdentifier = isLikelyWhatsAppIdentifier(lead.phone);
+  const displayName = getLeadDisplayName(lead.name, lead.phone, lead);
+  const phone = getPhoneDisplay(lead.phone);
+  const cameIn = lead.created_at || lead.added_date;
 
   const signals = [
     lead.sent_voice_note && { key: 'voice', Icon: Mic },
@@ -41,7 +43,7 @@ function LeadRow({ lead, isActive, onClick, selectMode, selected, onToggleSelect
       style={{ borderLeftColor: sc.hex, ...(isMobile ? { borderLeftWidth: 4 } : null) }}
     >
       {selectMode && (
-         <input type="checkbox" checked={selected} onChange={() => onToggleSelect(lead.id)} onClick={(event) => event.stopPropagation()} className="mt-1 h-4 w-4 shrink-0 accent-[#28A745] max-md:mt-3 max-md:h-6 max-md:w-6" aria-label={`Select ${lead.name}`} />
+         <input type="checkbox" checked={selected} onChange={() => onToggleSelect(lead.id)} onClick={(event) => event.stopPropagation()} className="mt-1 h-4 w-4 shrink-0 accent-[#28A745] max-md:mt-3 max-md:h-6 max-md:w-6" aria-label={`Select ${displayName}`} />
       )}
       <button type="button" onClick={onClick} className="flex min-w-0 flex-1 gap-3 text-left">
       <div
@@ -65,20 +67,35 @@ function LeadRow({ lead, isActive, onClick, selectMode, selected, onToggleSelect
                 {rr.glyph}
               </span>
             ) : null}
-            <span className="text-[9.5px] font-medium text-slate-400 max-md:text-[12px]">{timeAgo(lead.last_seen)}</span>
+            <span className="text-[9.5px] font-medium text-slate-400 max-md:text-[12px]" title={lead.last_inbound_at ? `They last wrote ${formatDate(lead.last_inbound_at)}` : 'No message from them yet'}>{lead.last_inbound_at ? timeAgo(lead.last_inbound_at) : ''}</span>
           </div>
         </div>
 
         <div className="mt-0.5 truncate text-[11.5px] text-slate-500 max-md:mt-1 max-md:text-[13.5px]">
-          {lead.context_summary || lead.customer_intent || (isWhatsAppIdentifier ? 'WhatsApp username' : lead.phone) || 'No phone number'}
+          {lead.context_summary || lead.customer_intent || (lead.last_inbound_at ? 'Not analysed yet' : (phone.kind === 'valid' ? phone.text : 'No messages yet'))}
         </div>
 
-        {!phoneIsValid && !isWhatsAppIdentifier && <span className="mt-1 inline-flex rounded bg-red-50 px-1.5 py-0.5 text-[9.5px] font-semibold text-red-600">Invalid phone number</span>}
+        <div className="mt-0.5 flex items-center gap-1.5 text-[10.5px] text-slate-400 max-md:text-[12px]">
+          {phone.kind === 'valid' ? <span>{phone.text}</span> : (
+            <span
+              role="button"
+              tabIndex={0}
+              title={phone.hint || 'Add a phone number to call or add this lead to lists'}
+              onClick={(event) => { event.stopPropagation(); onEdit?.(); }}
+              onKeyDown={(event) => { if (event.key === 'Enter') { event.stopPropagation(); onEdit?.(); } }}
+              className="cursor-pointer rounded px-1 font-medium text-slate-400 underline decoration-dotted underline-offset-2 hover:bg-slate-100 hover:text-slate-600"
+            >
+              {phone.text}
+            </span>
+          )}
+          {cameIn && <><span className="text-slate-300">·</span><span title={`Came in ${formatDate(cameIn)}`}>Came in {formatDate(cameIn)}</span></>}
+        </div>
 
         <div className="mt-1.5 flex flex-wrap items-center gap-1 max-md:mt-2 max-md:gap-1.5">
-          <Tag className={isWon ? 'bg-[#28A745]/10 text-[#27500A]' : 'bg-slate-100 text-slate-600'}>{sc.label}</Tag>
-          {ql === 'Hot' && <Tag className="bg-red-50 text-red-600">Hot</Tag>}
-          {ql === 'Warm' && !isWon && <Tag className="bg-[#FF8C00]/10 text-[#FF8C00]">Warm</Tag>}
+          {!isPersonal && <Tag className={isWon ? 'bg-[#28A745]/10 text-[#27500A]' : 'bg-slate-100 text-slate-600'}>{sc.label}</Tag>}
+          {isPersonal && NON_CUSTOMER_LABELS[lead.lead_type] && <Tag className="bg-slate-100 text-slate-500">{NON_CUSTOMER_LABELS[lead.lead_type]}</Tag>}
+          {temperature.key === 'hot' && <span title={temperature.reason}><Tag className="bg-red-50 text-red-600">Hot</Tag></span>}
+          {temperature.key === 'warm' && !isWon && <span title={temperature.reason}><Tag className="bg-[#FF8C00]/10 text-[#FF8C00]">{temperature.label}</Tag></span>}
           {lead.is_ad_lead && (
             <Tag className="bg-slate-100 text-slate-600">
               <Megaphone size={9} className="inline -mt-px mr-0.5" /> Ad
@@ -106,7 +123,7 @@ function LeadRow({ lead, isActive, onClick, selectMode, selected, onToggleSelect
       </div>
       </button>
       <div className="relative shrink-0">
-        <button type="button" onClick={(event) => { event.stopPropagation(); setMenuOpen((open) => !open); }} className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-200 hover:text-slate-700 max-md:-mr-1 max-md:h-11 max-md:w-11 max-md:rounded-full" aria-label={`Actions for ${lead.name}`} title="Lead actions">
+        <button type="button" onClick={(event) => { event.stopPropagation(); setMenuOpen((open) => !open); }} className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-200 hover:text-slate-700 max-md:-mr-1 max-md:h-11 max-md:w-11 max-md:rounded-full" aria-label={`Actions for ${displayName}`} title="Lead actions">
           <MoreVertical size={16} />
         </button>
         {menuOpen && !isMobile && (

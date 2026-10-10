@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, ExternalLink, MessageCircle, MoreVertical, Pencil, Phone, ShoppingBag, Sparkles, User } from 'lucide-react';
+import { ArrowLeft, CalendarClock, ExternalLink, MessageCircle, MoreVertical, Pencil, Phone, ShoppingBag, Sparkles, User } from 'lucide-react';
 import { useBackClose } from '../../../hooks/useBackClose';
-import { getLeadDisplayName, isValidPhoneNumber, stateConfig } from '../../../utils/leadHelpers';
+import { getLeadDisplayName, isNonCustomer, isValidPhoneNumber, stateConfig } from '../../../utils/leadHelpers';
 import BottomSheet, { SheetRow } from '../../mobile/BottomSheet';
 
 // Full-screen lead page for phones: slides in from the right, sticky header
@@ -16,6 +16,8 @@ export default function MobileLeadDetail({
   onAnalyze,
   analysisState,
   onMarkBought,
+  onCall,
+  onMeeting,
   onMarkPersonal,
   children,
 }) {
@@ -39,11 +41,10 @@ export default function MobileLeadDetail({
   if (!mounted || !current) return null;
 
   const state = stateConfig(current.lead_state);
-  const displayName = getLeadDisplayName(current.name, current.phone);
+  const displayName = getLeadDisplayName(current.name, current.phone, current);
   const phoneIsValid = isValidPhoneNumber(current.phone);
   const waLink = phoneIsValid ? `https://wa.me/${current.phone.replace(/[^\d]/g, '')}` : null;
-  const telLink = current.phone ? `tel:${current.phone}` : null;
-  const isBusiness = current.lead_type === 'business';
+  const isBusiness = !isNonCustomer(current);
   const canMarkBought = isBusiness && current.lead_state !== 'won';
 
   return (
@@ -85,10 +86,15 @@ export default function MobileLeadDetail({
             <ShoppingBag size={18} /> Bought
           </button>
         )}
-        {telLink && (
-          <a href={telLink} aria-label="Call" className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-slate-700 active:bg-slate-200">
+        {onCall && (
+          <button type="button" onClick={onCall} aria-label="Call" className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-slate-700 active:bg-slate-200">
             <Phone size={19} />
-          </a>
+          </button>
+        )}
+        {onMeeting && isBusiness && (
+          <button type="button" onClick={onMeeting} aria-label="Book a meeting" className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-slate-700 active:bg-slate-200">
+            <CalendarClock size={19} />
+          </button>
         )}
       </div>
 

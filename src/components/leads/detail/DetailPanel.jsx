@@ -1,80 +1,58 @@
 import { useEffect, useRef, useState } from 'react';
 import DetailHeader from './DetailHeader';
 import EngagementSignals from './EngagementSignals';
-import ReadReceiptFlow from './ReadReceiptFlow';
-import ConversationSignals from './ConversationSignals';
 import NextActionCard from './NextActionCard';
-import FollowupCard from './FollowupCard';
+import CallBrief from './CallBrief';
+import MembershipStrip from './MembershipStrip';
+import ComingUp from './ComingUp';
+import ActivityTimeline from './ActivityTimeline';
+import { useLeadWorkspace } from '../../../hooks/useLeadWorkspace';
+import { isNonCustomer, NON_CUSTOMER_LABELS } from '../../../utils/leadHelpers';
 
-// Assembles the right-hand detail panel for a selected lead. Drop into
-// LeadsPage.jsx in place of the current placeholder div.
+// The lead workspace: who they are, what to do next, what to say, where they sit in your automation, what is
+// coming up, and then the full activity log taking up the rest of the page.
 //
 // Props:
-//   lead          — the active lead object
-//   onOpenChat    — () => void, opens ChatDrawer
-//   onMarkBought  — () => void, opens the mark-as-bought flow
-//   onApproveDraft, onSkipDraft — from useLeads (approveDraft/skipDraft),
-//                    passed straight through to FollowupCard
-//   onEditDraft, onRewriteDraft, onSendConsent — still TODO stubs upstream
-//   onViewFullSequence — opens FollowupsDrawer (TODO until that's built)
+//   lead, businessId            the lead and the business it belongs to
+//   refreshKey                  bump to reload lists / follow-ups / activity after an action elsewhere
+//   onOpenChat, onCall, onMeeting, onMarkBought, onEdit, onAnalyze / analysisState
+//   onLetHeySasa, heySasaState  "Let HeySasa do it" (writes the message into the chat box)
+//   onAddToList, onAddToCampaign, onRemoveFromCampaign
+//   onCompleteTask, onMarkMeeting, onAddNote
 export default function DetailPanel({
   lead,
+  businessId,
+  refreshKey = 0,
   onOpenChat,
   onAnalyze,
   analysisState,
   onMarkBought,
   onEdit,
-  onApproveDraft,
-  onSkipDraft,
-  onEditDraft,
-  onRewriteDraft,
-  onSendConsent,
+  onCall,
+  onMeeting,
+  onLetHeySasa,
+  heySasaState,
+  onAddToList,
   onAddToCampaign,
   onRemoveFromCampaign,
-  onViewFullSequence,
+  onCompleteTask,
+  onMarkMeeting,
+  onAddNote,
   hideHeaderActions = false,
 }) {
   const panelRef = useRef(null);
-  const [isNarrowPanel, setIsNarrowPanel] = useState(false);
+  const [, setIsNarrowPanel] = useState(false);
+  const { data: workspace, loading, error } = useLeadWorkspace(businessId, lead, refreshKey);
 
   useEffect(() => {
     if (hideHeaderActions || !panelRef.current) return undefined;
-
-    const observer = new ResizeObserver(([entry]) => {
-      setIsNarrowPanel(entry.contentRect.width <= 640);
-    });
+    const observer = new ResizeObserver(([entry]) => setIsNarrowPanel(entry.contentRect.width <= 640));
     observer.observe(panelRef.current);
     return () => observer.disconnect();
   }, [hideHeaderActions]);
 
   if (!lead) return null;
-
-  const businessDetails = (
-    <>
-      <ReadReceiptFlow status={lead.read_receipt} />
-      <EngagementSignals lead={lead} />
-      <NextActionCard lead={lead} onAct={onOpenChat} />
-      <ConversationSignals
-        objections={lead.objection_tags}
-        competitors={lead.competitor_mentions}
-        questions={lead.pre_purchase_questions}
-      />
-    </>
-  );
-  const followupDetails = lead.followup && (
-    <FollowupCard
-      lead={lead}
-      onApprove={onApproveDraft}
-      onSkip={onSkipDraft}
-      onEdit={onEditDraft}
-      onRewrite={onRewriteDraft}
-      onSendConsent={onSendConsent}
-      onAddToCampaign={onAddToCampaign}
-      onRemoveFromCampaign={onRemoveFromCampaign}
-      onViewFullSequence={onViewFullSequence}
-      compact={isNarrowPanel}
-    />
-  );
+  const nonCustomer = isNonCustomer(lead);
 
   return (
     <div ref={panelRef} className="flex h-full min-h-0 flex-col overflow-hidden bg-[#F7FBF9]">
@@ -85,17 +63,33 @@ export default function DetailPanel({
         analysisState={analysisState}
         onMarkBought={onMarkBought}
         onEdit={onEdit}
+        onCall={onCall}
+        onMeeting={onMeeting}
         hideActions={hideHeaderActions}
       />
 
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-        {lead.lead_type === 'business' && (
-          <>{businessDetails}{followupDetails}</>
-        )}
-        {lead.lead_type === 'personal' && (
+        {nonCustomer ? (
           <div className="mx-4 my-4 rounded-xl border border-slate-200 bg-white px-4 py-3 text-[12.5px] text-slate-500 md:mx-6">
-            This is a personal chat, not a customer conversation {' \u2014 '}no sales signals to show.
+            This is marked as <span className="font-semibold text-slate-700">{(NON_CUSTOMER_LABELS[lead.lead_type] || 'not a customer').toLowerCase()}</span>, so there are no sales signals, follow-ups or call brief for it.
           </div>
+        ) : (
+          <>
+            <NextActionCard lead={lead} onLetHeySasa={onLetHeySasa} heySasaState={heySasaState} />
+            <CallBrief lead={lead} onAnalyze={onAnalyze} analysisState={analysisState} />
+            <MembershipStrip
+              workspace={workspace}
+              loading={loading}
+              lead={lead}
+              onAddToList={onAddToList}
+              onAddToCampaign={onAddToCampaign}
+              onRemoveFromCampaign={onRemoveFromCampaign}
+            />
+            <ComingUp workspace={workspace} onCompleteTask={onCompleteTask} onMarkMeeting={onMarkMeeting} />
+            <EngagementSignals lead={lead} />
+            {error && <p className="mx-4 rounded-lg bg-red-50 px-3 py-2 text-[12px] font-medium text-red-600 md:mx-6">{error}</p>}
+            <ActivityTimeline events={workspace.events} loading={loading} problems={workspace.problems} onAddNote={onAddNote} />
+          </>
         )}
       </div>
     </div>
