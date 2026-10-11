@@ -945,7 +945,14 @@ async function updateLead(leadId, { name, phone, lead_state: leadState, lead_typ
       ...(name !== undefined ? { name: name.trim() } : {}),
       ...(phone !== undefined ? { phone: phone.trim() } : {}),
       ...(leadState !== undefined ? { lead_state: leadState } : {}),
-      ...(leadType !== undefined ? { lead_type: leadType } : {}),
+      // A type the owner picks is final: stamping it as manual stops the analyser from re-labelling this chat later.
+      ...(leadType !== undefined ? {
+        lead_type: leadType,
+        lead_type_source: 'manual',
+        lead_type_reason: 'Set by the business owner',
+        lead_type_confidence: 1,
+        lead_type_classified_at: new Date().toISOString(),
+      } : {}),
     };
     const { error } = await supabase
       .from('contacts')

@@ -9,7 +9,7 @@ import MessageSequenceBuilder from './Messagesequencebuilder';
 import ScheduleGuardrails from './ScheduleGuardrails';
 import ImportCampaignPanel from './ImportCampaignPanel';
 import { SEQUENCE_TYPE, EDUCATIONAL_FREQUENCY } from '../../../constants';
-import { launchCampaign, updateCampaign } from '../../../../../services/listsCampaignsService';
+import { launchCampaign, previewCampaignAudience, updateCampaign } from '../../../../../services/listsCampaignsService';
 import { fetchWhatsAppSessions } from '../../../../../services/businessService';
 import { getSettings } from '../../../../../services/settingsService';
 import { formatDateTimeLocalInTimeZone, parseDateTimeLocalInTimeZone } from '../../../../../utils/businessTime';
@@ -20,7 +20,10 @@ function emptyStep() {
   return { content: '', gapHours: 24, media: null };
 }
 
-function getInitialSteps(campaign) {
+function getInitialSteps(campaign, preset) {
+  if (!campaign && preset?.steps?.length) {
+    return preset.steps.map((step, index) => ({ content: step.content || '', gapHours: index === 0 ? 0 : step.gapHours ?? 24, media: null }));
+  }
   if (!campaign?.steps?.length) return [emptyStep()];
   return campaign.steps.map((step, index) => ({
     id: step.id,
@@ -38,16 +41,16 @@ function getDefaultSendTime(timeZone = 'UTC') {
   return formatDateTimeLocalInTimeZone(addHours(new Date(), 5 / 60), timeZone);
 }
 
-export default function CreateCampaignModal({ open, campaign, onClose, businessId, onLaunched, startWithImport = false }) {
+export default function CreateCampaignModal({ open, campaign, preset = null, onClose, businessId, onLaunched, startWithImport = false }) {
   const { isOpen: assistantOpen } = useAssistant();
   const isMobile = useIsMobile();
-  const [stepIndex, setStepIndex] = useState(() => (campaign ? 1 : 0));
-  const [campaignName, setCampaignName] = useState(() => campaign?.name || '');
+  const [stepIndex, setStepIndex] = useState(() => (campaign || preset ? 1 : 0));
+  const [campaignName, setCampaignName] = useState(() => campaign?.name || preset?.name || '');
   // Reopening Ask HeySasa for the same message resumes its chat, but a brand-new campaign starts fresh.
   const [assistantKey] = useState(() => (campaign?.id ? `campaign_${campaign.id}` : `campaign_draft_${Date.now()}`));
   const [whatsappSessions, setWhatsappSessions] = useState([]);
   const [selectedInstanceId, setSelectedInstanceId] = useState('');
-  const [selectedListIds, setSelectedListIds] = useState(() => (campaign?.listId ? [campaign.listId] : []));
+  const [selectedListIds, setSelectedListIds] = useState(() => (campaign?.listId ? [campaign.listId] : (preset?.listIds || [])));
   const [audience, setAudience] = useState(() => (
     campaign ? { sendableCount: campaign.enrolled ?? 0 } : null
   ));
@@ -55,7 +58,7 @@ export default function CreateCampaignModal({ open, campaign, onClose, businessI
   const [sequenceType, setSequenceType] = useState(() => campaign?.sequenceType || SEQUENCE_TYPE.BROADCAST);
   const [educationalTopic, setEducationalTopic] = useState('');
   const [frequency, setFrequency] = useState(EDUCATIONAL_FREQUENCY[1]?.value || 'weekly');
-  const [steps, setSteps] = useState(() => getInitialSteps(campaign));
+  const [steps, setSteps] = useState(() => getInitialSteps(campaign, preset));
   const [firstMessageSendAt, setFirstMessageSendAt] = useState(() => getDefaultSendTime());
   const [timezone, setTimezone] = useState('UTC');
 
@@ -66,10 +69,10 @@ export default function CreateCampaignModal({ open, campaign, onClose, businessI
   // AI toggle: off (default) sends each message exactly as written below.
   // On, AI treats what you wrote as a suggestion and personalizes/expands
   // it per lead before sending.
-  const [aiRewriteEnabled, setAiRewriteEnabled] = useState(() => campaign?.aiRewriteEnabled ?? false);
+  const [aiRewriteEnabled, setAiRewriteEnabled] = useState(() => campaign?.aiRewriteEnabled ?? preset?.aiRewriteEnabled ?? false);
   // Auto-approve: on (default) sends automatically when each step is due.
   // Off holds every message for your approval in the dashboard first.
-  const [autoApprove, setAutoApprove] = useState(() => campaign?.autoApprove ?? true);
+  const [autoApprove, setAutoApprove] = useState(() => campaign?.autoApprove ?? preset?.autoApprove ?? true);
   const [launching, setLaunching] = useState(false);
   const [error, setError] = useState('');
   const [importedName, setImportedName] = useState('');
@@ -120,7 +123,7 @@ export default function CreateCampaignModal({ open, campaign, onClose, businessI
         const connectedSessions = sessions.filter((session) => session.status === 'connected' && session.instance_name);
         setWhatsappSessions(connectedSessions);
         const existing = connectedSessions.find((session) => session.instance_name === campaign?.whatsappInstanceName);
-        setSelectedInstanceId(existing?.id || '');
+        setSelectedInstanceId(existing?.id || (preset && !campaign && connectedSessions.length === 1 ? connectedSessions[0].id : ''));
       })
       .catch(() => {
         if (isMounted) {
@@ -130,7 +133,17 @@ export default function CreateCampaignModal({ open, campaign, onClose, businessI
       });
 
     return () => { isMounted = false; };
-  }, [businessId, campaign]);
+  }, [businessId, campaign, preset]);
+
+  // A preset skips the list step, so work out who will be messaged here.
+  useEffect(() => {
+    if (campaign || !preset?.listIds?.length || !businessId) return undefined;
+    let cancelled = false;
+    previewCampaignAudience(businessId, preset.listIds)
+      .then((result) => { if (!cancelled) setAudience(result); })
+      .catch(() => { if (!cancelled) setAudience(null); });
+    return () => { cancelled = true; };
+  }, [campaign, preset, businessId]);
 
   // Fills the form from an uploaded file. Lists and the WhatsApp number are still chosen here.
   const applyImported = (imported) => {
@@ -281,6 +294,11 @@ export default function CreateCampaignModal({ open, campaign, onClose, businessI
                   placeholder="Name this campaign"
                   className="w-full bg-transparent text-2xl font-semibold text-slate-900 placeholder:text-slate-400 outline-none"
                 />
+                {preset?.ad && !campaign && (
+                  <p className="inline-flex max-w-full items-center gap-1.5 rounded-lg bg-[#F7FBF9] px-2.5 py-1 text-[11.5px] text-slate-600 ring-1 ring-[#28A745]/20">
+                    <span className="truncate">Written from the ad &ldquo;{preset.ad.headline}&rdquo;</span>
+                  </p>
+                )}
                 <div className="mt-4 max-w-xl space-y-2">
                   <label htmlFor="campaign-whatsapp-instance" className="block text-sm font-medium text-slate-700">
                     Select instance <span className="text-red-500">*</span>

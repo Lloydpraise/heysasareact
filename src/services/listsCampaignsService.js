@@ -73,6 +73,10 @@ export async function fetchLists(businessId) {
       ruleId: row.rule_id,
       archived: row.archived,
       disabledAt: row.disabled_at,
+      adId: row.ad_id ?? null,
+      adHeadline: row.ad_headline ?? null,
+      adThumbnailUrl: row.ad_thumbnail_url ?? null,
+      adPlatform: row.ad_platform ?? null,
       totalContacts: memberCount,
       memberCount,
       sendableCount,
@@ -84,6 +88,18 @@ export async function fetchLists(businessId) {
       },
     };
   });
+}
+
+// Makes sure every ad that has brought in leads has its own list, and that each list holds the right people.
+// Safe to call as often as you like. If the database has not been updated yet it quietly does nothing.
+export async function syncAdLists(businessId) {
+  if (!supabase || !businessId) return null;
+  const { data, error } = await supabase.rpc('sync_ad_lists', { p_business_id: businessId });
+  if (error) {
+    console.warn('[lists] Could not refresh ad lists:', error.message);
+    return null;
+  }
+  return data;
 }
 
 export async function fetchListContacts(businessId, listId) {
@@ -226,6 +242,7 @@ export async function fetchListsForCampaignPicker(businessId) {
   return rows.map((list) => ({
     ...list,
     isAuto: list.type === 'auto',
+    isAd: list.type === 'ad',
     memberCount: list.memberCount ?? list.totalContacts ?? 0,
     sendableCount: list.sendableCount ?? list.memberCount ?? list.totalContacts ?? 0,
   }));

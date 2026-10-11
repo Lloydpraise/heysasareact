@@ -1,4 +1,5 @@
 import { Megaphone, X } from 'lucide-react';
+import AdThumb from '../../listsCampaigns/components/listManager/AdThumb';
 
 // One row of filters. Every chip shows how many leads it holds, the active one is clearly filled, and
 // choosing one does exactly one thing: it sets the list to that view (the rule is written above the list).
@@ -60,7 +61,7 @@ export default function FilterTabs({
       </div>
 
       {typeFilter === 'ad' && onSetAdFilter && (
-        <div className="mb-2 flex items-stretch gap-1 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden max-md:px-4">
+        <div className="mb-2 flex items-center gap-1 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden max-md:px-4">
           <AdChip active={adFilter === 'all'} onClick={() => onSetAdFilter('all')} label="All ads" count={counts.ad} />
           {adOptions.map((ad) => (
             <AdChip
@@ -68,37 +69,51 @@ export default function FilterTabs({
               active={adFilter === ad.key}
               onClick={() => onSetAdFilter(ad.key)}
               label={ad.label}
-              detail={ad.platform}
+              thumbnail={ad.thumbnail}
+              title={[ad.label, ad.platform].filter(Boolean).join(' · ')}
               count={ad.count}
             />
           ))}
-          {adOptions.length === 0 && <span className="px-1 py-1.5 text-[11px] text-slate-400">No ads have brought in leads yet.</span>}
+          {adOptions.length === 0 && <span className="px-1 py-1 text-[10.5px] text-slate-400">No ads have brought in leads yet.</span>}
         </div>
       )}
     </>
   );
 }
 
-// The line that explains what is on screen, with a one-tap way back to everything.
-export function ViewRuleBanner({ rule, label, shown, total, onClear, isFiltered }) {
+// What this group of leads means for the business, with a one-tap way into the campaign that works them
+// (when there is one) and a way back to everything.
+export function ViewRuleBanner({ rule, label, campaign, onOpenCampaign, onClear, isFiltered }) {
   if (!rule) return null;
   return (
     <div className="mb-2 mx-3 rounded-lg border border-[#28A745]/20 bg-[#F7FBF9] px-3 py-2 md:mx-0 max-md:mx-4" role="status" aria-live="polite">
       <div className="flex items-start justify-between gap-2">
-        <p className="min-w-0 text-[11px] leading-relaxed text-slate-600">
-          <span className="font-bold text-slate-800">{label}</span>
-          <span className="mx-1 text-slate-300">·</span>
-          <span className="font-semibold text-[#218c3a]">{shown} of {total}</span>
-          <span className="block mt-0.5 text-slate-500">{rule}</span>
-        </p>
+        <div className="min-w-0 flex-1">
+          <p className="text-[11.5px] leading-relaxed text-slate-600">
+            <span className="font-bold text-slate-800">{label}</span>
+            <span className="mx-1 text-slate-300">&middot;</span>
+            {rule}
+          </p>
+          {campaign && onOpenCampaign && (
+            <button
+              type="button"
+              onClick={() => onOpenCampaign(campaign)}
+              className="mt-1.5 inline-flex items-center gap-1 rounded-md bg-[#28A745] px-2.5 py-1 text-[11px] font-semibold text-white shadow-sm transition hover:bg-[#218838] max-md:h-9 max-md:px-3.5 max-md:text-[13px]"
+            >
+              <Megaphone size={11} />
+              {campaign.adKey ? 'Open this ad’s campaign?' : `Open ${campaign.label} Campaign?`}
+            </button>
+          )}
+        </div>
         {isFiltered && (
           <button
             type="button"
             onClick={onClear}
-            className="flex shrink-0 items-center gap-0.5 rounded-md px-1.5 py-1 text-[10.5px] font-semibold text-slate-500 hover:bg-white hover:text-slate-800"
+            className="flex shrink-0 items-center rounded-md p-1 text-slate-400 hover:bg-white hover:text-slate-700"
             aria-label="Clear filters"
+            title="Clear filters"
           >
-            <X size={11} /> Clear
+            <X size={13} />
           </button>
         )}
       </div>
@@ -125,22 +140,20 @@ function FilterChip({ active, onClick, children, count, tone }) {
   );
 }
 
-function AdChip({ active, onClick, label, detail, count }) {
+function AdChip({ active, onClick, label, title, count, thumbnail }) {
   return (
     <button
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      title={[label, detail].filter(Boolean).join(' · ')}
-      className={`flex min-w-[88px] max-w-[190px] shrink-0 items-center justify-between gap-2 rounded-lg border px-2.5 py-1.5 text-left transition max-md:py-2.5 ${active
-        ? 'border-[#28A745] bg-[#28A745] text-white shadow-sm'
+      title={title || label}
+      className={`flex max-w-[170px] shrink-0 items-center gap-1.5 rounded-md border px-2 py-1 text-left transition max-md:py-2 ${active
+        ? 'border-[#28A745] bg-[#28A745] text-white'
         : 'border-slate-200 bg-white text-slate-600 hover:border-[#28A745]/40 hover:bg-[#28A745]/5'}`}
     >
-      <span className="flex min-w-0 flex-col">
-        <span className="truncate text-[11px] font-semibold max-md:text-[13px]">{label}</span>
-        {detail && <span className={`truncate text-[9px] ${active ? 'text-white/80' : 'text-slate-400'}`}>{detail}</span>}
-      </span>
-      <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${active ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'}`}>{count}</span>
+      {thumbnail !== undefined && <AdThumb src={thumbnail} size={16} />}
+      <span className="truncate text-[10.5px] font-semibold max-md:text-[12.5px]">{label}</span>
+      <span className={`rounded-full px-1 text-[9.5px] font-bold ${active ? 'bg-white/25 text-white' : 'bg-slate-100 text-slate-500'}`}>{count}</span>
     </button>
   );
 }

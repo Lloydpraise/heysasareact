@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Download, MoreVertical, Rocket, SlidersHorizontal, Users } from 'lucide-react';
 import AutoBadge from './AutoBadge';
+import AdThumb from './AdThumb';
 import BottomSheet, { SheetRow } from '../../../mobile/BottomSheet';
 import { STATUS_COLORS, LEAD_STATUS } from '../../constants';
 
@@ -22,6 +23,7 @@ export default function MobileListCard({ list, onSelect, actionProps }) {
       <div className="flex items-start gap-2 px-4 pt-3.5">
         <button type="button" onClick={() => onSelect(list.id)} className="m-no-press min-w-0 flex-1 text-left">
           <span className="flex items-center gap-2">
+            {list.type === 'ad' && <AdThumb src={list.adThumbnailUrl} size={32} />}
             <span className="truncate text-[16px] font-bold text-slate-900">{list.name}</span>
             {list.type === 'auto' && <AutoBadge />}
           </span>

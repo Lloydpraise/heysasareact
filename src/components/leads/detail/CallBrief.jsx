@@ -1,27 +1,25 @@
 import { AlertTriangle, Building2, HelpCircle, LoaderCircle, MessageSquareQuote, ShoppingBag, Sparkles, Target } from 'lucide-react';
-import { cameInLabel, daysSince, formatInterest, getTemperature, isNonCustomer, timeAgo } from '../../../utils/leadHelpers';
+import { daysSince, formatInterest, isNonCustomer, timeAgo } from '../../../utils/leadHelpers';
 
 // "Pick up the phone and know exactly what to say." Everything here is read straight from what the analyser
 // found about this lead; nothing is made up. A section with nothing behind it is simply not shown.
 export default function CallBrief({ lead, onAnalyze, analysisState }) {
   if (isNonCustomer(lead)) return null;
-  const temperature = getTemperature(lead);
   const analysed = Boolean(lead.nlp_enriched_at);
   const waitingDays = lead.awaiting_business_reply && lead.last_inbound_at ? daysSince(lead.last_inbound_at) : null;
 
+  // One short line. The intent score (round badge) and the date they came in are already in the header.
+  const stage = lead.conv_stage ? `${String(lead.conv_stage).charAt(0).toUpperCase()}${String(lead.conv_stage).slice(1)}` : '';
   const standing = [];
-  if (temperature.key !== 'unscored' && temperature.reason) standing.push(temperature.reason);
-  if (lead.conv_stage) standing.push(`Stage: ${lead.conv_stage}.`);
+  if (stage) standing.push(stage);
   if (lead.awaiting_business_reply && lead.last_inbound_at) {
-    standing.push(waitingDays >= 1 ? `They wrote ${waitingDays} days ago and are still waiting for your reply.` : 'Their last message has no reply yet.');
+    standing.push(waitingDays >= 1 ? `Waiting on your reply for ${waitingDays} day${waitingDays === 1 ? '' : 's'}` : 'Waiting on your reply');
   } else if (lead.last_inbound_at) {
-    standing.push(`They last wrote ${timeAgo(lead.last_inbound_at)} ago.`);
+    standing.push(`Last wrote ${timeAgo(lead.last_inbound_at)} ago`);
   } else {
-    standing.push('They have not messaged you yet.');
+    standing.push('Has not messaged yet');
   }
-  if (lead.follow_up_count > 0) standing.push(`${lead.follow_up_count} follow-up${lead.follow_up_count === 1 ? '' : 's'} sent so far.`);
-  const came = cameInLabel(lead);
-  if (came) standing.push(`Came in ${came}.`);
+  if (lead.follow_up_count > 0) standing.push(`${lead.follow_up_count} follow-up${lead.follow_up_count === 1 ? '' : 's'} sent`);
 
   const wants = lead.customer_intent || lead.context_summary || lead.lead_summary;
   const products = [...new Set([...(lead.product_interests || []), ...(lead.cart_state || [])])];
@@ -51,7 +49,7 @@ export default function CallBrief({ lead, onAnalyze, analysisState }) {
 
       <div className="flex flex-col gap-3.5 px-4 py-3">
         <Block icon={Target} title="Where things stand">
-          <p className="text-[12.5px] leading-relaxed text-slate-700">{standing.join(' ')}</p>
+          <p className="text-[12.5px] leading-relaxed text-slate-700">{standing.join(' \u00b7 ')}</p>
         </Block>
 
         {products.length > 0 && (
@@ -111,7 +109,7 @@ export default function CallBrief({ lead, onAnalyze, analysisState }) {
 
         {!analysed && (
           <p className="rounded-lg bg-slate-50 px-3 py-2 text-[11.5px] leading-relaxed text-slate-500">
-            HeySasa has not analysed this chat yet, so there is no summary, objections or next step. Analyse it to get a full brief.
+            Not analysed yet.
           </p>
         )}
       </div>

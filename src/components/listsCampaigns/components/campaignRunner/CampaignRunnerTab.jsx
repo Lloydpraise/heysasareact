@@ -11,12 +11,13 @@ import SequenceStepList from './SequenceStepList';
 import CreateCampaignModal from './createCampaignModal/CreateCampaignModal';
 import CampaignActivityLog from './CampaignActivityLog';
 import AutoCampaignsPanel from './AutoCampaignsPanel';
+import { buildCampaignPreset } from '../../adCampaignPreset';
 import AnCard from '../../../analytics/shared/AnCard';
 import ViewSwitcher from '../ViewSwitcher';
 import ChatDrawer from '../../../leads/drawers/ChatDrawer';
 import { useIsMobile } from '../../../../hooks/useIsMobile';
 
-export default function CampaignRunnerTab({ onNeedLists }) {
+export default function CampaignRunnerTab({ onNeedLists, presetListId = null, onPresetHandled, autoRuleToOpen = null, onAutoRuleHandled, onRuleMissing }) {
   const { businessId, lists } = useListsCampaigns();
   const [campaigns, setCampaigns] = useState(() => (businessId ? null : MOCK_CAMPAIGNS));
   const [expandedId, setExpandedId] = useState(null);
@@ -29,6 +30,7 @@ export default function CampaignRunnerTab({ onNeedLists }) {
   const [showActivityLog, setShowActivityLog] = useState(false);
   const [editingCampaign, setEditingCampaign] = useState(null);
   const [startWithImport, setStartWithImport] = useState(false);
+  const [createPreset, setCreatePreset] = useState(null);
   const [activeChatLead, setActiveChatLead] = useState(null);
   const hasLists = (lists || []).length > 0;
 
@@ -64,12 +66,14 @@ export default function CampaignRunnerTab({ onNeedLists }) {
   }, [businessId, refetch]);
 
   const openImportCampaign = () => {
+    setCreatePreset(null);
     setEditingCampaign(null);
     setStartWithImport(true);
     setShowCreateModal(true);
   };
 
   const openCreateCampaign = () => {
+    setCreatePreset(null);
     setStartWithImport(false);
     setEditingCampaign(null);
     setShowCreateModal(true);
@@ -79,6 +83,26 @@ export default function CampaignRunnerTab({ onNeedLists }) {
     setEditingCampaign(campaign);
     setShowCreateModal(true);
   };
+
+  // "Launch campaign" on a list (or "Follow up this ad" on the Leads page): open the builder with that list chosen,
+  // and for an ad list a ready-made follow-up built around the ad.
+  useEffect(() => {
+    if (!presetListId || !lists) return;
+    const list = lists.find((item) => item.id === presetListId);
+    if (list) {
+      setCreatePreset(buildCampaignPreset(list));
+      setEditingCampaign(null);
+      setStartWithImport(false);
+      setCampaignSection('active');
+      setShowCreateModal(true);
+    }
+    onPresetHandled?.();
+  }, [presetListId, lists, onPresetHandled]);
+
+  // An auto-campaign was requested from another screen: show the Auto section (the panel opens the campaign).
+  useEffect(() => {
+    if (autoRuleToOpen) setCampaignSection('auto');
+  }, [autoRuleToOpen]);
 
   useEffect(() => {
     if (!businessId) return undefined;
@@ -219,7 +243,15 @@ export default function CampaignRunnerTab({ onNeedLists }) {
 
       {showActivityLog && <CampaignActivityLog businessId={businessId} onClose={() => setShowActivityLog(false)} />}
 
-      {campaignSection === 'auto' && <AutoCampaignsPanel businessId={businessId} onChanged={refetch} />}
+      {campaignSection === 'auto' && (
+        <AutoCampaignsPanel
+          businessId={businessId}
+          onChanged={refetch}
+          openRuleId={autoRuleToOpen}
+          onOpenRuleHandled={onAutoRuleHandled}
+          onRuleMissing={onRuleMissing}
+        />
+      )}
 
       {campaignSection === 'active' && currentCampaigns.length === 0 && (
         <div className="flex min-h-[280px] flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 px-6 text-center">
@@ -245,13 +277,15 @@ export default function CampaignRunnerTab({ onNeedLists }) {
       {campaignSection !== 'auto' && visibleCampaigns.length > 0 && view === 'grid' && renderCampaignGrid(visibleCampaigns)}
 
       <CreateCampaignModal
-        key={`${editingCampaign?.id || 'new-campaign'}-${startWithImport ? 'import' : 'create'}`}
+        key={`${editingCampaign?.id || 'new-campaign'}-${startWithImport ? 'import' : 'create'}-${createPreset?.listIds?.[0] || 'blank'}`}
         open={showCreateModal}
         campaign={editingCampaign}
+        preset={createPreset}
         startWithImport={startWithImport}
         onClose={() => {
           setShowCreateModal(false);
           setEditingCampaign(null);
+          setCreatePreset(null);
         }}
         businessId={businessId}
         onLaunched={refetch}

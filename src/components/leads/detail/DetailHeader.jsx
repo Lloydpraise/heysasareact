@@ -1,6 +1,7 @@
-import { CalendarClock, Check, LoaderCircle, Phone, ExternalLink, ShoppingBag, Sparkles, User2, Megaphone } from 'lucide-react';
-import { cameInLabel, getLeadDisplayName, getPhoneDisplay, getTemperature, isNonCustomer, NON_CUSTOMER_LABELS, stateConfig, timeAgo } from '../../../utils/leadHelpers';
-import whatsappIcon from '../../../assets/images/whatsappicon.svg';
+import { ShoppingBag, User2, Megaphone } from 'lucide-react';
+import { cameInDate, getLeadDisplayName, getPhoneDisplay, getTemperature, isNonCustomer, NON_CUSTOMER_LABELS, stateConfig, timeAgo } from '../../../utils/leadHelpers';
+import IntentBadge from '../shared/IntentBadge';
+import LeadActionsMenu from './LeadActionsMenu';
 
 // Header block for the detail panel: avatar, name, state/quality badges,
 // ad-source badge (if this lead came from an ad), and quick actions
@@ -12,7 +13,7 @@ import whatsappIcon from '../../../assets/images/whatsappicon.svg';
 //   onMarkBought — () => void, opens the "mark as bought" flow (modal/form
 //                  lives in LeadsPage or a future BoughtModal — this button
 //                  just triggers it)
-export default function DetailHeader({ lead, onOpenChat, onAnalyze, analysisState, onMarkBought, onEdit, onCall, onMeeting, hideActions = false }) {
+export default function DetailHeader({ lead, onOpenChat, onAnalyze, analysisState, onMarkBought, onEdit, onCall, onMeeting, onMarkPersonal, hideActions = false }) {
   const state = stateConfig(lead.lead_state);
   const temperature = getTemperature(lead);
   const displayName = getLeadDisplayName(lead.name, lead.phone, lead);
@@ -20,7 +21,7 @@ export default function DetailHeader({ lead, onOpenChat, onAnalyze, analysisStat
   const phone = getPhoneDisplay(lead.phone);
   const phoneIsValid = phone.kind === 'valid';
   const waLink = phoneIsValid ? `https://wa.me/${lead.phone.replace(/[^\d]/g, '')}` : null;
-  const cameIn = cameInLabel(lead);
+  const cameIn = cameInDate(lead);
   const nonCustomer = isNonCustomer(lead);
 
   const isWon = lead.lead_state === 'won';
@@ -53,11 +54,7 @@ export default function DetailHeader({ lead, onOpenChat, onAnalyze, analysisStat
                 <span className={`h-1.5 w-1.5 rounded-full ${state.dotClass}`} />
                 {state.label}
               </span>
-              {!nonCustomer && ['hot', 'warm', 'cold'].includes(temperature.key) && (
-                <span title={temperature.reason} className={`shrink-0 rounded-full px-2 py-0.5 text-[10.5px] font-semibold ${temperature.key === 'hot' ? 'bg-red-50 text-red-600' : temperature.key === 'warm' ? 'bg-[#FF8C00]/10 text-[#c26a00]' : 'bg-slate-100 text-slate-500'}`}>
-                  {temperature.label}
-                </span>
-              )}
+              {!nonCustomer && ['hot', 'warm', 'cold'].includes(temperature.key) && <IntentBadge score={lead.intent_score} />}
               {nonCustomer && (
                 <span className="flex shrink-0 items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10.5px] font-semibold text-slate-500">
                   <User2 size={10} /> {NON_CUSTOMER_LABELS[lead.lead_type] || 'Not a customer'}
@@ -68,7 +65,7 @@ export default function DetailHeader({ lead, onOpenChat, onAnalyze, analysisStat
                 {phoneIsValid ? <span>{phone.text}</span> : (
                   <span title={phone.hint || ''} className="rounded px-1 font-medium underline decoration-dotted underline-offset-2">{phone.text}</span>
                 )}
-                {cameIn && <><span className="text-slate-300">·</span><span>Came in {cameIn}</span></>}
+                {cameIn && <><span className="text-slate-300">·</span><span>{cameIn}</span></>}
               </p>
             </div>
 
@@ -85,62 +82,7 @@ export default function DetailHeader({ lead, onOpenChat, onAnalyze, analysisStat
         </div>
 
         {!hideActions && (
-          <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:items-center md:gap-1.5">
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={onAnalyze}
-                disabled={!onAnalyze || analysisState === 'analysing'}
-                className={`flex h-8 w-8 items-center justify-center rounded-lg transition ${analysisState === 'completed' ? 'text-[#28A745]' : 'text-slate-400 hover:bg-slate-100 hover:text-[#28A745]'} disabled:cursor-not-allowed`}
-                aria-label={analysisState === 'completed' ? 'Analysis complete' : 'Analyse contact'}
-                title={analysisState === 'completed' ? 'Analysis complete' : 'Analyse contact'}
-              >
-                {analysisState === 'analysing' ? <LoaderCircle size={16} className="animate-spin" /> : analysisState === 'completed' ? <Check size={16} strokeWidth={2.5} /> : <Sparkles size={16} />}
-              </button>
-              <button
-                type="button"
-                onClick={onOpenChat}
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-[#28A745]"
-                aria-label="Open chat"
-                title="Open chat"
-              >
-                <img src={whatsappIcon} alt="Chat" className="h-4 w-4" />
-              </button>
-              {onCall && (
-                <button
-                  type="button"
-                  onClick={onCall}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-[#28A745]"
-                  aria-label="Call"
-                  title="Call or log a call"
-                >
-                  <Phone size={16} />
-                </button>
-              )}
-              {onMeeting && !nonCustomer && (
-                <button
-                  type="button"
-                  onClick={onMeeting}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-[#28A745]"
-                  aria-label="Book a meeting"
-                  title="Book a meeting with reminders"
-                >
-                  <CalendarClock size={16} />
-                </button>
-              )}
-              {waLink && (
-                <a
-                  href={waLink}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-[#28A745]"
-                  aria-label="Open in WhatsApp"
-                  title="Open in WhatsApp"
-                >
-                  <ExternalLink size={16} />
-                </a>
-              )}
-            </div>
+          <div className="flex w-full items-center gap-2 md:w-auto md:gap-1.5">
             {canMarkBought && (
               <button
                 type="button"
@@ -150,6 +92,16 @@ export default function DetailHeader({ lead, onOpenChat, onAnalyze, analysisStat
                 <ShoppingBag size={13} /> Mark as bought
               </button>
             )}
+            <LeadActionsMenu
+              waLink={waLink}
+              analysisState={analysisState}
+              onAnalyze={onAnalyze}
+              onOpenChat={onOpenChat}
+              onCall={onCall}
+              onMeeting={onMeeting && !nonCustomer ? onMeeting : undefined}
+              onEdit={onEdit}
+              onMarkPersonal={onMarkPersonal && !nonCustomer ? onMarkPersonal : undefined}
+            />
           </div>
         )}
       </div>

@@ -1,4 +1,5 @@
 import AutoBadge from './AutoBadge';
+import AdThumb from './AdThumb';
 import ListActionsMenu from './ListActionsMenu';
 import { STATUS_COLORS, LEAD_STATUS } from '../../constants';
 
@@ -17,7 +18,11 @@ export default function ListRow({ list, onSelect, actionProps }) {
     <div className="border-b border-slate-100 last:border-b-0">
       <div className="grid w-full grid-cols-[minmax(0,1.5fr)_0.65fr_0.9fr_0.9fr_1fr_auto] items-center gap-3 px-3 py-2 text-left transition hover:bg-slate-50">
         <button type="button" onClick={() => onSelect(list.id)} className="flex min-w-0 items-center gap-2 text-left">
-          <span className="truncate text-[12px] font-semibold text-slate-800">{list.name}</span>
+          {list.type === 'ad' && <AdThumb src={list.adThumbnailUrl} size={28} />}
+          <span className="min-w-0">
+            <span className="block truncate text-[12px] font-semibold text-slate-800">{list.name}</span>
+            {list.type === 'ad' && list.adPlatform && <span className="block truncate text-[10.5px] capitalize text-slate-400">{list.adPlatform}</span>}
+          </span>
           {list.type === 'auto' && <AutoBadge />}
         </button>
         <span className="text-[12px] text-slate-600">{total}</span>

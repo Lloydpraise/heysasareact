@@ -69,6 +69,8 @@ export default function MobileLeadsList({
   onRefresh,
   onOpenApprovals,
   onBulkMarkBusiness,
+  onBulkMarkPersonal,
+  onOpenCampaign,
   onBulkAddToList,
   onBulkAnalyze,
   onBulkDelete,
@@ -194,7 +196,7 @@ export default function MobileLeadsList({
           onSetAdFilter={onAdFilter}
           adOptions={adOptions}
         />
-        <ViewRuleBanner rule={activeRule?.rule} label={activeRule?.label} shown={filteredLeads.length} total={leads.length} isFiltered={isFiltered} onClear={() => { onClearFilters?.(); }} />
+        <ViewRuleBanner rule={activeRule?.rule} label={activeRule?.label} campaign={activeRule?.campaign} onOpenCampaign={onOpenCampaign} isFiltered={isFiltered} onClear={() => { onClearFilters?.(); }} />
       </div>
 
       {/* Lead list */}
@@ -305,6 +307,7 @@ export default function MobileLeadsList({
             <>
               <BulkButton icon={CheckSquare} label="Add to list" disabled={!selectedCount} onClick={onBulkAddToList} />
               <BulkButton icon={Sparkles} label="Analyse" disabled={!selectedCount} onClick={onBulkAnalyze} />
+              <BulkButton icon={User} label="Personal" disabled={!selectedCount} onClick={onBulkMarkPersonal} />
             </>
           )}
           <BulkButton icon={Trash2} label="Delete" disabled={!selectedCount} onClick={onBulkDelete} />

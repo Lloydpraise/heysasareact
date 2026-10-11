@@ -34,7 +34,7 @@ export default function ListContactsModal({ open, list, businessId, onClose }) {
       <div className="sheet-panel flex max-h-[min(680px,calc(100dvh-2rem))] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-white/80 bg-white shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="list-contacts-title">
         <div className="flex items-start justify-between border-b border-slate-100 px-5 py-4">
           <div className="min-w-0 pr-4">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#218c3a]">{list.type === 'manual' ? 'Manual list' : 'Audience list'}</p>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#218c3a]">{list.type === 'manual' ? 'Manual list' : list.type === 'ad' ? 'Ad list' : 'Auto list'}</p>
             <h2 id="list-contacts-title" className="truncate text-lg font-bold text-slate-900">{list.name}</h2>
             <p className="mt-0.5 text-xs text-slate-500">{contacts.length || list.totalContacts || 0} contacts</p>
           </div>

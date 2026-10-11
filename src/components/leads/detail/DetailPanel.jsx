@@ -38,6 +38,7 @@ export default function DetailPanel({
   onCompleteTask,
   onMarkMeeting,
   onAddNote,
+  onMarkPersonal,
   hideHeaderActions = false,
 }) {
   const panelRef = useRef(null);
@@ -65,13 +66,14 @@ export default function DetailPanel({
         onEdit={onEdit}
         onCall={onCall}
         onMeeting={onMeeting}
+        onMarkPersonal={onMarkPersonal}
         hideActions={hideHeaderActions}
       />
 
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         {nonCustomer ? (
           <div className="mx-4 my-4 rounded-xl border border-slate-200 bg-white px-4 py-3 text-[12.5px] text-slate-500 md:mx-6">
-            This is marked as <span className="font-semibold text-slate-700">{(NON_CUSTOMER_LABELS[lead.lead_type] || 'not a customer').toLowerCase()}</span>, so there are no sales signals, follow-ups or call brief for it.
+            Marked as <span className="font-semibold text-slate-700">{(NON_CUSTOMER_LABELS[lead.lead_type] || 'not a customer').toLowerCase()}</span>.
           </div>
         ) : (
           <>

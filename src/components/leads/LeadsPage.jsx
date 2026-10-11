@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { BriefcaseBusiness, CheckSquare, Download, LoaderCircle, MessageCircleMore, Plus, Search, RefreshCw, Sparkles, Trash2, User } from 'lucide-react';
+import { LoaderCircle, MessageCircleMore, Plus, Search, User } from 'lucide-react';
 import { useLeads } from '../../hooks/useLeads';
 import { useLeadFilters } from '../../hooks/useLeadFilters';
 import { useLeadListPagination } from '../../hooks/useLeadListPagination';
@@ -24,9 +24,10 @@ import CallModal from './modals/CallModal';
 import MeetingModal from './modals/MeetingModal';
 import AddLeadsToListModal from './modals/AddLeadsToListModal';
 import EditLeadModal from './modals/EditLeadModal';
-import StatChips from './list/StatChips';
 import FilterTabs, { ViewRuleBanner } from './list/FilterTabs';
 import LeadRow from './list/LeadRow';
+import ListToolsMenu from './list/ListToolsMenu';
+import BulkBar from './list/BulkBar';
 import DetailPanel from './detail/DetailPanel';
 import ChatDrawer from './drawers/ChatDrawer';
 import ApprovalDrawer from './drawers/ApprovalDrawer';
@@ -258,6 +259,7 @@ export default function LeadsPage() {
     if (lead.lead_type === 'personal') return;
     try {
       await updateLead(lead.id, { lead_type: 'personal' });
+      if (activeLeadId === lead.id) closeLeadDetail();
       showToast(`${getLeadDisplayName(lead.name, lead.phone, lead)} marked as personal.`);
     } catch (updateError) {
       showToast(updateError.message || 'Could not mark lead as personal.', 'error');
@@ -302,6 +304,17 @@ export default function LeadsPage() {
     }
     setSelectedIds(allVisibleSelected ? new Set() : new Set(filteredLeads.map((lead) => lead.id)));
   };
+
+  // Desktop selection: a "Select" button starts it, the checkbox row above the list ticks everything, "Done" (or Esc) leaves.
+  const selectAllVisible = () => setSelectedIds(allVisibleSelected ? new Set() : new Set(filteredLeads.map((lead) => lead.id)));
+  const exitSelectMode = () => { setSelectMode(false); setSelectedIds(new Set()); };
+
+  useEffect(() => {
+    if (!selectMode) return undefined;
+    const onKeyDown = (event) => { if (event.key === 'Escape') { setSelectMode(false); setSelectedIds(new Set()); } };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [selectMode]);
 
   const handleBulkDelete = async () => {
     if (!selectedIds.size || !window.confirm(`Delete ${selectedIds.size} selected lead${selectedIds.size === 1 ? '' : 's'} and their conversations?`)) return;
@@ -348,6 +361,24 @@ export default function LeadsPage() {
     } finally {
       setIsExportingLeads(false);
     }
+  };
+
+  const handleBulkMarkPersonal = async () => {
+    if (!selectedIds.size) return;
+    const count = selectedIds.size;
+    try {
+      await Promise.all([...selectedIds].map((leadId) => updateLead(leadId, { lead_type: 'personal' })));
+      if (activeLeadId && selectedIds.has(activeLeadId)) closeLeadDetail();
+      setSelectedIds(new Set());
+      showToast(`${count} lead${count === 1 ? '' : 's'} marked as personal.`);
+    } catch (error) {
+      showToast(error.message || 'Could not mark the selected leads as personal.', 'error');
+    }
+  };
+
+  // The card above the list sends you straight to the campaign that works this group of leads.
+  const handleOpenCampaign = (campaign) => {
+    window.dispatchEvent(new CustomEvent('heysasa:open-campaign', { detail: campaign.adKey ? { adKey: campaign.adKey } : { ruleId: campaign.ruleId } }));
   };
 
   const handleBulkMarkBusiness = async () => {
@@ -594,6 +625,7 @@ export default function LeadsPage() {
     onCompleteTask: handleCompleteTask,
     onMarkMeeting: handleMarkMeeting,
     onAddNote: handleAddNote,
+    onMarkPersonal: () => handleMarkPersonal(activeLead),
   } : null;
 
   if (isMobile) {
@@ -642,6 +674,8 @@ export default function LeadsPage() {
           onRefresh={refetch}
           onOpenApprovals={() => setOpenDrawer(DRAWER.APPROVALS)}
           onBulkMarkBusiness={handleBulkMarkBusiness}
+          onBulkMarkPersonal={handleBulkMarkPersonal}
+          onOpenCampaign={handleOpenCampaign}
           onBulkAddToList={() => openAddToList([...selectedIds])}
           onBulkAnalyze={handleBulkAnalyze}
           onBulkDelete={handleBulkDelete}
@@ -679,60 +713,33 @@ export default function LeadsPage() {
         <div ref={leadsScrollRootRef} className="min-h-0 flex-1 overflow-y-auto px-0 pt-3 md:px-3.5 md:pt-4">
           <div className="mb-3 flex items-center justify-between px-3 md:px-0">
             <h2 className="text-lg font-bold tracking-tight text-slate-900">Leads</h2>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handleGetChats}
-                disabled={gettingChats}
-                className="inline-flex h-7 items-center gap-1.5 rounded-lg border border-[#28A745]/30 px-2.5 text-[11px] font-semibold text-[#218c3a] transition hover:bg-[#28A745]/5 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <MessageCircleMore size={13} className={gettingChats ? 'animate-pulse' : ''} />
-                {gettingChats ? 'Syncing...' : 'Sync'}
-              </button>
-              <button
-                type="button"
-                onClick={handleAnalyzeAll}
-                disabled={analysingAll || !leads.some((lead) => lead.lead_type === 'business')}
-                className="inline-flex h-7 items-center gap-1.5 rounded-lg border border-[#28A745]/30 px-2.5 text-[11px] font-semibold text-[#218c3a] transition hover:bg-[#28A745]/5 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {analysingAll ? <LoaderCircle size={13} className="animate-spin" /> : <Sparkles size={13} />}
-                {analysingAll ? 'Analysing...' : 'Analyse'}
-              </button>
-              <button
-                type="button"
-                onClick={handleExportLeads}
-                disabled={!user || !activeBusinessId || loading || isExportingLeads}
-                title="Export all leads and analysed fields as CSV"
-                className="inline-flex h-7 items-center gap-1 rounded-lg border border-[#28A745]/30 px-2 text-[11px] font-semibold text-[#218c3a] transition hover:bg-[#28A745]/5 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isExportingLeads ? <LoaderCircle size={13} className="animate-spin" /> : <Download size={13} />}
-                CSV
-              </button>
+            <div className="flex items-center gap-1.5">
               <button
                 type="button"
                 onClick={() => setShowAddLeadModal(true)}
                 className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#28A745] text-white shadow-sm transition hover:bg-[#21963d]"
                 aria-label="Add new lead"
+                title="Add lead"
               >
                 <Plus size={16} strokeWidth={2.5} />
               </button>
-              <button
-                type="button"
-                onClick={refetch}
-                className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600"
-                aria-label="Refresh leads"
-              >
-                <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-              </button>
+              <ListToolsMenu
+                onSync={handleGetChats}
+                syncing={gettingChats}
+                onAnalyzeAll={handleAnalyzeAll}
+                analysingAll={analysingAll}
+                canAnalyzeAll={leads.some((lead) => lead.lead_type === 'business')}
+                onExport={handleExportLeads}
+                exporting={isExportingLeads}
+                canExport={Boolean(user && activeBusinessId) && !loading}
+                onRefresh={refetch}
+                refreshing={loading}
+              />
             </div>
           </div>
 
-          <div className="mb-3 border-y border-slate-200/80 bg-slate-50/80 px-3 py-2 md:px-0">
-            <div className="mb-1.5 flex items-center justify-between gap-2">
-              <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Filter by WhatsApp connection</span>
-              <span className="text-[10px] font-medium text-slate-400">{instanceFilter === 'all' ? 'All contacts' : 'Filtered'}</span>
-            </div>
-            <div className="flex gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {connectedInstances.length > 1 && (
+            <div className="mb-2 flex gap-1.5 overflow-x-auto px-3 [scrollbar-width:none] md:px-0 [&::-webkit-scrollbar]:hidden">
               <InstanceChip
                 active={instanceFilter === 'all'}
                 label="All"
@@ -744,23 +751,24 @@ export default function LeadsPage() {
                   key={session.id}
                   active={instanceFilter === session.id}
                   label={getWhatsAppSessionDisplayName(session)}
-                  detail={session.label && session.phone_number && session.label !== session.phone_number ? session.phone_number : null}
-                  title={[session.label, session.phone_number, session.instance_name].filter(Boolean).join(' · ')}
+                  title={[session.label, session.phone_number, session.instance_name].filter(Boolean).join(' \u00b7 ')}
                   count={leads.filter((lead) => (lead.whatsappSessionIds || []).includes(session.id)).length}
                   onClick={() => setInstanceFilter(session.id)}
                 />
               ))}
             </div>
-          </div>
+          )}
 
-          <StatChips
-            stats={stats}
-            activeView={stateFilter}
-            activeType={typeFilter}
-            onSetTypeFilter={handleTypeFilter}
-            onSetStateFilter={handleStateFilter}
-            onOpenApprovals={() => setOpenDrawer(DRAWER.APPROVALS)}
-          />
+          {stats.pending > 0 && (
+            <button
+              type="button"
+              onClick={() => setOpenDrawer(DRAWER.APPROVALS)}
+              className="mb-2 mx-3 flex items-center gap-1.5 rounded-lg bg-[#FFF7ED] px-2.5 py-1.5 text-[11.5px] font-semibold text-[#c26a00] hover:bg-[#FFEDD5] md:mx-0"
+            >
+              <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[#FF8C00] px-1 text-[10px] font-bold text-white">{stats.pending}</span>
+              to approve
+            </button>
+          )}
 
           <FilterTabs
             stateFilter={stateFilter}
@@ -776,40 +784,46 @@ export default function LeadsPage() {
           <ViewRuleBanner
             rule={activeRule?.rule}
             label={activeRule?.label}
-            shown={filteredLeads.length}
-            total={leads.length}
+            campaign={activeRule?.campaign}
+            onOpenCampaign={handleOpenCampaign}
             isFiltered={isFiltered}
             onClear={resetAll}
           />
 
           <div className="mb-2 flex items-center gap-2 px-3 md:px-0">
-            <label className="flex cursor-pointer items-center">
-              <input type="checkbox" checked={allVisibleSelected} onChange={toggleSelectAll} className="h-4 w-4 accent-[#28A745]" aria-label="Select leads" />
-            </label>
-            <div className="relative min-w-0 flex-1">
-              <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search leads..."
-                className="w-full rounded-lg border border-slate-200 bg-slate-50 py-1.5 pl-8 pr-3 text-[12.5px] text-slate-700 placeholder:text-slate-400 focus:border-[#28A745] focus:bg-white focus:outline-none"
-              />
-            </div>
-            {selectMode && (
-              <div className="flex shrink-0 items-center gap-1">
-                <span className="mr-1 text-[10px] font-semibold text-slate-400">Bulk actions</span>
-                {typeFilter === 'personal' ? (
-                  <button type="button" onClick={handleBulkMarkBusiness} disabled={!selectedIds.size} className="inline-flex items-center gap-1 rounded-lg border border-[#28A745]/30 px-2 py-1.5 text-[10px] font-semibold text-[#218c3a] disabled:opacity-40"><BriefcaseBusiness size={12} /> Mark Business</button>
-                ) : (
-                  <>
-                    <button type="button" onClick={() => openAddToList([...selectedIds])} disabled={!selectedIds.size} className="inline-flex items-center gap-1 rounded-lg border border-[#28A745]/30 px-2 py-1.5 text-[10px] font-semibold text-[#218c3a] disabled:opacity-40">Add to list</button>
-                    <button type="button" onClick={handleBulkAnalyze} disabled={!selectedIds.size} className="inline-flex items-center gap-1 rounded-lg border border-[#28A745]/30 px-2 py-1.5 text-[10px] font-semibold text-[#218c3a] disabled:opacity-40"><Sparkles size={12} /> Analyse</button>
-                  </>
-                )}
-                <button type="button" onClick={handleBulkDelete} disabled={!selectedIds.size} className="inline-flex items-center gap-1 rounded-lg border border-red-200 px-2 py-1.5 text-[10px] font-semibold text-red-600 disabled:opacity-40"><Trash2 size={12} /> Delete</button>
-                <button type="button" onClick={() => { setSelectMode(false); setSelectedIds(new Set()); }} className="rounded-lg px-1.5 py-1.5 text-slate-400 hover:bg-slate-100" aria-label="Close selection mode"><CheckSquare size={14} /></button>
-              </div>
+            {selectMode ? (
+              <>
+                <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 py-1 text-[12.5px] font-semibold text-slate-700">
+                  <input
+                    type="checkbox"
+                    ref={(element) => { if (element) element.indeterminate = selectedIds.size > 0 && !allVisibleSelected; }}
+                    checked={allVisibleSelected}
+                    onChange={selectAllVisible}
+                    className="h-4 w-4 accent-[#28A745]"
+                    aria-label="Select all leads in this view"
+                  />
+                  {selectedIds.size > 0 ? `${selectedIds.size} selected` : 'Select all'}
+                </label>
+                <button type="button" onClick={exitSelectMode} className="rounded-lg px-2.5 py-1.5 text-[12px] font-semibold text-[#218c3a] hover:bg-[#28A745]/10">
+                  Done
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="relative min-w-0 flex-1">
+                  <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search leads..."
+                    className="w-full rounded-lg border border-slate-200 bg-slate-50 py-1.5 pl-8 pr-3 text-[12.5px] text-slate-700 placeholder:text-slate-400 focus:border-[#28A745] focus:bg-white focus:outline-none"
+                  />
+                </div>
+                <button type="button" onClick={() => setSelectMode(true)} className="shrink-0 rounded-lg border border-slate-200 px-2.5 py-1.5 text-[12px] font-semibold text-slate-600 hover:bg-slate-50">
+                  Select
+                </button>
+              </>
             )}
           </div>
 
@@ -854,6 +868,18 @@ export default function LeadsPage() {
           )}
         </div>
         </div>
+
+        {selectMode && (
+          <BulkBar
+            disabled={selectedIds.size === 0}
+            personalView={typeFilter === 'personal'}
+            onAddToList={() => openAddToList([...selectedIds])}
+            onAnalyze={handleBulkAnalyze}
+            onMarkBusiness={handleBulkMarkBusiness}
+            onMarkPersonal={handleBulkMarkPersonal}
+            onDelete={handleBulkDelete}
+          />
+        )}
       </div>
 
       {/* ── Detail panel ───────────────────────────── */}

@@ -15,7 +15,7 @@ export default function NextActionCard({ lead, onLetHeySasa, heySasaState = 'idl
       <p className="text-[13.5px] font-medium leading-relaxed text-slate-800">{lead.next_action_plan}</p>
 
       {onLetHeySasa && (
-        <div className="mt-3 flex flex-wrap items-center gap-2">
+        <div className="mt-3">
           <button
             type="button"
             onClick={onLetHeySasa}
@@ -25,7 +25,6 @@ export default function NextActionCard({ lead, onLetHeySasa, heySasaState = 'idl
             {writing ? <LoaderCircle size={13} className="animate-spin" /> : <Wand2 size={13} />}
             {writing ? 'HeySasa is writing...' : 'Let HeySasa do it'}
           </button>
-          <span className="text-[11px] text-slate-400">Writes the message and opens the chat. You press send.</span>
         </div>
       )}
     </div>

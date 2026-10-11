@@ -21,14 +21,14 @@ export default function MembershipStrip({ workspace, loading, lead, onAddToList,
                 <li key={list.id} className="rounded-lg bg-slate-50 px-3 py-2">
                   <div className="flex items-center justify-between gap-2">
                     <span className="truncate text-[12.5px] font-semibold text-slate-800">{list.name}</span>
-                    <span className="shrink-0 rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-500 ring-1 ring-slate-200">{list.type === 'auto' ? 'Automatic' : 'Manual'}</span>
+                    <span className="shrink-0 rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-500 ring-1 ring-slate-200">{list.type === 'auto' ? 'Auto' : list.type === 'ad' ? 'Ad' : 'Manual'}</span>
                   </div>
-                  <p className="mt-0.5 text-[11px] text-slate-500">
-                    {list.followup
-                      ? <>Follow-up: <span className="font-semibold text-slate-700">{list.followup.name}</span>{list.followup.status !== 'active' ? ` (${list.followup.status})` : list.followup.enrolled ? ' · they are in it' : ' · they are not in it yet'}</>
-                      : 'No follow-up is running on this list.'}
-                    {list.addedAt ? ` · added ${formatDate(list.addedAt)}` : ''}
-                  </p>
+                  {list.followup && (
+                    <p className="mt-0.5 truncate text-[11px] text-slate-500">
+                      <span className="font-semibold text-slate-700">{list.followup.name}</span>
+                      {list.followup.status !== 'active' ? ` (${list.followup.status})` : list.followup.enrolled ? ' · in it' : ' · not in it yet'}
+                    </p>
+                  )}
                 </li>
               ))}
             </ul>
@@ -39,9 +39,9 @@ export default function MembershipStrip({ workspace, loading, lead, onAddToList,
           <Header icon={Megaphone} title="Follow-up" action={onAddToCampaign && active.length === 0 && <AddButton onClick={onAddToCampaign}>Add to campaign</AddButton>} />
           {loading && followups.length === 0 ? <Muted>Loading...</Muted> : active.length === 0 ? (
             <Muted>
-              Not in a follow-up right now.
-              {past.length > 0 ? ` Last one: ${past[0].name} (${past[0].enrollmentStatus}).` : ''}
-              {lead.do_not_contact ? ' They are marked do-not-contact.' : ''}
+              None running.
+              {past.length > 0 ? ` Last: ${past[0].name} (${past[0].enrollmentStatus}).` : ''}
+              {lead.do_not_contact ? ' Do not contact.' : ''}
             </Muted>
           ) : (
             <ul className="flex flex-col gap-2">

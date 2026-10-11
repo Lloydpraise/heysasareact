@@ -2,6 +2,7 @@
 import KpiTile from '../../../analytics/shared/KpiTile';
 import AnCard from '../../../analytics/shared/AnCard';
 import AutoBadge from './AutoBadge';
+import AdThumb from './AdThumb';
 import ReachabilityBar from './ReachabilityBar';
 import ListActionsMenu from './ListActionsMenu';
 
@@ -14,8 +15,9 @@ export default function ListHeroCard({ list, actionProps }) {
   return (
     <AnCard className="space-y-4">
       <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-        <h3 className="text-[14px] font-semibold text-slate-900">{list.name}</h3>
+        <div className="flex min-w-0 items-center gap-2">
+        {list.type === 'ad' && <AdThumb src={list.adThumbnailUrl} size={32} />}
+        <h3 className="truncate text-[14px] font-semibold text-slate-900">{list.name}</h3>
         {list.type === 'auto' && <AutoBadge />}
         </div>
         <ListActionsMenu list={list} {...actionProps} />

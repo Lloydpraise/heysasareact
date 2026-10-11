@@ -1,7 +1,7 @@
 // listsCampaigns/components/listManager/ListManagerTab.jsx
 import { useEffect, useMemo, useState } from 'react';
 import { useListsCampaigns } from '../../ListsCampaignsContext';
-import { createManualListWithContacts } from '../../../../services/listsCampaignsService';
+import { createManualListWithContacts, syncAdLists } from '../../../../services/listsCampaignsService';
 import CreateListModal from './CreateListModal';
 import ListSelectorBar from './ListSelectorBar';
 import ListHeroCard from './ListHeroCard';
@@ -10,12 +10,11 @@ import ListContactsModal from './ListContactsModal';
 import AnCard from '../../../analytics/shared/AnCard';
 import MobileListCard from './MobileListCard';
 import { useIsMobile } from '../../../../hooks/useIsMobile';
+import { DEFAULT_LIST_GROUP, LIST_GROUPS } from './listGroups';
 
-const GROUPS = ['Active Auto-Lists', 'Manual Lists', 'Archived Lists'];
-
-export default function ListManagerTab({ onLaunchCampaign, onEditRules, openCreateModal, onCreateModalHandled }) {
+export default function ListManagerTab({ onLaunchCampaign, onEditRules, openCreateModal, onCreateModalHandled, initialGroup = null }) {
   const { businessId, lists, setSelectedListId, refetchLists } = useListsCampaigns();
-  const [activeGroup, setActiveGroup] = useState(GROUPS[0]);
+  const [activeGroup, setActiveGroup] = useState(initialGroup || DEFAULT_LIST_GROUP);
   const [view, setView] = useState('list');
   const isMobile = useIsMobile();
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -27,11 +26,24 @@ export default function ListManagerTab({ onLaunchCampaign, onEditRules, openCrea
     onCreateModalHandled?.();
   }, [openCreateModal, onCreateModalHandled]);
 
+  useEffect(() => {
+    if (initialGroup) setActiveGroup(initialGroup);
+  }, [initialGroup]);
+
+  // Opening the Ads tab makes sure every ad that brought in leads has an up-to-date list.
+  useEffect(() => {
+    if (activeGroup !== 'Ads' || !businessId) return;
+    let cancelled = false;
+    syncAdLists(businessId)
+      .then((result) => { if (result && !cancelled) return refetchLists(); return null; })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [activeGroup, businessId, refetchLists]);
+
   const availableLists = useMemo(() => lists ?? [], [lists]);
   const visibleLists = useMemo(() => {
-    if (activeGroup === GROUPS[0]) return availableLists.filter((list) => list.type === 'auto' && !list.archived);
-    if (activeGroup === GROUPS[1]) return availableLists.filter((list) => list.type === 'manual' && !list.archived);
-    return availableLists.filter((list) => list.archived);
+    const group = LIST_GROUPS.find((item) => item.id === activeGroup) || LIST_GROUPS[0];
+    return availableLists.filter(group.match);
   }, [activeGroup, availableLists]);
 
   if (!lists) return <div className="text-sm text-slate-400">Loading lists...</div>;
@@ -78,14 +90,8 @@ export default function ListManagerTab({ onLaunchCampaign, onEditRules, openCrea
           + Add List
         </button>
       </div>
-      <div>
-        <p className="text-[12.5px] text-slate-500 max-md:text-[13.5px]">
-          Track lead movement from first ad click to post-purchase retention.
-        </p>
-      </div>
-
       {visibleLists.length === 0 ? (
-        <p className="text-[12px] text-slate-400 max-md:py-10 max-md:text-center max-md:text-[14px]">No lists in this group yet.</p>
+        <p className="text-[12px] text-slate-400 max-md:py-10 max-md:text-center max-md:text-[14px]">{activeGroup === 'Ads' ? 'No ads have brought in leads yet.' : 'No lists here yet.'}</p>
       ) : isMobile ? (
         <div className="flex flex-col gap-2.5">
           {visibleLists.map((list, index) => (

@@ -17,25 +17,26 @@ export function getAdKey(lead) {
   return lead.ad_id || lead.original_ad_id || lead.ad_headline || null;
 }
 
-// Every "view" a user can pick, with the rule that puts a lead in it written in plain words.
-// The same text is shown above the list so the user always knows why they are seeing these leads.
+// Every "view" a user can pick, with what it means for the business in one plain sentence.
+// `campaign` (when set) is the follow-up campaign that works this group of leads: the card above the list
+// offers a button that opens it straight in Lists & Campaigns.
 export const VIEW_RULES = {
-  all: { label: 'All', rule: 'Every customer chat. Personal chats, vendors, staff and junk are kept out. Find them under Not customers.' },
-  hot: { label: 'Hot', rule: 'Hot = analysed, intent score 70 or more, and they messaged you in the last 14 days. Won, lost, ghosted and non-customer chats are never hot.' },
-  unread: { label: 'Unreplied', rule: 'Unreplied = the last message in the chat is theirs and you have not answered it yet.' },
-  engaged: { label: 'Engaged', rule: 'Engaged = they have messaged you and the conversation is live (they wrote in the last 3 days, or are waiting on you).' },
-  new: { label: 'New', rule: 'New = in your contacts, but they have not messaged you yet. There is nothing to analyse until they do.' },
-  warm: { label: 'Warm', rule: 'Warm = analysed with an intent score of 40 to 69, or scored 70+ but has gone quiet for over 14 days (shown as "Was hot").' },
-  stalled: { label: 'Going cold', rule: 'Going cold = the conversation went quiet for 3 days or more (or they have waited on you for 14+ days). These are worth reviving.' },
-  ghosted: { label: 'Ghosted', rule: 'Ghosted = they have not written back for 14 days or more after you replied.' },
-  won: { label: 'Won', rule: 'Won = marked as bought.' },
+  all: { label: 'All', rule: null },
+  hot: { label: 'Hot', rule: 'Leads most likely to buy if you follow up.', campaign: { ruleId: 'hot_inquiries', label: 'Hot' } },
+  unread: { label: 'Unreplied', rule: 'Customers waiting on your reply. The longer they wait, the less likely they buy.', campaign: { ruleId: 'unanswered', label: 'Unreplied' } },
+  engaged: { label: 'Engaged', rule: 'Customers you are talking to right now.' },
+  new: { label: 'New', rule: 'Saved contacts who have not messaged you yet.' },
+  warm: { label: 'Warm', rule: 'Interested but not ready to buy. Keep the conversation going.' },
+  stalled: { label: 'Going cold', rule: 'Interest is fading. A nudge now can win them back.', campaign: { ruleId: 'cold_dormant', label: 'Going Cold' } },
+  ghosted: { label: 'Ghosted', rule: 'Stopped replying after you wrote. Worth one last try.', campaign: { ruleId: 'cold_dormant', label: 'Going Cold' } },
+  won: { label: 'Won', rule: 'Already bought. Bring them back for more.', campaign: { ruleId: 'post_purchase', label: 'Post-Purchase' } },
 };
 
 export const TYPE_RULES = {
   all: null,
-  business: { label: 'Business', rule: 'Business = analysed as a real customer or prospect chat.' },
-  ad: { label: 'Ads', rule: 'Ad leads = people who started the chat by clicking one of your click-to-WhatsApp ads.' },
-  personal: { label: 'Not customers', rule: 'Not customers = personal chats, vendors and suppliers, staff and junk. They are not followed up or counted as leads.' },
+  business: { label: 'Business', rule: 'Real customer and prospect chats.' },
+  ad: { label: 'Ads', rule: 'People who messaged you after seeing one of your ads.' },
+  personal: { label: 'Not customers', rule: 'Personal chats, suppliers, staff and spam. Kept out of follow-ups.' },
 };
 
 function matchesView(lead, view) {
@@ -121,9 +122,10 @@ export function useLeadFilters(leads) {
     leads.filter((lead) => lead.is_ad_lead && !isNonCustomer(lead)).forEach((lead) => {
       const key = getAdKey(lead);
       if (!key) return;
-      const existing = byKey.get(key) || { key, label: lead.ad_headline || `Ad ${String(key).slice(-6)}`, platform: lead.ad_platform || '', count: 0 };
+      const existing = byKey.get(key) || { key, label: lead.ad_headline || `Ad ${String(key).slice(-6)}`, platform: lead.ad_platform || '', thumbnail: lead.ad_thumbnail_url || '', count: 0 };
       existing.count += 1;
       if (!existing.platform && lead.ad_platform) existing.platform = lead.ad_platform;
+      if (!existing.thumbnail && lead.ad_thumbnail_url) existing.thumbnail = lead.ad_thumbnail_url;
       byKey.set(key, existing);
     });
     return [...byKey.values()].sort((a, b) => b.count - a.count);
@@ -144,10 +146,9 @@ export function useLeadFilters(leads) {
     if (typeFilter === 'ad') {
       const selected = adOptions.find((option) => option.key === adFilter);
       return {
-        label: selected ? `Ad: ${selected.label}` : 'All ads',
-        rule: selected
-          ? `Ad lead = they started the chat by clicking this ad${selected.platform ? ` (${selected.platform})` : ''}.`
-          : TYPE_RULES.ad.rule,
+        label: selected ? selected.label : 'Ads',
+        rule: selected ? 'Everyone who messaged you from this ad.' : TYPE_RULES.ad.rule,
+        campaign: selected ? { adKey: selected.key, label: 'this ad' } : null,
       };
     }
     if (typeFilter !== 'all' && TYPE_RULES[typeFilter]) return TYPE_RULES[typeFilter];

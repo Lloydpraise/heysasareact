@@ -1,4 +1,4 @@
-import { Component, useEffect, useState } from 'react';
+import { Component, useCallback, useEffect, useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import AppShell from './components/layout/AppShell';
 import MobileShell from './components/mobile/MobileShell';
@@ -67,6 +67,10 @@ function AuthenticatedApp() {
   // another screen deep-links straight into one section (e.g. Business settings).
   const [preferencesDirect, setPreferencesDirect] = useState(false);
   const [activeTab, setActiveTab] = useState(() => tabFromPath(window.location.pathname));
+  // A campaign another screen asked to open ({ ruleId } for an auto campaign, { adKey } for an ad). The Lists & Campaigns
+  // page clears it once it has acted on it.
+  const [campaignRequest, setCampaignRequest] = useState(null);
+  const clearCampaignRequest = useCallback(() => setCampaignRequest(null), []);
 
   // Update URL when active tab changes
   const handleTabChange = (tab) => {
@@ -87,7 +91,7 @@ function AuthenticatedApp() {
       case 'leads':
         return <LeadsPage />;
       case 'lists-campaigns':
-        return <ListsCampaignsPage />;
+        return <ListsCampaignsPage campaignRequest={campaignRequest} onCampaignRequestHandled={clearCampaignRequest} />;
       case 'analytics':
         return <AnalyticsPage />;
       case 'preferences':
@@ -139,6 +143,20 @@ function AuthenticatedApp() {
     };
     window.addEventListener('heysasa:navigate', handleNavigate);
     return () => window.removeEventListener('heysasa:navigate', handleNavigate);
+  }, []);
+
+  // "Open Hot campaign" and similar buttons on the Leads page: switch to Lists & Campaigns and hand over which campaign.
+  useEffect(() => {
+    const handleOpenCampaign = (event) => {
+      const { ruleId, adKey } = event.detail || {};
+      if (!ruleId && !adKey) return;
+      setCampaignRequest({ ruleId: ruleId || null, adKey: adKey || null, at: Date.now() });
+      setActiveTab('lists-campaigns');
+      setPreferencesDirect(false);
+      if (window.location.pathname !== '/lists-campaigns') window.history.pushState(null, '', '/lists-campaigns');
+    };
+    window.addEventListener('heysasa:open-campaign', handleOpenCampaign);
+    return () => window.removeEventListener('heysasa:open-campaign', handleOpenCampaign);
   }, []);
 
   const Shell = isMobile ? MobileShell : AppShell;

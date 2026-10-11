@@ -27,7 +27,7 @@ function spanLabel(steps) {
   return `${steps.length} message${steps.length === 1 ? '' : 's'}${days > 0 ? ` over ${days} day${days === 1 ? '' : 's'}` : ''}`;
 }
 
-export default function AutoCampaignsPanel({ businessId, onChanged }) {
+export default function AutoCampaignsPanel({ businessId, onChanged, openRuleId = null, onOpenRuleHandled, onRuleMissing }) {
   const [items, setItems] = useState(null);
   const [selected, setSelected] = useState(null);
   const [busyRule, setBusyRule] = useState('');
@@ -45,6 +45,15 @@ export default function AutoCampaignsPanel({ businessId, onChanged }) {
   useEffect(() => {
     if (businessId) load();
   }, [businessId, load]);
+
+  // Another screen asked for one specific auto-campaign (e.g. "Open Hot campaign" on the Leads page).
+  useEffect(() => {
+    if (!openRuleId || !items) return;
+    const match = items.find((item) => item.ruleId === openRuleId);
+    if (match) setSelected(match);
+    else onRuleMissing?.(openRuleId);
+    onOpenRuleHandled?.();
+  }, [openRuleId, items, onOpenRuleHandled, onRuleMissing]);
 
   const refresh = () => {
     load();

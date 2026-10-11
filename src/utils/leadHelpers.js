@@ -30,18 +30,18 @@ export function timeUntil(iso) {
 // brand orange accent (#FF8C00) since "going cold" is the app's warning tone;
 // new is a neutral blue; lost is red; ghosted/personal are neutral slate.
 const STATE_MAP = {
-  engaged:  { label: 'Engaged',  dotClass: 'bg-[#28A745]', textClass: 'text-[#28A745]' },
-  new:      { label: 'New',      dotClass: 'bg-blue-500',  textClass: 'text-blue-600' },
-  warm:     { label: 'Warm',     dotClass: 'bg-[#FF8C00]', textClass: 'text-[#FF8C00]' },
-  stalled:  { label: 'Going cold',    dotClass: 'bg-[#FF8C00]', textClass: 'text-[#FF8C00]' },
-  ghosted:  { label: 'Ghosted',  dotClass: 'bg-slate-400', textClass: 'text-slate-400' },
-  won:      { label: 'Won',      dotClass: 'bg-[#28A745]', textClass: 'text-[#28A745]' },
-  lost:     { label: 'Lost',     dotClass: 'bg-red-500',   textClass: 'text-red-600' },
-  personal: { label: 'Personal', dotClass: 'bg-slate-300', textClass: 'text-slate-400' },
+  engaged:  { label: 'Engaged',  dotClass: 'bg-[#28A745]', textClass: 'text-[#28A745]', hex: '#28A745' },
+  new:      { label: 'New',      dotClass: 'bg-blue-500',  textClass: 'text-blue-600', hex: '#3b82f6' },
+  warm:     { label: 'Warm',     dotClass: 'bg-[#FF8C00]', textClass: 'text-[#FF8C00]', hex: '#FF8C00' },
+  stalled:  { label: 'Going cold',    dotClass: 'bg-[#FF8C00]', textClass: 'text-[#FF8C00]', hex: '#FF8C00' },
+  ghosted:  { label: 'Ghosted',  dotClass: 'bg-slate-400', textClass: 'text-slate-400', hex: '#94a3b8' },
+  won:      { label: 'Won',      dotClass: 'bg-[#28A745]', textClass: 'text-[#28A745]', hex: '#28A745' },
+  lost:     { label: 'Lost',     dotClass: 'bg-red-500',   textClass: 'text-red-600', hex: '#ef4444' },
+  personal: { label: 'Personal', dotClass: 'bg-slate-300', textClass: 'text-slate-400', hex: '#cbd5e1' },
 };
 
 export function stateConfig(state) {
-  return STATE_MAP[state] || { label: state, dotClass: 'bg-slate-300', textClass: 'text-slate-400' };
+  return STATE_MAP[state] || { label: state, dotClass: 'bg-slate-300', textClass: 'text-slate-400', hex: '#cbd5e1' };
 }
 
 // Priority order used to sort the lead list — lower number sorts first.
@@ -133,6 +133,11 @@ export function cameInLabel(lead) {
   return `${formatDate(iso)}${ago && ago !== 'now' ? ` \u00b7 ${ago} ago` : ''}`;
 }
 
+// Just the date the lead came in, e.g. "17 Sep 2026". No "Came in" prefix, no "22d ago".
+export function cameInDate(lead) {
+  return formatDate(lead?.created_at || lead?.added_date);
+}
+
 export function daysSince(iso) {
   if (!iso) return null;
   const time = new Date(iso).getTime();
@@ -214,6 +219,20 @@ export function intentColor(score) {
   if (score >= 75) return 'bg-[#28A745]';
   if (score >= 45) return 'bg-[#FF8C00]';
   return 'bg-red-500';
+}
+
+// Intent score -> round badge colours. 80+ is green, 40-79 is orange (still warm), below 40 is red.
+export const INTENT_GREEN_MIN = 80;
+export const INTENT_ORANGE_MIN = 40;
+
+export function intentTone(score) {
+  if (score === null || score === undefined || Number.isNaN(Number(score))) {
+    return { key: 'none', badgeClass: 'bg-slate-100 text-slate-400 ring-slate-200', label: 'Not scored' };
+  }
+  const value = Number(score);
+  if (value >= INTENT_GREEN_MIN) return { key: 'green', badgeClass: 'bg-[#28A745] text-white ring-[#28A745]/30', label: 'Strong intent' };
+  if (value >= INTENT_ORANGE_MIN) return { key: 'orange', badgeClass: 'bg-[#FF8C00] text-white ring-[#FF8C00]/30', label: 'Warm intent' };
+  return { key: 'red', badgeClass: 'bg-red-500 text-white ring-red-500/30', label: 'Low intent' };
 }
 
 // Builds the small "what's next" label shown under a lead row for its
