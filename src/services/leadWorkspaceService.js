@@ -43,11 +43,11 @@ function clip(text, max = 140) {
 async function readMemberships(leadId) {
   const { data, error } = await supabase
     .from('list_members')
-    .select('created_at, lists ( id, name, type, rule_id, archived )')
+    .select('added_at, lists ( id, name, type, rule_id, archived )')
     .eq('lead_id', leadId);
   if (error) throw error;
   return (data || [])
-    .map((row) => ({ addedAt: row.created_at, ...(row.lists || {}) }))
+    .map((row) => ({ addedAt: row.added_at, ...(row.lists || {}) }))
     .filter((list) => list.id && !list.archived)
     .map((list) => ({ id: list.id, name: list.name, type: list.type, ruleId: list.rule_id || null, addedAt: list.addedAt }));
 }
@@ -269,7 +269,7 @@ export async function fetchLeadWorkspace(businessId, lead) {
     type: 'list',
     at: list.addedAt,
     title: `Added to list: ${list.name}`,
-    detail: list.type === 'auto' ? 'Automatic list' : 'Manual list',
+    detail: list.type === 'auto' ? 'Automatic list' : list.type === 'ad' ? 'Ad list' : 'Manual list',
   }));
 
   enrollments.forEach((row) => {

@@ -6,6 +6,7 @@ import {
   isNonCustomer,
   isReallyHot,
   STATE_PRIORITY,
+  unansweredCount,
 } from '../utils/leadHelpers';
 
 export function isPersonalChat(lead) {
@@ -88,7 +89,7 @@ export function useLeadFilters(leads) {
         const aScore = a.nlp_enriched_at ? (a.intent_score ?? -1) : -1;
         const bScore = b.nlp_enriched_at ? (b.intent_score ?? -1) : -1;
         if (bScore !== aScore) return bScore - aScore;
-        if (b.unread_count !== a.unread_count) return b.unread_count - a.unread_count;
+        if (unansweredCount(b) !== unansweredCount(a)) return unansweredCount(b) - unansweredCount(a);
         const ap = STATE_PRIORITY[a.lead_state] ?? 9;
         const bp = STATE_PRIORITY[b.lead_state] ?? 9;
         if (ap !== bp) return ap - bp;

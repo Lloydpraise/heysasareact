@@ -1,3 +1,4 @@
+import { ListsSkeleton } from '../../../shared/Skeleton';
 // listsCampaigns/components/listManager/ListManagerTab.jsx
 import { useEffect, useMemo, useState } from 'react';
 import { useListsCampaigns } from '../../ListsCampaignsContext';
@@ -46,7 +47,7 @@ export default function ListManagerTab({ onLaunchCampaign, onEditRules, openCrea
     return availableLists.filter(group.match);
   }, [activeGroup, availableLists]);
 
-  if (!lists) return <div className="text-sm text-slate-400">Loading lists...</div>;
+  if (!lists) return <ListsSkeleton />;
 
   const handleCreateManual = async (name, contacts) => {
     const created = await createManualListWithContacts(businessId, name, contacts);

@@ -1,18 +1,24 @@
-import { Mic, Image, Smile, Circle } from 'lucide-react';
-import { timeAgo, intentColor } from '../../../utils/leadHelpers';
+import { Mic, Image, Smile } from 'lucide-react';
+import { timeAgo, intentTone, unansweredCount } from '../../../utils/leadHelpers';
 
-// Small strip of engagement "signal tiles" — intent score, last seen, and
-// behavioral flags (voice note / media / reaction sent). Purely
-// presentational, reads straight off the lead object.
+// The row of signal tiles right under "Let HeySasa do it": intent score (a coloured tile: green 80+, orange
+// 40-79, red below), last seen, last online, and how many of their messages are still waiting for a reply on
+// WhatsApp. Purely presentational, reads straight off the lead.
+const TILE_TONE = {
+  green: 'border-[#28A745] bg-[#28A745] text-white',
+  orange: 'border-[#FF8C00] bg-[#FF8C00] text-white',
+  red: 'border-red-500 bg-red-500 text-white',
+  none: 'border-slate-200 bg-white text-slate-800',
+};
+
 export default function EngagementSignals({ lead }) {
   const presenceStatus = String(lead.presence_status || '').toLowerCase();
+  const score = lead.intent_score;
+  const tone = intentTone(score);
+  const hasScore = tone.key !== 'none';
+  const unanswered = unansweredCount(lead);
+
   const tiles = [
-    {
-      key: 'intent',
-      label: 'Intent score',
-      value: lead.intent_score != null ? `${lead.intent_score}` : '\u2014',
-      barClass: lead.intent_score != null ? intentColor(lead.intent_score) : 'bg-slate-200',
-    },
     {
       key: 'last_seen',
       label: 'Last seen',
@@ -39,37 +45,35 @@ export default function EngagementSignals({ lead }) {
 
   return (
     <div className="flex flex-wrap items-stretch gap-2 px-4 py-3 md:px-6">
+      <div
+        title={hasScore ? `${tone.label} (${Math.round(Number(score))}/100)` : 'Not scored yet'}
+        className={`flex min-w-[110px] flex-1 flex-col gap-1 rounded-xl border px-3 py-2 ${TILE_TONE[tone.key]}`}
+      >
+        <span className={`text-[10.5px] font-medium uppercase tracking-wide ${hasScore ? 'text-white/80' : 'text-slate-400'}`}>Intent score</span>
+        <span className="text-[13.5px] font-bold">{hasScore ? Math.round(Number(score)) : '\u2014'}</span>
+      </div>
+
       {tiles.map((t) => (
-        <div
-          key={t.key}
-          className="flex min-w-[110px] flex-1 flex-col gap-1 rounded-xl border border-slate-200 bg-white px-3 py-2"
-        >
+        <div key={t.key} className="flex min-w-[110px] flex-1 flex-col gap-1 rounded-xl border border-slate-200 bg-white px-3 py-2">
           <span className="text-[10.5px] font-medium uppercase tracking-wide text-slate-400">{t.label}</span>
-          <div className="flex items-center gap-1.5">
-            {t.barClass && <span className={`h-1.5 w-1.5 rounded-full ${t.barClass}`} />}
-            <span className="text-[13.5px] font-bold text-slate-800">{t.value}</span>
-          </div>
+          <span className="text-[13.5px] font-bold text-slate-800">{t.value}</span>
         </div>
       ))}
+
+      {unanswered > 0 && (
+        <div className="flex min-w-[110px] flex-1 flex-col gap-1 rounded-xl border border-[#28A745]/30 bg-[#28A745]/10 px-3 py-2">
+          <span className="text-[10.5px] font-medium uppercase tracking-wide text-[#218c3a]">Unanswered</span>
+          <span className="text-[13.5px] font-bold text-[#218c3a]">{unanswered}</span>
+        </div>
+      )}
 
       {flags.length > 0 && (
         <div className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2">
           {flags.map(({ key, Icon, label }) => (
-            <span
-              key={key}
-              title={label}
-              className="flex h-6 w-6 items-center justify-center rounded-md bg-[#F7FBF9] text-[#28A745]"
-            >
+            <span key={key} title={label} className="flex h-6 w-6 items-center justify-center rounded-md bg-[#F7FBF9] text-[#28A745]">
               <Icon size={13} />
             </span>
           ))}
-        </div>
-      )}
-
-      {lead.unread_count > 0 && (
-        <div className="flex items-center gap-1.5 rounded-xl border border-[#FF8C00]/30 bg-[#FFF7ED] px-3 py-2">
-          <Circle size={7} className="fill-[#FF8C00] text-[#FF8C00]" />
-          <span className="text-[12px] font-semibold text-[#FF8C00]">{lead.unread_count} unread</span>
         </div>
       )}
     </div>

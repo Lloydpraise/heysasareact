@@ -1,5 +1,6 @@
 import { ListChecks, Megaphone, Plus, X } from 'lucide-react';
 import { formatDate } from '../../../utils/leadHelpers';
+import { Bar } from '../../shared/Skeleton';
 
 // Where this lead sits in the automation: which lists they are in, which follow-up each list runs, and which
 // follow-up they are actually on (step X of Y, when the next message goes out). Replaces the old consent box.
@@ -13,7 +14,7 @@ export default function MembershipStrip({ workspace, loading, lead, onAddToList,
       <div className="grid gap-px overflow-hidden rounded-xl bg-slate-100 md:grid-cols-2">
         <div className="bg-white p-4">
           <Header icon={ListChecks} title="Lists" action={onAddToList && <AddButton onClick={onAddToList}>Add to list</AddButton>} />
-          {loading && lists.length === 0 ? <Muted>Loading...</Muted> : lists.length === 0 ? (
+          {loading && lists.length === 0 ? <RowSkeleton /> : lists.length === 0 ? (
             <Muted>Not on any list.</Muted>
           ) : (
             <ul className="flex flex-col gap-2">
@@ -37,7 +38,7 @@ export default function MembershipStrip({ workspace, loading, lead, onAddToList,
 
         <div className="bg-white p-4">
           <Header icon={Megaphone} title="Follow-up" action={onAddToCampaign && active.length === 0 && <AddButton onClick={onAddToCampaign}>Add to campaign</AddButton>} />
-          {loading && followups.length === 0 ? <Muted>Loading...</Muted> : active.length === 0 ? (
+          {loading && followups.length === 0 ? <RowSkeleton /> : active.length === 0 ? (
             <Muted>
               None running.
               {past.length > 0 ? ` Last: ${past[0].name} (${past[0].enrollmentStatus}).` : ''}
@@ -89,4 +90,12 @@ function AddButton({ onClick, children }) {
 
 function Muted({ children }) {
   return <p className="text-[12px] leading-relaxed text-slate-400">{children}</p>;
+}
+
+function RowSkeleton() {
+  return (
+    <div className="animate-pulse space-y-2" aria-hidden="true">
+      <div className="rounded-lg bg-slate-50 px-3 py-2.5 space-y-1.5"><Bar className="h-3 w-1/2" /><Bar className="h-2.5 w-1/3 bg-slate-100" /></div>
+    </div>
+  );
 }

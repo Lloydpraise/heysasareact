@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { CalendarClock, Check, ExternalLink, LoaderCircle, MoreVertical, Pencil, Phone, Sparkles, User } from 'lucide-react';
-import whatsappIcon from '../../../assets/images/whatsappicon.svg';
+import { Check, ExternalLink, LoaderCircle, MoreVertical, Pencil, Sparkles, User } from 'lucide-react';
 
 // The lead's actions in one vertical three-dot menu (desktop header). Items only appear when the action exists.
-export default function LeadActionsMenu({ waLink, analysisState, onAnalyze, onOpenChat, onCall, onMeeting, onEdit, onMarkPersonal }) {
+export default function LeadActionsMenu({ waLink, analysisState, onAnalyze, onEdit, onMarkPersonal }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef(null);
 
@@ -38,11 +37,6 @@ export default function LeadActionsMenu({ waLink, analysisState, onAnalyze, onOp
 
       {open && (
         <div role="menu" className="absolute right-0 top-9 z-30 w-52 rounded-xl border border-slate-200 bg-white p-1 shadow-xl shadow-slate-900/10">
-          {onOpenChat && (
-            <MenuItem onClick={run(onOpenChat)} icon={<img src={whatsappIcon} alt="" className="h-4 w-4" />}>Open chat</MenuItem>
-          )}
-          {onCall && <MenuItem onClick={run(onCall)} icon={<Phone size={15} />}>Call or log a call</MenuItem>}
-          {onMeeting && <MenuItem onClick={run(onMeeting)} icon={<CalendarClock size={15} />}>Book a meeting</MenuItem>}
           {waLink && (
             <a
               href={waLink}

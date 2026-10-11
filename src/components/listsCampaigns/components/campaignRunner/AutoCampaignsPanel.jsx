@@ -1,3 +1,4 @@
+import { CampaignsSkeleton } from '../../../shared/Skeleton';
 import { useCallback, useEffect, useState } from 'react';
 import { Settings2, Sparkles } from 'lucide-react';
 import AnCard from '../../../analytics/shared/AnCard';
@@ -90,7 +91,7 @@ export default function AutoCampaignsPanel({ businessId, onChanged, openRuleId =
     }
   };
 
-  if (!items) return <div className="text-sm text-slate-400">Loading auto-campaigns...</div>;
+  if (!items) return <CampaignsSkeleton />;
 
   if (!items.length) {
     return (

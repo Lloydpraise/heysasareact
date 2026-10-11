@@ -4,6 +4,7 @@ import {
   Phone, Reply, ScanSearch, Send, ShoppingBag, StickyNote, TriangleAlert, UserPlus, BellRing,
 } from 'lucide-react';
 import { formatDate, timeAgo } from '../../../utils/leadHelpers';
+import { Bar } from '../../shared/Skeleton';
 
 const TYPE_STYLE = {
   came_in: { Icon: UserPlus, tone: 'bg-blue-50 text-blue-600' },
@@ -104,7 +105,11 @@ export default function ActivityTimeline({ events, loading, problems = [], onAdd
 
       <div className="px-4 py-3">
         {loading && events.length === 0 ? (
-          <p className="flex items-center gap-2 py-6 text-[12px] text-slate-400"><LoaderCircle size={14} className="animate-spin" /> Loading activity...</p>
+          <div className="animate-pulse space-y-3 py-4" aria-hidden="true">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="flex items-center gap-3"><div className="h-7 w-7 rounded-full bg-slate-200" /><div className="flex-1 space-y-1.5"><Bar className="h-3 w-1/2" /><Bar className="h-2.5 w-3/4 bg-slate-100" /></div></div>
+            ))}
+          </div>
         ) : visible.length === 0 ? (
           <p className="py-6 text-center text-[12px] text-slate-400">Nothing here yet.</p>
         ) : (

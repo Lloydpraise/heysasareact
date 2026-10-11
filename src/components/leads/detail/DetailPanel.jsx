@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import DetailHeader from './DetailHeader';
 import EngagementSignals from './EngagementSignals';
 import NextActionCard from './NextActionCard';
-import CallBrief from './CallBrief';
+import LeadBrief from './LeadBrief';
 import MembershipStrip from './MembershipStrip';
 import ComingUp from './ComingUp';
 import ActivityTimeline from './ActivityTimeline';
@@ -78,7 +78,8 @@ export default function DetailPanel({
         ) : (
           <>
             <NextActionCard lead={lead} onLetHeySasa={onLetHeySasa} heySasaState={heySasaState} />
-            <CallBrief lead={lead} onAnalyze={onAnalyze} analysisState={analysisState} />
+            <EngagementSignals lead={lead} />
+            <LeadBrief lead={lead} onAnalyze={onAnalyze} analysisState={analysisState} />
             <MembershipStrip
               workspace={workspace}
               loading={loading}
@@ -88,9 +89,9 @@ export default function DetailPanel({
               onRemoveFromCampaign={onRemoveFromCampaign}
             />
             <ComingUp workspace={workspace} onCompleteTask={onCompleteTask} onMarkMeeting={onMarkMeeting} />
-            <EngagementSignals lead={lead} />
             {error && <p className="mx-4 rounded-lg bg-red-50 px-3 py-2 text-[12px] font-medium text-red-600 md:mx-6">{error}</p>}
             <ActivityTimeline events={workspace.events} loading={loading} problems={workspace.problems} onAddNote={onAddNote} />
+            <p className="px-4 pb-6 pt-2 text-center text-[11px] text-slate-400 md:px-6">HeySasa is AI. It can make mistakes.</p>
           </>
         )}
       </div>

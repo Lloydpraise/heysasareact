@@ -53,6 +53,13 @@ export function hasUnrepliedCustomerMessage(lead) {
     && lead?.awaiting_business_reply === true;
 }
 
+// How many of the customer's WhatsApp messages are still waiting for a reply from the business. Whatever the
+// business sent last (from HeySasa or from the phone itself) ends the wait, so this is not "unopened in HeySasa".
+export function unansweredCount(lead) {
+  if (!hasUnrepliedCustomerMessage(lead)) return 0;
+  return Math.max(1, Number(lead.unanswered_count) || 0);
+}
+
 export function qualityLabel(q) {
   if (!q) return null;
   const map = { hot: 'Hot', warm: 'Warm', cold: 'Cold' };
@@ -113,6 +120,13 @@ export function getLeadDisplayName(name, phone, extra = {}) {
   const number = String(phone || '').trim();
   if (isValidPhoneNumber(number)) return number;
   return 'Unnamed lead';
+}
+
+// True when the lead has no real name, so the number (or "Unnamed lead") is standing in for it. The UI makes
+// that label clickable so people can open the editor and give the lead a name.
+export function isNameMissing(lead) {
+  return !cleanName(lead?.name) && getLeadDisplayName(lead?.name, lead?.phone, lead) === String(lead?.phone || '').trim()
+    || getLeadDisplayName(lead?.name, lead?.phone, lead) === 'Unnamed lead';
 }
 
 // "8 Aug 2026" in the viewer's own locale and timezone.

@@ -1,3 +1,4 @@
+import { LeadListSkeleton } from '../shared/Skeleton';
 import { useCallback, useEffect, useState } from 'react';
 import { LoaderCircle, MessageCircleMore, Plus, Search, User } from 'lucide-react';
 import { useLeads } from '../../hooks/useLeads';
@@ -163,7 +164,7 @@ export default function LeadsPage() {
   const handleChatSend = useCallback(async (text) => {
     if (!activeLead) return Promise.reject(new Error('No lead selected.'));
     await leadsService.sendChatMessage({ leadId: activeLead.id, phone: activeLead.phone, text });
-    patchLead(activeLead.id, { awaiting_business_reply: false, unread_count: 0 });
+    patchLead(activeLead.id, { awaiting_business_reply: false, unanswered_count: 0, unread_count: 0 });
   }, [activeLead, patchLead]);
 
   const handleMessagesRead = useCallback((leadId) => {
@@ -833,6 +834,7 @@ export default function LeadsPage() {
               {error}
             </div>
           )}
+          {loading && leads.length === 0 && !error && <LeadListSkeleton />}
           {!loading && filteredLeads.length === 0 && !error && (
             <div className="flex flex-col items-center gap-1 px-4 py-10 text-center text-slate-400">
               <User size={28} />

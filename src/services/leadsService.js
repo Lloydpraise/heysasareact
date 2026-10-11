@@ -89,6 +89,7 @@ function normalizeLead(lead) {
     original_ad_id: lead.original_ad_id || null,
     unread_count: lead.unread_count || 0,
     awaiting_business_reply: lead.awaiting_business_reply === true,
+    unanswered_count: lead.unanswered_count || 0,
     last_seen: lead.last_seen || null,
     last_inbound_at: lead.last_inbound_at || null,
     last_outbound_at: lead.last_outbound_at || null,
@@ -251,6 +252,10 @@ async function fetchLiveLeads(businessId) {
     const latestMessageDirectionByContact = new Map();
     const lastInboundByContact = new Map();
     const lastOutboundByContact = new Map();
+    // Customer messages still waiting for a reply on WhatsApp: everything they sent since our last message,
+    // whether that reply went out from HeySasa or from the phone's own WhatsApp.
+    const unansweredByContact = new Map();
+    const answeredContacts = new Set();
     const messages = await fetchAllPages(() => supabase
       .from('messages')
       .select('contact_id, direction, created_at')
@@ -265,6 +270,10 @@ async function fetchLiveLeads(businessId) {
       }
       if (message.direction === 'out' && !lastOutboundByContact.has(message.contact_id)) {
         lastOutboundByContact.set(message.contact_id, message.created_at);
+      }
+      if (message.direction === 'out') answeredContacts.add(message.contact_id);
+      else if (message.direction === 'in' && !answeredContacts.has(message.contact_id)) {
+        unansweredByContact.set(message.contact_id, (unansweredByContact.get(message.contact_id) || 0) + 1);
       }
     });
 
@@ -309,6 +318,7 @@ async function fetchLiveLeads(businessId) {
         last_inbound_at: lastInboundByContact.get(lead.id) || extra.last_inbound_at || null,
         last_outbound_at: lastOutboundByContact.get(lead.id) || extra.last_outbound_at || null,
         awaiting_business_reply: latestMessageDirectionByContact.get(lead.id) === 'in',
+        unanswered_count: unansweredByContact.get(lead.id) || 0,
         whatsappSessionIds: sessionIdsByContact.get(lead.id) || [],
         presence_status: extra.presence_status || lead.presence_status || null,
         presence_updated_at: extra.presence_updated_at || lead.presence_updated_at || null,

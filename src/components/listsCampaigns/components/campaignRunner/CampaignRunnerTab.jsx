@@ -1,3 +1,4 @@
+import { CampaignsSkeleton } from '../../../shared/Skeleton';
 import { useState, useEffect, useCallback } from 'react';
 import { Activity, Plus, Upload } from 'lucide-react';
 import { useListsCampaigns } from '../../ListsCampaignsContext';
@@ -114,7 +115,7 @@ export default function CampaignRunnerTab({ onNeedLists, presetListId = null, on
     return unsubscribe;
   }, [businessId, refetch]);
 
-  if (!campaigns) return <div className="text-sm text-slate-400">Loading campaigns...</div>;
+  if (!campaigns) return <CampaignsSkeleton />;
 
   const currentCampaigns = campaigns
     .filter((campaign) => ['active', 'paused'].includes(campaign.status) && campaign.kind !== 'auto')

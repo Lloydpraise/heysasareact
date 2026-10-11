@@ -1,6 +1,6 @@
-import { ShoppingBag, User2, Megaphone } from 'lucide-react';
-import { cameInDate, getLeadDisplayName, getPhoneDisplay, getTemperature, isNonCustomer, NON_CUSTOMER_LABELS, stateConfig, timeAgo } from '../../../utils/leadHelpers';
-import IntentBadge from '../shared/IntentBadge';
+import { CalendarClock, Megaphone, Phone, ShoppingBag, User2 } from 'lucide-react';
+import whatsappIcon from '../../../assets/images/whatsappicon.svg';
+import { cameInDate, getLeadDisplayName, getPhoneDisplay, isNameMissing, isNonCustomer, NON_CUSTOMER_LABELS, stateConfig, timeAgo } from '../../../utils/leadHelpers';
 import LeadActionsMenu from './LeadActionsMenu';
 
 // Header block for the detail panel: avatar, name, state/quality badges,
@@ -15,7 +15,6 @@ import LeadActionsMenu from './LeadActionsMenu';
 //                  just triggers it)
 export default function DetailHeader({ lead, onOpenChat, onAnalyze, analysisState, onMarkBought, onEdit, onCall, onMeeting, onMarkPersonal, hideActions = false }) {
   const state = stateConfig(lead.lead_state);
-  const temperature = getTemperature(lead);
   const displayName = getLeadDisplayName(lead.name, lead.phone, lead);
   const initial = displayName.charAt(0).toUpperCase();
   const phone = getPhoneDisplay(lead.phone);
@@ -46,15 +45,14 @@ export default function DetailHeader({ lead, onOpenChat, onAnalyze, analysisStat
                 }
               }}
               className={onEdit ? 'cursor-pointer rounded-lg outline-none hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-[#28A745]/40' : undefined}
-              title={onEdit ? 'Edit lead details' : undefined}
+              title={onEdit ? (isNameMissing(lead) ? 'Add a name' : 'Edit lead details') : undefined}
             >
               <div className="flex min-w-0 flex-nowrap items-center gap-1.5 overflow-hidden">
-              <h2 className="truncate text-[17px] font-bold leading-tight text-slate-900 max-md:text-[19px]">{displayName}</h2>
+              <h2 className={`truncate text-[17px] font-bold leading-tight text-slate-900 max-md:text-[19px] ${isNameMissing(lead) ? 'underline decoration-dotted underline-offset-4 decoration-slate-300' : ''}`}>{displayName}</h2>
               <span className={`flex shrink-0 items-center gap-1 whitespace-nowrap text-[11px] font-semibold ${state.textClass}`}>
                 <span className={`h-1.5 w-1.5 rounded-full ${state.dotClass}`} />
                 {state.label}
               </span>
-              {!nonCustomer && ['hot', 'warm', 'cold'].includes(temperature.key) && <IntentBadge score={lead.intent_score} />}
               {nonCustomer && (
                 <span className="flex shrink-0 items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10.5px] font-semibold text-slate-500">
                   <User2 size={10} /> {NON_CUSTOMER_LABELS[lead.lead_type] || 'Not a customer'}
@@ -92,13 +90,13 @@ export default function DetailHeader({ lead, onOpenChat, onAnalyze, analysisStat
                 <ShoppingBag size={13} /> Mark as bought
               </button>
             )}
+            {onOpenChat && <IconAction label="Open chat" onClick={onOpenChat}><img src={whatsappIcon} alt="" className="h-4 w-4" /></IconAction>}
+            {onCall && <IconAction label="Call or log a call" onClick={onCall}><Phone size={15} /></IconAction>}
+            {onMeeting && !nonCustomer && <IconAction label="Book a meeting" onClick={onMeeting}><CalendarClock size={15} /></IconAction>}
             <LeadActionsMenu
               waLink={waLink}
               analysisState={analysisState}
               onAnalyze={onAnalyze}
-              onOpenChat={onOpenChat}
-              onCall={onCall}
-              onMeeting={onMeeting && !nonCustomer ? onMeeting : undefined}
               onEdit={onEdit}
               onMarkPersonal={onMarkPersonal && !nonCustomer ? onMarkPersonal : undefined}
             />
@@ -120,5 +118,19 @@ export default function DetailHeader({ lead, onOpenChat, onAnalyze, analysisStat
       )}
 
     </div>
+  );
+}
+
+function IconAction({ label, onClick, children }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:bg-slate-50"
+    >
+      {children}
+    </button>
   );
 }

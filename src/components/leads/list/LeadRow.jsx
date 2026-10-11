@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Megaphone, Mic, Image as ImageIcon, MoreVertical, Pencil, ThumbsUp, Trash2, User } from 'lucide-react';
 import { useIsMobile } from '../../../hooks/useIsMobile';
-import IntentBadge from '../shared/IntentBadge';
 import BottomSheet, { SheetRow } from '../../mobile/BottomSheet';
 import {
   stateConfig,
@@ -12,8 +11,9 @@ import {
   cameInDate,
   getLeadDisplayName,
   getPhoneDisplay,
-  getTemperature,
+  isNameMissing,
   isNonCustomer,
+  unansweredCount,
   NON_CUSTOMER_LABELS,
 } from '../../../utils/leadHelpers';
 
@@ -21,10 +21,10 @@ function LeadRow({ lead, isActive, onClick, selectMode, selected, onToggleSelect
   const [menuOpen, setMenuOpen] = useState(false);
   const isMobile = useIsMobile();
   const sc = stateConfig(lead.lead_state);
-  const temperature = getTemperature(lead);
   const rr = lead.read_receipt ? readReceiptIcon(lead.read_receipt) : null;
   const isPersonal = isNonCustomer(lead);
-  const score = temperature.key === 'hot' || temperature.key === 'warm' || temperature.key === 'cold' ? lead.intent_score : null;
+  const unanswered = unansweredCount(lead);
+  const nameMissing = isNameMissing(lead);
   const isWon = lead.lead_state === 'won';
   const displayName = getLeadDisplayName(lead.name, lead.phone, lead);
   const phone = getPhoneDisplay(lead.phone);
@@ -38,10 +38,9 @@ function LeadRow({ lead, isActive, onClick, selectMode, selected, onToggleSelect
 
   return (
     <div
-      className={`relative w-full text-left flex gap-2 rounded-xl border-l-[3px] dark:border-slate-300 p-3 transition-colors max-md:gap-1 max-md:rounded-2xl max-md:border max-md:border-slate-200/70 max-md:bg-white max-md:p-3.5 max-md:shadow-sm ${
-        selectMode && selected ? 'bg-[#28A745]/10' : isActive && !isMobile ? 'bg-[#28A745]/5' : 'hover:bg-slate-50'
-      }`}
-      style={{ borderLeftColor: sc.hex, ...(isMobile ? { borderLeftWidth: 4 } : null) }}
+      className={`relative w-full text-left flex gap-2 rounded-xl border-l-[3px] p-3 transition-colors max-md:gap-1 max-md:rounded-2xl max-md:border max-md:border-slate-200/70 max-md:bg-white max-md:p-3.5 max-md:shadow-sm ${
+        isActive && !isMobile ? 'border-l-[#28A745]' : 'border-l-transparent'
+      } max-md:border-l-slate-200/70 ${selectMode && selected ? 'bg-[#28A745]/10' : isActive && !isMobile ? 'bg-[#28A745]/5' : 'hover:bg-slate-50'}`}
     >
       {selectMode && (
          <input type="checkbox" checked={selected} onChange={() => onToggleSelect(lead.id)} onClick={(event) => event.stopPropagation()} className="mt-1 h-4 w-4 shrink-0 accent-[#28A745] max-md:mt-3 max-md:h-6 max-md:w-6" aria-label={`Select ${displayName}`} />
@@ -58,12 +57,24 @@ function LeadRow({ lead, isActive, onClick, selectMode, selected, onToggleSelect
 
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
-          <span className="truncate text-[13px] font-semibold text-slate-900 max-md:text-[15.5px]">{displayName}</span>
+          {nameMissing && !selectMode ? (
+            <span
+              role="button"
+              tabIndex={0}
+              title="Add a name"
+              onClick={(event) => { event.stopPropagation(); onEdit?.(); }}
+              onKeyDown={(event) => { if (event.key === 'Enter') { event.stopPropagation(); onEdit?.(); } }}
+              className="min-w-0 cursor-pointer truncate rounded text-[13px] font-semibold text-slate-500 underline decoration-dotted underline-offset-2 hover:bg-slate-100 hover:text-slate-800 max-md:text-[15.5px]"
+            >
+              {displayName}
+            </span>
+          ) : (
+            <span className="truncate text-[13px] font-semibold text-slate-900 max-md:text-[15.5px]">{displayName}</span>
+          )}
           <div className="flex flex-shrink-0 items-center gap-1.5">
-            {!isPersonal && <IntentBadge score={score} size="sm" />}
-            {lead.unread_count > 0 ? (
-              <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[#28A745] px-1 text-[10px] font-bold text-white max-md:h-5 max-md:min-w-[20px] max-md:text-[11.5px]">
-                {lead.unread_count}
+            {unanswered > 0 ? (
+              <span title={`${unanswered} unanswered on WhatsApp`} className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[#28A745] px-1 text-[10px] font-bold text-white max-md:h-5 max-md:min-w-[20px] max-md:text-[11.5px]">
+                {unanswered}
               </span>
             ) : rr ? (
               <span className={`text-[10px] font-semibold ${rr.colorClass}`} title={rr.title}>
