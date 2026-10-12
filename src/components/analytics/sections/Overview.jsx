@@ -1,91 +1,101 @@
-import { BarChart, Bar, AreaChart, Area, ResponsiveContainer, Tooltip, XAxis } from 'recharts';
+import { AreaChart, Area, ResponsiveContainer, Tooltip } from 'recharts';
+import { AlertTriangle } from 'lucide-react';
 import { useAnalyticsContext } from '../../../context/AnalyticsContext';
-import { pct, comma } from '../../../utils/analyticsHelpers';
+import { useOverviewData } from '../../../hooks/useOverviewData';
+import { comma } from '../../../utils/analyticsHelpers';
+import { stateBreakdown } from '../../../utils/overviewMetrics';
+import { stateConfig } from '../../../utils/leadHelpers';
 import KpiTile from '../shared/KpiTile';
 import AnCard, { SectionLabel } from '../shared/AnCard';
-import FunnelBars from '../shared/FunnelBars';
 import DTable from '../shared/DTable';
+import DeltaBadge from '../shared/DeltaBadge';
+import PeriodPills from '../shared/PeriodPills';
+import SkeletonGrid from '../shared/SkeletonGrid';
+import FunnelCard from '../overview/FunnelCard';
+import FunnelConfig from '../overview/FunnelConfig';
+import LeadVolumeCard from '../overview/LeadVolumeCard';
 
-// Ported from analytics.js's renderOverview(). Trend bars and the
-// sentiment line are now real recharts components instead of hand-built
-// divs with manually-animated widths.
+const lower = (s) => s.charAt(0).toLowerCase() + s.slice(1);
+
+// Overview: one row of period pills drives every number and chart on the page. Comparisons are against the
+// previous period (today vs yesterday, this week vs last week, this month vs last month) and quietly hide
+// when there is nothing to compare with.
 export default function Overview() {
-  const { data, openDrawer } = useAnalyticsContext();
-  if (!data) return null;
+  const { data, openDrawer, closeDrawer } = useAnalyticsContext();
+  const { raw, overview, period, periodId, setPeriodId, loading, error, saveFunnel } = useOverviewData();
 
-  const f = data.funnel;
-  const top = f[0]?.count || 0;
-  const rr = pct(f[2]?.count || 0, f[1]?.count || 0);
-  const cvr = pct(f[4]?.count || 0, f[1]?.count || 0);
-  const wk = data.weeklyTrend?.length ? data.weeklyTrend : [];
-  const lastW = wk[wk.length - 1]?.new || 0;
-  const prevW = wk[wk.length - 2]?.new || 1;
-  const wkDelta = Math.round(((lastW - prevW) / Math.max(prevW, 1)) * 100);
-  const sentiment = data.sentimentTrend || [];
+  if (error) {
+    return (
+      <div className="flex flex-col items-center gap-2 py-24 text-center">
+        <AlertTriangle size={28} className="text-red-400" />
+        <p className="text-[13px] font-medium text-red-500">{error}</p>
+      </div>
+    );
+  }
+  if (loading || !raw || !overview) return <SkeletonGrid />;
+
+  const { cur, prev, deltas } = overview;
+  const currency = raw.currency;
+  const sentiment = data?.sentimentTrend || [];
   const lastSentiment = sentiment[sentiment.length - 1]?.score;
 
-  const openFunnelDrawer = () => {
-    const total = data.stateBreakdown.reduce((s, x) => s + x.count, 0);
+  const openBreakdown = () => {
+    const rows = stateBreakdown(raw.leads, raw.wins);
+    const total = rows.reduce((s, r) => s + r.count, 0);
     openDrawer(
-      'Pipeline funnel',
+      'Lead breakdown',
       <>
-        <p className="mb-4 text-[12px] leading-relaxed text-slate-500">
-          Current distribution of all business leads across pipeline states.
-        </p>
-        <DTable rows={data.stateBreakdown.map((s) => ({ label: s.label, value: `${comma(s.count)} \u00b7 ${pct(s.count, total)}%` }))} />
-      </>
+        <p className="mb-4 text-[12px] leading-relaxed text-slate-500">Every business lead right now, by where it sits.</p>
+        <DTable rows={rows.map((r) => ({ label: stateConfig(r.state).label, value: `${comma(r.count)} · ${total ? Math.round((r.count / total) * 100) : 0}%` }))} />
+      </>,
+    );
+  };
+
+  const openConfigure = () => {
+    openDrawer(
+      'Configure funnel',
+      <FunnelConfig initial={raw.funnelConfig} savedIn={raw.funnelSavedIn} onSave={saveFunnel} onDone={closeDrawer} />,
     );
   };
 
   return (
     <div className="flex flex-col gap-4">
+      <PeriodPills value={periodId} onChange={setPeriodId} />
+
       <div className="grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-4">
         <KpiTile
           tone="green"
-          label="Business leads"
-          value={comma(f[1]?.count || 0)}
-          sub={`from ${comma(top)} total contacts`}
-          onClick={openFunnelDrawer}
+          label="Active leads"
+          value={comma(cur.active)}
+          sub={<>messaged you {deltas.active !== null && <DeltaBadge pct={deltas.active} className="ml-1" />}</>}
         />
-        <KpiTile tone={rr >= 70 ? 'green' : 'amber'} label="Reply rate" value={`${rr}%`} sub={`${comma(f[2]?.count || 0)} leads responded`} />
-        <KpiTile tone={cvr >= 20 ? 'green' : 'amber'} label="Conversion" value={`${cvr}%`} sub={`${comma(f[4]?.count || 0)} deals closed`} />
+        <KpiTile
+          tone={cur.replyRate === null ? undefined : cur.replyRate >= 70 ? 'green' : 'amber'}
+          label="Reply rate"
+          value={cur.replyRate === null ? '—' : `${cur.replyRate}%`}
+          sub={cur.contacted ? <>{comma(cur.replied)} of {comma(cur.contacted)} replied {deltas.replyRate !== null && <DeltaBadge pct={deltas.replyRate} unit=" pts" className="ml-1" />}</> : 'no follow-ups sent'}
+        />
+        <KpiTile
+          tone={cur.conversion === null ? undefined : cur.conversion >= 20 ? 'green' : 'amber'}
+          label="Conversion"
+          value={cur.conversion === null ? '—' : `${cur.conversion}%`}
+          sub={<>{comma(cur.deals)} {cur.deals === 1 ? 'deal' : 'deals'} closed {deltas.conversion !== null && <DeltaBadge pct={deltas.conversion} unit=" pts" className="ml-1" />}</>}
+        />
         <KpiTile
           tone="blue"
-          label="This week"
-          value={comma(lastW)}
+          label={`New leads · ${period.noun}`}
+          value={comma(cur.newLeads)}
           sub={
-            <>
-              new leads{' '}
-              <span className={`ml-1 font-semibold ${wkDelta >= 0 ? 'text-[#28A745]' : 'text-red-500'}`}>
-                {wkDelta >= 0 ? '\u2191' : '\u2193'}{Math.abs(wkDelta)}%
-              </span>
-            </>
+            deltas.newLeads === null
+              ? 'came in'
+              : <>vs {comma(prev.newLeads)} {period.prevNoun} <DeltaBadge pct={deltas.newLeads} className="ml-1" /></>
           }
         />
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <AnCard onClick={openFunnelDrawer}>
-          <SectionLabel>Conversion funnel</SectionLabel>
-          <FunnelBars rows={f} />
-        </AnCard>
-
-        <AnCard>
-          <SectionLabel>Weekly lead volume</SectionLabel>
-          {wk.length === 0 ? (
-            <div className="py-10 text-center text-[12.5px] text-slate-400">No weekly data yet.</div>
-          ) : (
-            <div style={{ width: '100%', height: 180 }}>
-              <ResponsiveContainer>
-                <BarChart data={wk}>
-                  <XAxis dataKey="week" tick={{ fontSize: 10, fill: 'var(--chart-tick)' }} axisLine={false} tickLine={false} />
-                  <Tooltip cursor={{ fill: 'var(--chart-cursor)' }} contentStyle={{ fontSize: 12, borderRadius: 8, background: 'var(--chart-tooltip-bg)', borderColor: 'var(--chart-tooltip-border)', color: 'var(--chart-tooltip-fg)' }} />
-                  <Bar dataKey="new" radius={[4, 4, 0, 0]} fill="var(--chart-green)" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-        </AnCard>
+        <FunnelCard overview={overview} period={period} currency={currency} onConfigure={openConfigure} onBreakdown={openBreakdown} />
+        <LeadVolumeCard chart={overview.chart} period={period} />
       </div>
 
       <AnCard>
@@ -103,23 +113,14 @@ export default function Overview() {
                       <stop offset="100%" stopColor="#28A745" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <Tooltip
-                    formatter={(v) => [`${Math.round(v * 100)}%`, 'Positive']}
-                    labelFormatter={(l) => l}
-                    contentStyle={{ fontSize: 12, borderRadius: 8 }}
-                  />
+                  <Tooltip formatter={(v) => [`${Math.round(v * 100)}%`, 'Positive']} labelFormatter={(l) => l} contentStyle={{ fontSize: 12, borderRadius: 8 }} />
                   <Area type="monotone" dataKey="score" stroke="#28A745" strokeWidth={2} fill="url(#sentimentFill)" />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
             <div className="flex-shrink-0 text-right">
-              <div className="text-[28px] font-bold leading-none text-slate-900">
-                {lastSentiment !== undefined ? Math.round(lastSentiment * 100) : '\u2014'}%
-              </div>
-              <div className="mt-0.5 text-[11px] text-slate-400">positive this week</div>
-              <span className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-[#28A745]">
-                {'\u2191'} improving
-              </span>
+              <div className="text-[28px] font-bold leading-none text-slate-900">{lastSentiment !== undefined ? Math.round(lastSentiment * 100) : '—'}%</div>
+              <div className="mt-0.5 text-[11px] text-slate-400">positive lately</div>
             </div>
           </div>
         )}
