@@ -77,6 +77,69 @@ export function FollowupSection({ prefs, updatePref }) {
           </GlassCard>
 
           <GlassCard className="w-full">
+            <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold text-slate-800">
+              <span dangerouslySetInnerHTML={{ __html: ICONS.bot }} className="text-slate-500" />
+              Follow-up AI
+            </h3>
+            <p className="mb-5 text-sm text-slate-600">
+              The Follow-up AI writes the follow-ups for your ads, picks when each lead hears from you, and checks every message is still the right one before it goes. It is billed like the Chat AI.
+            </p>
+
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+              <div>
+                <label className="mb-2 block text-sm text-slate-600">Can the AI schedule a follow-up on its own?</label>
+                <select
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 transition-colors focus:border-[#28A745] focus:outline-none"
+                  value={prefs.ai_scheduling ?? 'off'}
+                  onChange={(e) => updatePref('ai_scheduling', e.target.value)}
+                >
+                  <option value="off">Off: only the follow-ups I set up</option>
+                  <option value="draft">Draft: it schedules, I approve each message</option>
+                  <option value="auto">Auto: it schedules and sends</option>
+                </select>
+                <p className="mt-2 text-xs text-slate-500">
+                  Applies to one-off follow-ups the AI arranges (for example when a lead says "I'll decide Friday"). Ad follow-up campaigns always wait for your approval first.
+                </p>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm text-slate-600">When you approve ad follow-ups</label>
+                <select
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 transition-colors focus:border-[#28A745] focus:outline-none"
+                  value={prefs.approval_default ?? 'granular'}
+                  onChange={(e) => updatePref('approval_default', e.target.value)}
+                >
+                  <option value="granular">One by one (review each message)</option>
+                  <option value="all">All at once (one button)</option>
+                </select>
+                <p className="mt-2 text-xs text-slate-500">You can always do it the other way on any ad.</p>
+              </div>
+
+              <div className="space-y-3">
+                <Stepper
+                  label="Minimum hours between messages"
+                  value={prefs.min_gap_hours ?? 20}
+                  onChange={(val) => updatePref('min_gap_hours', val)}
+                  min={1} max={168}
+                  suffix="h"
+                />
+                <p className="text-xs text-slate-500">Never sooner than this between two AI messages to the same lead, whatever the sequence says.</p>
+              </div>
+
+              <div className="space-y-3">
+                <Stepper
+                  label="Wait after a lead writes"
+                  value={prefs.silence_hours ?? 12}
+                  onChange={(val) => updatePref('silence_hours', val)}
+                  min={2} max={168}
+                  suffix="h"
+                />
+                <p className="text-xs text-slate-500">After a lead messages you, follow-ups pause. The next one is only considered once they have been quiet this long.</p>
+              </div>
+            </div>
+          </GlassCard>
+
+          <GlassCard className="w-full">
             <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-800">
               <span dangerouslySetInnerHTML={{ __html: ICONS.target }} className="text-slate-500" />
               Temperature Zones

@@ -18,6 +18,10 @@ export const mockPrefs = {
   nudge_interval_hrs:     2,
   hot_lead_alert:         true,
   hot_lead_threshold:     8,
+  ai_scheduling:          'off',
+  min_gap_hours:          20,
+  silence_hours:          12,
+  approval_default:       'granular',
 };
 
 export const mockMaterials = [

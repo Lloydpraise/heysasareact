@@ -1,4 +1,5 @@
-import { Image as ImageIcon } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Image as ImageIcon, Pencil } from 'lucide-react';
 import { useAnalyticsContext } from '../../../context/AnalyticsContext';
 import { pct, comma } from '../../../utils/analyticsHelpers';
 import KpiTile from '../shared/KpiTile';
@@ -6,13 +7,31 @@ import AnCard, { SectionLabel } from '../shared/AnCard';
 import HBarList from '../shared/HBarList';
 import ScoreRing from '../shared/ScoreRing';
 import FunnelBars from '../shared/FunnelBars';
+import AdEditorDrawer from '../../followupAi/AdEditorDrawer';
+import { effectiveAd, fetchPlaybooks, getBusinessId } from '../../../services/followupAiService';
 
 // Ported from analytics.js's renderAds() + _drawerAd().
 export default function Ads() {
-  const { data, openDrawer } = useAnalyticsContext();
+  const { data, openDrawer, closeDrawer } = useAnalyticsContext();
+  const businessId = getBusinessId();
+  const [playbooks, setPlaybooks] = useState({});
+  const [editingAd, setEditingAd] = useState(null);
+
+  const loadPlaybooks = () => {
+    if (!businessId) return;
+    fetchPlaybooks(businessId)
+      .then((rows) => setPlaybooks(Object.fromEntries(rows.map((p) => [p.ad_id, p]))))
+      .catch(() => {});
+  };
+  useEffect(loadPlaybooks, [businessId]);
+
   if (!data) return null;
 
-  const ads = data.adLeaderboard || [];
+  // The owner's corrections (headline, text, picture) win over what the ad message carried.
+  const ads = (data.adLeaderboard || []).map((ad) => {
+    const eff = effectiveAd({ headline: ad.headline, body: ad.body, thumbnail: ad.thumbnail }, playbooks[ad.ad_id]);
+    return { ...ad, headline: eff.headline || 'Untitled ad', body: eff.body || '', thumbnail: eff.thumbnail || '', hasEdit: Boolean(playbooks[ad.ad_id]?.override_headline || playbooks[ad.ad_id]?.override_body || playbooks[ad.ad_id]?.chosen_image_url) };
+  });
   const best = ads[0] || { quality_score: 0 };
   const totalLeads = ads.reduce((s, a) => s + a.lead_count, 0);
   const totalBusinessLeads = data.funnel?.[1]?.count || 0;
@@ -28,7 +47,14 @@ export default function Ads() {
       ad.headline,
       <>
         {ad.thumbnail && <img src={ad.thumbnail} alt="" className="mb-4 h-40 w-full rounded-lg object-cover" />}
-        <p className="mb-5 text-[12px] leading-relaxed text-slate-500">{ad.body}</p>
+        <p className="mb-3 text-[12px] leading-relaxed text-slate-500">{ad.body || 'No ad text was captured for this ad.'}</p>
+        <button
+          type="button"
+          onClick={() => { closeDrawer?.(); setEditingAd(ad); }}
+          className="mb-5 inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-[12px] font-semibold text-slate-600 hover:bg-slate-50"
+        >
+          <Pencil size={12} /> Edit ad details
+        </button>
         <div className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Funnel performance</div>
         <FunnelBars rows={steps} showDrop={false} opacityScale={[1, 0.8, 0.6, 0.4]} />
         <div className="mt-4 flex flex-wrap gap-4 rounded-lg bg-slate-50 p-3">
@@ -106,12 +132,21 @@ export default function Ads() {
             Sales cycle by ad (avg days to convert)
           </SectionLabel>
           <HBarList
-            rows={ads.map((a) => ({ label: a.headline.split('\u2014')[0].trim().slice(0, 30), count: a.cycle_days_avg }))}
+            rows={ads.map((a) => ({ label: String(a.headline || '').split('\u2014')[0].trim().slice(0, 30), count: a.cycle_days_avg }))}
             colors={['var(--chart-green)']}
             formatValue={(v) => `${v}d`}
           />
         </AnCard>
       )}
+
+      <AdEditorDrawer
+        open={Boolean(editingAd)}
+        onClose={() => setEditingAd(null)}
+        businessId={businessId}
+        ad={editingAd}
+        playbook={editingAd ? playbooks[editingAd.ad_id] : null}
+        onSaved={loadPlaybooks}
+      />
     </div>
   );
 }

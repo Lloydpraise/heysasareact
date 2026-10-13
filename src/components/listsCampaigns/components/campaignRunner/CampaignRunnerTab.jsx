@@ -12,6 +12,8 @@ import SequenceStepList from './SequenceStepList';
 import CreateCampaignModal from './createCampaignModal/CreateCampaignModal';
 import CampaignActivityLog from './CampaignActivityLog';
 import AutoCampaignsPanel from './AutoCampaignsPanel';
+import AdPlaybooksPanel from '../../../followupAi/AdPlaybooksPanel';
+import { fetchPlaybooks } from '../../../../services/followupAiService';
 import { buildCampaignPreset } from '../../adCampaignPreset';
 import AnCard from '../../../analytics/shared/AnCard';
 import ViewSwitcher from '../ViewSwitcher';
@@ -34,6 +36,15 @@ export default function CampaignRunnerTab({ onNeedLists, presetListId = null, on
   const [createPreset, setCreatePreset] = useState(null);
   const [activeChatLead, setActiveChatLead] = useState(null);
   const hasLists = (lists || []).length > 0;
+  // ad playbooks written by the Follow-up AI that are waiting for the owner
+  const [reviewCount, setReviewCount] = useState(0);
+  const refreshReviewCount = useCallback(() => {
+    if (!businessId) return;
+    fetchPlaybooks(businessId)
+      .then((rows) => setReviewCount(rows.filter((p) => p.status === 'review').length))
+      .catch(() => {});
+  }, [businessId]);
+  useEffect(() => { refreshReviewCount(); }, [refreshReviewCount]);
 
   const openChatForResponse = useCallback((response) => {
     if (!response?.contactId) return;
@@ -191,6 +202,15 @@ export default function CampaignRunnerTab({ onNeedLists, presetListId = null, on
             <button
               type="button"
               role="tab"
+              aria-selected={campaignSection === 'adai'}
+              onClick={() => setCampaignSection('adai')}
+              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition max-md:h-11 max-md:flex-1 max-md:rounded-xl max-md:text-[14px] ${campaignSection === 'adai' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              Ad playbooks {reviewCount > 0 && <span className="ml-1 rounded-full bg-[#FF8C00] px-1.5 text-[10px] text-white">{reviewCount}</span>}
+            </button>
+            <button
+              type="button"
+              role="tab"
               aria-selected={campaignSection === 'archived'}
               onClick={() => setCampaignSection('archived')}
               className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition max-md:h-11 max-md:flex-1 max-md:rounded-xl max-md:text-[14px] ${campaignSection === 'archived' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
@@ -254,6 +274,8 @@ export default function CampaignRunnerTab({ onNeedLists, presetListId = null, on
         />
       )}
 
+      {campaignSection === 'adai' && <AdPlaybooksPanel businessId={businessId} onChanged={() => { refreshReviewCount(); refetch(); }} />}
+
       {campaignSection === 'active' && currentCampaigns.length === 0 && (
         <div className="flex min-h-[280px] flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 px-6 text-center">
           <h3 className="text-base font-semibold text-slate-800">No active campaigns</h3>
@@ -274,8 +296,8 @@ export default function CampaignRunnerTab({ onNeedLists, presetListId = null, on
         </div>
       )}
 
-      {campaignSection !== 'auto' && visibleCampaigns.length > 0 && view === 'list' && renderCampaignList(visibleCampaigns)}
-      {campaignSection !== 'auto' && visibleCampaigns.length > 0 && view === 'grid' && renderCampaignGrid(visibleCampaigns)}
+      {!['auto', 'adai'].includes(campaignSection) && visibleCampaigns.length > 0 && view === 'list' && renderCampaignList(visibleCampaigns)}
+      {!['auto', 'adai'].includes(campaignSection) && visibleCampaigns.length > 0 && view === 'grid' && renderCampaignGrid(visibleCampaigns)}
 
       <CreateCampaignModal
         key={`${editingCampaign?.id || 'new-campaign'}-${startWithImport ? 'import' : 'create'}-${createPreset?.listIds?.[0] || 'blank'}`}
