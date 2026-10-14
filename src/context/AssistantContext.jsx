@@ -5,7 +5,7 @@ import AssistantPanel from '../components/assistant/AssistantPanel';
 import { useIsMobile } from '../hooks/useIsMobile';
 
 const OPEN_KEY = 'heysasa:assistant-open';
-const PAGE_LABELS = { analytics: 'Analytics', leads: 'Leads', 'lists-campaigns': 'Campaigns', playground: 'Playground', products: 'Products', preferences: 'Preferences' };
+const PAGE_LABELS = { home: 'Home', analytics: 'Analytics', leads: 'Leads', 'lists-campaigns': 'Campaigns', playground: 'Playground', products: 'Products', preferences: 'Preferences' };
 
 // Holds "which box is Ask HeySasa open for" and renders the shared chat panel.
 //

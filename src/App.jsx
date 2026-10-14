@@ -4,6 +4,7 @@ import AppShell from './components/layout/AppShell';
 import MobileShell from './components/mobile/MobileShell';
 import { AssistantProvider } from './context/AssistantContext';
 import { useIsMobile } from './hooks/useIsMobile';
+import HomePage from './components/home/HomePage';
 import LeadsPage from './components/leads/LeadsPage';
 import ListsCampaignsPage from './components/listsCampaigns/ListsCampaignsPage';
 import PreferencesPage from './components/preferences/PreferencesPage';
@@ -23,7 +24,8 @@ function tabFromPath(path) {
   if (path.includes('/preferences')) return 'preferences';
   if (path.includes('/playground')) return 'playground';
   if (path.includes('/products')) return 'products';
-  return 'analytics';
+  if (path.includes('/analytics')) return 'analytics';
+  return 'home';   // Home is the first page, also for "/"
 }
 
 class WorkspaceErrorBoundary extends Component {
@@ -88,6 +90,8 @@ function AuthenticatedApp() {
 
   const renderMainContent = () => {
     switch (activeTab) {
+      case 'home':
+        return <HomePage />;
       case 'leads':
         return <LeadsPage />;
       case 'lists-campaigns':
@@ -101,7 +105,7 @@ function AuthenticatedApp() {
       case 'products':
         return <ProductsPage />;
       default:
-        return <AnalyticsPage />;
+        return <HomePage />;
     }
   };
 

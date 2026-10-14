@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import logo from '../../assets/images/heysasalogo.png';
 import { 
   BarChart3, 
+  Home, 
   Users, 
   Megaphone,
   Sliders, 
@@ -96,6 +97,7 @@ export default function AppShell({ activeTab, setActiveTab, onBusinessClick, chi
   };
 
   const navItems = [
+    { id: 'home', label: 'Home', icon: Home },
     { id: 'analytics', label: 'Analytics', icon: BarChart3 },
     { id: 'leads', label: 'Leads', icon: Users },
     { id: 'lists-campaigns', label: 'Campaigns', icon: Megaphone },

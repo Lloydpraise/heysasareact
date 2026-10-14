@@ -6,6 +6,7 @@ import {
   ChevronDown,
   ChevronRight,
   FlaskConical,
+  Home,
   LayoutGrid,
   Loader2,
   LogOut,
@@ -27,12 +28,13 @@ import { getBusinessDisplayName } from '../../utils/businessHelpers';
 import BottomSheet, { SheetRow } from './BottomSheet';
 
 const TABS = [
+  { id: 'home', label: 'Home', icon: Home },
   { id: 'leads', label: 'Leads', icon: Users },
-  { id: 'analytics', label: 'Analytics', icon: BarChart3 },
   { id: 'lists-campaigns', label: 'Campaigns', icon: Megaphone },
   { id: 'products', label: 'Products', icon: Package },
 ];
 const MORE_TABS = [
+  { id: 'analytics', label: 'Analytics', hint: 'Numbers and trends', icon: BarChart3 },
   { id: 'playground', label: 'Playground', hint: 'Test and tune your AI', icon: FlaskConical },
   { id: 'preferences', label: 'Preferences', hint: 'Follow-ups, materials, business, billing', icon: Sliders },
 ];
