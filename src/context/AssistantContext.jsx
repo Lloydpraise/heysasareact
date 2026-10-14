@@ -1,3 +1,4 @@
+import { PAGE_NAMES } from '../constants/names';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Sparkles } from 'lucide-react';
 import { AssistantContext } from './assistant-context-value';
@@ -5,7 +6,7 @@ import AssistantPanel from '../components/assistant/AssistantPanel';
 import { useIsMobile } from '../hooks/useIsMobile';
 
 const OPEN_KEY = 'heysasa:assistant-open';
-const PAGE_LABELS = { home: 'Home', analytics: 'Analytics', leads: 'Leads', 'lists-campaigns': 'Campaigns', playground: 'Playground', products: 'Products', preferences: 'Preferences' };
+const PAGE_LABELS = PAGE_NAMES;
 
 // Holds "which box is Ask HeySasa open for" and renders the shared chat panel.
 //

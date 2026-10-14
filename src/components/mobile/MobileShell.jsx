@@ -1,3 +1,4 @@
+import { PAGE_HINTS, PAGE_NAMES } from '../../constants/names';
 import { useEffect, useState } from 'react';
 import {
   BarChart3,
@@ -30,12 +31,12 @@ import BottomSheet, { SheetRow } from './BottomSheet';
 const TABS = [
   { id: 'home', label: 'Home', icon: Home },
   { id: 'leads', label: 'Leads', icon: Users },
-  { id: 'lists-campaigns', label: 'Campaigns', icon: Megaphone },
+  { id: 'lists-campaigns', label: PAGE_NAMES['lists-campaigns'], icon: Megaphone },
   { id: 'products', label: 'Products', icon: Package },
 ];
 const MORE_TABS = [
   { id: 'analytics', label: 'Analytics', hint: 'Numbers and trends', icon: BarChart3 },
-  { id: 'playground', label: 'Playground', hint: 'Test and tune your AI', icon: FlaskConical },
+  { id: 'playground', label: PAGE_NAMES.playground, hint: PAGE_HINTS.playground, icon: FlaskConical },
   { id: 'preferences', label: 'Preferences', hint: 'Follow-ups, materials, business, billing', icon: Sliders },
 ];
 const MORE_INDEX = TABS.length;

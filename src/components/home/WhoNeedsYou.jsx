@@ -3,6 +3,7 @@ import AnCard, { SectionLabel } from '../analytics/shared/AnCard';
 import { fetchTopLeads } from '../../services/setupService';
 import { timeAgo } from '../../utils/leadHelpers';
 import { goToTab } from './homeCopy';
+import HelpGuide from './guides/HelpGuide';
 
 // The few people to talk to today, each with a short summary so the owner remembers them at a glance.
 export default function WhoNeedsYou({ businessId }) {
@@ -18,7 +19,7 @@ export default function WhoNeedsYou({ businessId }) {
 
   return (
     <AnCard>
-      <SectionLabel>Who needs you now</SectionLabel>
+      <div className="flex items-center gap-2"><SectionLabel>Who needs you now</SectionLabel><HelpGuide id="ready-to-buy" /></div>
       {!leads && <div className="py-6 text-center text-sm text-slate-400">Loading...</div>}
       {leads && !leads.length && <p className="text-sm text-slate-500">Nobody looks ready to buy right now. HeySasa keeps checking every new message.</p>}
       <ul className="divide-y divide-slate-100">

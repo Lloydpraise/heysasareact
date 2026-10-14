@@ -3,6 +3,7 @@ import AnCard, { SectionLabel } from '../analytics/shared/AnCard';
 import { useBilling } from '../../hooks/useBilling';
 import { applySwitches, getSetupDefaults } from '../../services/setupService';
 import { openPreferences } from './homeCopy';
+import HelpGuide from './guides/HelpGuide';
 
 const primary = 'rounded-full bg-[#28A745] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1f8d3d] disabled:opacity-50';
 const quiet = 'rounded-full px-3 py-2 text-sm font-medium text-slate-500 hover:text-slate-700';
@@ -29,12 +30,12 @@ function Lines({ lines, overrides, onChange }) {
   );
 }
 
-function SwitchBlock({ title, blurb, on, disabledText, busy, open, onToggleOpen, onTurnOn, onTurnOff, lines, overrides, onChange }) {
+function SwitchBlock({ title, help, blurb, on, disabledText, busy, open, onToggleOpen, onTurnOn, onTurnOff, lines, overrides, onChange }) {
   return (
     <div className="rounded-xl border border-slate-200 p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h3 className="text-base font-semibold text-slate-900">{title}</h3>
+          <h3 className="flex items-center gap-2 text-base font-semibold text-slate-900">{title}{help && <HelpGuide id={help} />}</h3>
           <p className="mt-1 text-sm text-slate-500">{blurb}</p>
         </div>
         {on && <span className="rounded-full bg-[#28A745]/10 px-2 py-0.5 text-xs font-semibold text-[#27500A]">On</span>}
@@ -92,7 +93,7 @@ export default function SwitchesCard({ businessId, onFinish }) {
       <SectionLabel>Let HeySasa start working</SectionLabel>
       <div className="space-y-3">
         <SwitchBlock
-          title="Follow up with people who went quiet"
+          title="Follow up with people who went quiet" help="follow-up-plan"
           blurb="HeySasa writes the follow-ups. Every message waits for your OK before it is sent."
           on={defaults.followups.on} busy={busy} open={Boolean(open.follow)}
           onToggleOpen={() => setOpen((o) => ({ ...o, follow: !o.follow }))}
@@ -101,7 +102,7 @@ export default function SwitchesCard({ businessId, onFinish }) {
           lines={defaults.followups.lines} overrides={followOverrides}
           onChange={(field, value) => setFollowOverrides((o) => ({ ...o, [field]: value }))} />
         <SwitchBlock
-          title="Answer new customers right away"
+          title="Answer new customers right away" help="auto-chat"
           blurb="HeySasa replies as soon as someone messages you, also at night and when you are busy."
           on={defaults.chat.on} busy={busy} open={Boolean(open.chat)}
           disabledText={defaults.chat.persona_ready ? '' : 'HeySasa is still learning how your business talks. This unlocks in a few minutes.'}

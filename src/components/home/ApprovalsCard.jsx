@@ -3,6 +3,7 @@ import { CheckCircle2 } from 'lucide-react';
 import AnCard, { SectionLabel } from '../analytics/shared/AnCard';
 import { applySwitches, approveMessageGroup, approvePlaybookPlan, getHomeApprovals, getSetupDefaults } from '../../services/setupService';
 import { goToTab } from './homeCopy';
+import HelpGuide from './guides/HelpGuide';
 
 const primary = 'rounded-full bg-[#28A745] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1f8d3d] disabled:opacity-50';
 const quiet = 'rounded-full px-3 py-2 text-sm font-medium text-slate-500 hover:text-slate-700';
@@ -57,7 +58,7 @@ export default function ApprovalsCard({ businessId, onChanged }) {
 
   return (
     <AnCard>
-      <SectionLabel>Approve your follow-ups</SectionLabel>
+      <div className="flex items-center gap-2"><SectionLabel>Approve your follow-ups</SectionLabel><HelpGuide id="approve-plan" /></div>
       {!data && <div className="py-6 text-center text-sm text-slate-400">Loading...</div>}
       {data && !groups.length && (
         <div className="flex items-center gap-2 py-2 text-sm text-slate-500">

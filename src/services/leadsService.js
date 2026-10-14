@@ -819,17 +819,31 @@ async function approveFollowUpDraft(leadId, draft) {
   if (!supabase) return { ok: false };
 
   try {
+    // The newest message waiting for this lead's owner. Approving it is the same change the follow-up engine makes:
+    // ready to send, with the final text and the business's WhatsApp channel.
+    const { data: waiting, error: findError } = await supabase
+      .from('follow_up_queue')
+      .select('id, business_id')
+      .eq('contact_id', leadId)
+      .eq('approval_status', 'awaiting_approval')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (findError) throw findError;
+    if (!waiting) return { ok: false, error: 'nothing_waiting' };
+
+    const { data: business } = await supabase.from('businesses').select('whatsapp_channel').eq('business_id', waiting.business_id).maybeSingle();
     const { error } = await supabase
       .from('follow_up_queue')
       .update({
-        status: 'approved',
-        approved_at: new Date().toISOString(),
-        approved_message: draft,
+        status: 'ready_to_send',
+        approval_status: 'approved',
+        channel: business?.whatsapp_channel ?? null,
+        final_message: draft,
+        draft_message: draft,
       })
-      .eq('contact_id', leadId)
-      .eq('status', 'pending_approval')
-      .order('created_at', { ascending: false })
-      .limit(1);
+      .eq('id', waiting.id)
+      .eq('approval_status', 'awaiting_approval');
 
     if (error) throw error;
     return { ok: true };

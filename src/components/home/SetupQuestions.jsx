@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import AnCard, { SectionLabel } from '../analytics/shared/AnCard';
 import { fetchDiscoveredProducts, saveSetupAnswers } from '../../services/setupService';
 import { DAY_LABELS, DEFAULT_HOURS, HANDOFF_OPTIONS, goToTab } from './homeCopy';
+import HelpGuide from './guides/HelpGuide';
 
 const STEPS = ['hours', 'handoff', 'products'];   // "Is this what you sell?" is last, so the product results are ready
 const primary = 'rounded-full bg-[#28A745] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1f8d3d] disabled:opacity-50';
@@ -45,7 +46,7 @@ export default function SetupQuestions({ businessId, status, onDone }) {
 
       {name === 'hours' && (
         <div>
-          <h3 className="text-base font-semibold text-slate-900">When are you open?</h3>
+          <h3 className="flex items-center gap-2 text-base font-semibold text-slate-900">When are you open? <HelpGuide id="quiet-hours" /></h3>
           <p className="mt-1 text-sm text-slate-500">HeySasa will only message your customers during these hours.</p>
           <div className="mt-3 flex items-center gap-2">
             <input type="time" value={hours.open} onChange={(e) => setHours({ ...hours, open: e.target.value })} className="rounded-lg border border-slate-200 px-2 py-1 text-sm" aria-label="Opening time" />

@@ -160,7 +160,9 @@ export function useLeads() {
       const lead = leads.find((l) => l.id === leadId);
       if (!lead?.followup?.draft) return;
       if (leadsService.approveFollowUpDraft) {
-        await leadsService.approveFollowUpDraft(leadId, lead.followup.draft);
+        // Only show the draft as approved when it really was. Before, a failed approval still looked approved.
+        const result = await leadsService.approveFollowUpDraft(leadId, lead.followup.draft);
+        if (result && result.ok === false) return;
       }
       patchLead(leadId, {
         followup: {

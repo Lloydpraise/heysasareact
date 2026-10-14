@@ -1,4 +1,5 @@
 import { createPortal } from 'react-dom';
+import { PAGE_NAMES } from '../../constants/names';
 import { useEffect, useRef, useState } from 'react';
 import logo from '../../assets/images/heysasalogo.png';
 import { 
@@ -100,8 +101,8 @@ export default function AppShell({ activeTab, setActiveTab, onBusinessClick, chi
     { id: 'home', label: 'Home', icon: Home },
     { id: 'analytics', label: 'Analytics', icon: BarChart3 },
     { id: 'leads', label: 'Leads', icon: Users },
-    { id: 'lists-campaigns', label: 'Campaigns', icon: Megaphone },
-    { id: 'playground', label: 'Playground', icon: FlaskConical },
+    { id: 'lists-campaigns', label: PAGE_NAMES['lists-campaigns'], icon: Megaphone },
+    { id: 'playground', label: PAGE_NAMES.playground, icon: FlaskConical },
     { id: 'products', label: 'Products', icon: Package },
     { id: 'preferences', label: 'Preferences', icon: Sliders },
   ];
