@@ -4,6 +4,8 @@ import AnCard, { SectionLabel } from '../analytics/shared/AnCard';
 import { useBilling } from '../../hooks/useBilling';
 import { getHomeSummary } from '../../services/setupService';
 import ApprovalsCard from './ApprovalsCard';
+import HomeHeader from './HomeHeader';
+import SwitchesCard from './SwitchesCard';
 import WhoNeedsYou from './WhoNeedsYou';
 import { openPreferences } from './homeCopy';
 
@@ -39,6 +41,7 @@ export default function DailyMode({ businessId, connected, status, onRetrySetup 
 
   return (
     <div className="mx-auto max-w-3xl space-y-4 py-4">
+      <HomeHeader connected={connected} />
       {!connected && (
         <Alert title="Your WhatsApp is disconnected" text="HeySasa cannot send or read messages until you connect it again."
           action="Reconnect" onAction={() => openPreferences('whatsapp')} />
@@ -53,6 +56,8 @@ export default function DailyMode({ businessId, connected, status, onRetrySetup 
 
       <ApprovalsCard businessId={businessId} onChanged={loadSummary} />
       <WhoNeedsYou businessId={businessId} />
+      {/* A business that skipped setup, or switched one helper off, can turn it on here. Hidden once both are on. */}
+      <SwitchesCard businessId={businessId} compact hideWhenAllOn />
 
       <AnCard>
         <SectionLabel>While you were away</SectionLabel>

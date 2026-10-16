@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import AnCard, { SectionLabel } from '../analytics/shared/AnCard';
+import AnCard from '../analytics/shared/AnCard';
 import { fetchDiscoveredProducts, saveSetupAnswers } from '../../services/setupService';
 import { DAY_LABELS, DEFAULT_HOURS, HANDOFF_OPTIONS, goToTab } from './homeCopy';
 import HelpGuide from './guides/HelpGuide';
@@ -9,8 +9,9 @@ const primary = 'rounded-full bg-[#28A745] px-4 py-2 text-sm font-semibold text-
 const quiet = 'rounded-full px-3 py-2 text-sm font-medium text-slate-500 hover:text-slate-700';
 
 // Three easy questions, one at a time, each skippable. Each answer is saved the moment it is given.
-export default function SetupQuestions({ businessId, status, onDone }) {
-  const [step, setStep] = useState(0);
+// `initialStep` is where the owner stopped last time (see firstOpenQuestion), so coming back never repeats an answered question.
+export default function SetupQuestions({ businessId, status, onDone, initialStep = 0 }) {
+  const [step, setStep] = useState(Math.min(initialStep, STEPS.length - 1));
   const [hours, setHours] = useState(status?.answers?.hours || DEFAULT_HOURS);
   const [handoff, setHandoff] = useState(status?.answers?.handoff || ['asks_for_call', 'ready_to_pay']);
   const [products, setProducts] = useState(null);
@@ -28,6 +29,7 @@ export default function SetupQuestions({ businessId, status, onDone }) {
   }, [name, productCount, businessId]);
 
   const next = () => { setError(''); if (step + 1 >= STEPS.length) onDone(); else setStep(step + 1); };
+  const back = () => { setError(''); setStep(Math.max(0, step - 1)); };
 
   const save = async (answers) => {
     setSaving(true);
@@ -42,7 +44,15 @@ export default function SetupQuestions({ businessId, status, onDone }) {
 
   return (
     <AnCard>
-      <SectionLabel>While we work: {step + 1} of {STEPS.length}</SectionLabel>
+      <div className="mb-3 flex items-center justify-between">
+        <div className="flex items-center gap-2 text-[12px] font-semibold text-slate-500">
+          <span>While we work: {step + 1} of {STEPS.length}</span>
+          <span className="flex gap-1" aria-hidden="true">
+            {STEPS.map((id, index) => <span key={id} className={`h-1.5 w-5 rounded-full ${index <= step ? 'bg-[#28A745]' : 'bg-slate-200'}`} />)}
+          </span>
+        </div>
+        {step > 0 && <button type="button" onClick={back} className="text-xs font-medium text-slate-400 hover:text-slate-600">Back</button>}
+      </div>
 
       {name === 'hours' && (
         <div>

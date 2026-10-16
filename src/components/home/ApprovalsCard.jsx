@@ -58,8 +58,20 @@ export default function ApprovalsCard({ businessId, onChanged }) {
 
   return (
     <AnCard>
-      <div className="flex items-center gap-2"><SectionLabel>Approve your follow-ups</SectionLabel><HelpGuide id="approve-plan" /></div>
-      {!data && <div className="py-6 text-center text-sm text-slate-400">Loading...</div>}
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-2"><SectionLabel>Approve your follow-ups</SectionLabel><HelpGuide id="approve-plan" /></div>
+        {/* The pause button is always in view. One bad message to a real customer can cost trust, so stopping must be one tap away. */}
+        {followupsOn === true && (
+          <button type="button" onClick={toggleFollowups} className="-mt-1 rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50">Pause all follow-ups</button>
+        )}
+      </div>
+      {followupsOn === false && (
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          <span>Follow-ups are paused. Nothing new will be written or sent.</span>
+          <button type="button" onClick={toggleFollowups} className="rounded-full bg-amber-600 px-3 py-1 text-xs font-semibold text-white hover:bg-amber-700">Turn follow-ups back on</button>
+        </div>
+      )}
+      {!data &&<div className="py-6 text-center text-sm text-slate-400">Loading...</div>}
       {data && !groups.length && (
         <div className="flex items-center gap-2 py-2 text-sm text-slate-500">
           <CheckCircle2 className="h-4 w-4 text-[#28A745]" aria-hidden="true" />
@@ -96,13 +108,6 @@ export default function ApprovalsCard({ businessId, onChanged }) {
       </div>
       {note && <p className="mt-3 text-sm text-[#27500A]">{note}</p>}
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
-      {followupsOn !== null && (
-        <div className="mt-4 border-t border-slate-100 pt-3 text-right">
-          <button type="button" onClick={toggleFollowups} className="text-xs font-medium text-slate-400 hover:text-slate-600">
-            {followupsOn ? 'Pause all follow-ups' : 'Turn follow-ups back on'}
-          </button>
-        </div>
-      )}
     </AnCard>
   );
 }

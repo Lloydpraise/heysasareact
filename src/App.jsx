@@ -73,6 +73,9 @@ function AuthenticatedApp() {
   // page clears it once it has acted on it.
   const [campaignRequest, setCampaignRequest] = useState(null);
   const clearCampaignRequest = useCallback(() => setCampaignRequest(null), []);
+  // A lead another screen asked to open ({ leadId }), for example "Open chat" on Home. The Leads page clears it once it has acted on it.
+  const [leadRequest, setLeadRequest] = useState(null);
+  const clearLeadRequest = useCallback(() => setLeadRequest(null), []);
 
   // Update URL when active tab changes
   const handleTabChange = (tab) => {
@@ -93,7 +96,7 @@ function AuthenticatedApp() {
       case 'home':
         return <HomePage />;
       case 'leads':
-        return <LeadsPage />;
+        return <LeadsPage leadRequest={leadRequest} onLeadRequestHandled={clearLeadRequest} />;
       case 'lists-campaigns':
         return <ListsCampaignsPage campaignRequest={campaignRequest} onCampaignRequestHandled={clearCampaignRequest} />;
       case 'analytics':
@@ -161,6 +164,20 @@ function AuthenticatedApp() {
     };
     window.addEventListener('heysasa:open-campaign', handleOpenCampaign);
     return () => window.removeEventListener('heysasa:open-campaign', handleOpenCampaign);
+  }, []);
+
+  // "Open chat" on Home: switch to Leads and hand over which lead to open.
+  useEffect(() => {
+    const handleOpenLead = (event) => {
+      const { leadId } = event.detail || {};
+      if (leadId === undefined || leadId === null) return;
+      setLeadRequest({ leadId, at: Date.now() });
+      setActiveTab('leads');
+      setPreferencesDirect(false);
+      if (window.location.pathname !== '/leads') window.history.pushState(null, '', '/leads');
+    };
+    window.addEventListener('heysasa:open-lead', handleOpenLead);
+    return () => window.removeEventListener('heysasa:open-lead', handleOpenLead);
   }, []);
 
   const Shell = isMobile ? MobileShell : AppShell;

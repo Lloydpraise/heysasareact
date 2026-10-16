@@ -67,7 +67,7 @@ function downloadLeadsCsv(rows) {
   window.setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
-export default function LeadsPage() {
+export default function LeadsPage({ leadRequest = null, onLeadRequestHandled }) {
   const { leads, loading, error, refetch, patchLead, addLead, addBulkLeads, getChats, approveDraft, skipDraft, updateLead, deleteLead, markAsBought } = useLeads();
   const { business, loading: businessLoading, refetch: refetchBusiness } = useBusinessConnection();
   const { user, activeBusinessId } = useAuth();
@@ -160,6 +160,19 @@ export default function LeadsPage() {
     if (!isMobile) setActiveLeadId(null);
     setMobileDetailOpen(false);
   };
+
+  // Another screen (Home) asked to open one lead. Wait for the list to load, open it if it is there, then clear the request.
+  useEffect(() => {
+    if (!leadRequest || loading) return undefined;
+    let live = true;
+    Promise.resolve().then(() => {
+      if (!live) return;
+      const target = leads.find((lead) => String(lead.id) === String(leadRequest.leadId));
+      if (target) { setActiveLeadId(target.id); setMobileDetailOpen(true); }
+      onLeadRequestHandled?.();
+    });
+    return () => { live = false; };
+  }, [leadRequest, loading, leads, onLeadRequestHandled]);
 
   const handleChatSend = useCallback(async (text) => {
     if (!activeLead) return Promise.reject(new Error('No lead selected.'));

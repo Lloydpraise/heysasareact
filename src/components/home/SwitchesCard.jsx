@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import AnCard, { SectionLabel } from '../analytics/shared/AnCard';
 import { useBilling } from '../../hooks/useBilling';
 import { applySwitches, getSetupDefaults } from '../../services/setupService';
-import { openPreferences } from './homeCopy';
+import { goToTab, openPreferences } from './homeCopy';
 import HelpGuide from './guides/HelpGuide';
 
 const primary = 'rounded-full bg-[#28A745] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1f8d3d] disabled:opacity-50';
@@ -30,7 +30,7 @@ function Lines({ lines, overrides, onChange }) {
   );
 }
 
-function SwitchBlock({ title, help, blurb, on, disabledText, busy, open, onToggleOpen, onTurnOn, onTurnOff, lines, overrides, onChange }) {
+function SwitchBlock({ title, help, blurb, on, disabledText, busy, open, onToggleOpen, onTurnOn, onTurnOff, lines, overrides, onChange, moreLabel, onMore }) {
   return (
     <div className="rounded-xl border border-slate-200 p-4">
       <div className="flex items-start justify-between gap-3">
@@ -48,12 +48,17 @@ function SwitchBlock({ title, help, blurb, on, disabledText, busy, open, onToggl
       </div>
       {disabledText && !on && <p className="mt-2 text-xs text-slate-500">{disabledText}</p>}
       {open && lines && <Lines lines={lines} overrides={overrides} onChange={onChange} />}
+      {open && lines && onMore && (
+        <button type="button" onClick={onMore} className="mt-2 text-xs font-medium text-[#27500A] underline">{moreLabel}</button>
+      )}
     </div>
   );
 }
 
 // Step 3 of setup: the two switches. Recommended settings are used unless the owner changes them, and nothing is hidden.
-export default function SwitchesCard({ businessId, onFinish }) {
+// On the daily page (`compact`) it is a small "do more" card for a business that skipped setup or switched one off,
+// and `hideWhenAllOn` hides it once both are on.
+export default function SwitchesCard({ businessId, onFinish, compact = false, hideWhenAllOn = false }) {
   const { topUp, canTopUp } = useBilling(businessId);
   const [defaults, setDefaults] = useState(null);
   const [open, setOpen] = useState({});
@@ -86,11 +91,12 @@ export default function SwitchesCard({ businessId, onFinish }) {
     finally { setBusy(false); }
   };
 
-  if (!defaults) return <AnCard><div className="py-6 text-center text-sm text-slate-400">{error || 'Loading...'}</div></AnCard>;
+  if (!defaults) return hideWhenAllOn ? null : <AnCard><div className="py-6 text-center text-sm text-slate-400">{error || 'Loading...'}</div></AnCard>;
+  if (hideWhenAllOn && defaults.followups.on && defaults.chat.on) return null;
 
   return (
     <AnCard>
-      <SectionLabel>Let HeySasa start working</SectionLabel>
+      <SectionLabel>{compact ? 'Let HeySasa do more' : 'Let HeySasa start working'}</SectionLabel>
       <div className="space-y-3">
         <SwitchBlock
           title="Follow up with people who went quiet" help="follow-up-plan"
@@ -100,6 +106,7 @@ export default function SwitchesCard({ businessId, onFinish }) {
           onTurnOn={() => run({ followups: true, overrides: { followups: followOverrides } })}
           onTurnOff={() => run({ followups: false })}
           lines={defaults.followups.lines} overrides={followOverrides}
+          moreLabel="Change the other follow-up settings in Preferences" onMore={() => openPreferences('followup')}
           onChange={(field, value) => setFollowOverrides((o) => ({ ...o, [field]: value }))} />
         <SwitchBlock
           title="Answer new customers right away" help="auto-chat"
@@ -110,6 +117,7 @@ export default function SwitchesCard({ businessId, onFinish }) {
           onTurnOn={() => run({ chat: true, overrides: { chat: chatOverrides } })}
           onTurnOff={() => run({ chat: false })}
           lines={defaults.chat.lines} overrides={chatOverrides}
+          moreLabel="Try it first in Test chat" onMore={() => goToTab('playground')}
           onChange={(field, value) => setChatOverrides((o) => ({ ...o, [field]: value }))} />
       </div>
       {defaults.wallet?.has_balance === false && (
@@ -121,10 +129,12 @@ export default function SwitchesCard({ businessId, onFinish }) {
       )}
       {note && <p className="mt-3 text-sm text-amber-700">{note}</p>}
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
-      <div className="mt-4 flex items-center gap-2">
-        <button type="button" className={primary} onClick={onFinish}>Take me to Home</button>
-        <span className="text-xs text-slate-400">You can change all of this later in Preferences.</span>
-      </div>
+      {!compact && (
+        <div className="mt-4 flex items-center gap-2">
+          <button type="button" className={primary} onClick={onFinish}>Take me to Home</button>
+          <span className="text-xs text-slate-400">You can change all of this later in Preferences.</span>
+        </div>
+      )}
     </AnCard>
   );
 }

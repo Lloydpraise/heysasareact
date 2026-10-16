@@ -24,6 +24,21 @@ export const COUNTER_LABELS = [
   { key: 'products', label: 'products found' },
 ];
 
+// Where the owner stopped answering the three setup questions: 0 hours, 1 hand-off, 2 products, 3 = all answered.
+// Skipped questions are not saved, so they are asked again next time. That is on purpose: Home opens where they stopped.
+export function firstOpenQuestion(answers = {}) {
+  if (!answers.hours) return 0;
+  if (!answers.handoff?.length) return 1;
+  if (!answers.products_checked) return 2;
+  return 3;
+}
+
+// The four steps of day one, as shown in the strip at the top of setup mode.
+export const SETUP_STEPS = ['Connect WhatsApp', 'Sort your chats', 'A few questions', 'Switch on'];
+
+export function openLead(leadId) {
+  window.dispatchEvent(new CustomEvent('heysasa:open-lead', { detail: { leadId } }));
+}
 export function openPreferences(section) {
   window.dispatchEvent(new CustomEvent('heysasa:open-preferences', { detail: { section } }));
 }
