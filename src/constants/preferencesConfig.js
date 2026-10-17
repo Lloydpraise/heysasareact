@@ -35,6 +35,7 @@ export const PREF_SECTIONS = [
   { id: 'followup',  icon: ICONS.bot,       label: 'Follow-up',  sub: 'Automation & zones'  },
   { id: 'materials', icon: ICONS.materials, label: 'Materials',  sub: 'Content settings'    },
   { id: 'business',  icon: ICONS.business,  label: 'Business',   sub: 'Profile & identity'  },
+  { id: 'chat',      icon: ICONS.whatsapp,  label: 'Auto chat',  sub: 'Who HeySasa answers' },
   { id: 'whatsapp',  icon: ICONS.whatsapp,  label: 'WhatsApp',   sub: 'Channel settings'    },
   { id: 'assistant', icon: ICONS.sparkles,  label: 'Ask HeySasa', sub: 'Your AI assistant'  },
   { id: 'billing',   icon: ICONS.billing,   label: 'Billing',    sub: 'Balance & usage'     },
