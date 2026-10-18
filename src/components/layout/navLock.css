@@ -1,0 +1,31 @@
+/* Two small moments in the app chrome. Both are decoration only and both switch off for people who prefer less motion.
+
+   .ask-ring    a soft green ring that breathes out from the HeySasa logo every few seconds on Home, to say "tap me to ask".
+   .nav-unlock  the sidebar icons popping open one after another the moment setup is finished. */
+
+@keyframes ask-ring {
+  0%   { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.38); }
+  30%  { box-shadow: 0 0 0 10px rgba(40, 167, 69, 0); }
+  100% { box-shadow: 0 0 0 10px rgba(40, 167, 69, 0); }
+}
+
+@keyframes ask-breathe {
+  0%, 100% { transform: scale(1); }
+  15%      { transform: scale(1.045); }
+  30%      { transform: scale(1); }
+}
+
+.ask-ring { animation: ask-ring 4.8s ease-out infinite; }
+.ask-breathe { animation: ask-breathe 4.8s ease-in-out infinite; }
+
+@keyframes nav-unlock {
+  0%   { transform: scale(0.82); opacity: 0.35; box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.55); }
+  55%  { transform: scale(1.1);  opacity: 1; }
+  100% { transform: scale(1);    opacity: 1; box-shadow: 0 0 0 14px rgba(40, 167, 69, 0); }
+}
+
+.nav-unlock { animation: nav-unlock 0.9s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ask-ring, .ask-breathe, .nav-unlock { animation: none; }
+}

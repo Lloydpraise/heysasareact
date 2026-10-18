@@ -173,8 +173,8 @@ export default function SetupMode({ businessId, status, refresh, sessions, refre
   }
 
   return (
-    <div className="mx-auto w-full max-w-xl py-2 sm:py-6">
-      <div className="ob relative flex min-h-[calc(100dvh-8rem)] flex-col overflow-hidden rounded-[26px] bg-[#0A0F0C] text-white shadow-[0_24px_80px_rgba(0,0,0,0.28)] max-sm:rounded-[20px]">
+    <div className="mx-auto flex w-full max-w-xl flex-1 flex-col sm:py-2">
+      <div className="ob relative flex min-h-[480px] flex-1 flex-col overflow-hidden rounded-[26px] bg-[#0A0F0C] text-white shadow-[0_24px_80px_rgba(0,0,0,0.28)] max-sm:rounded-[20px]">
         <ObBackdrop />
         <div className="relative z-10 px-5 pt-5"><Dots total={DOT_COUNT} index={dot} /></div>
         <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-5 py-8 text-center sm:px-8">

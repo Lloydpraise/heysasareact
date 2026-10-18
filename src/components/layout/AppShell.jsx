@@ -17,15 +17,18 @@ import {
   CheckCircle2,
   Loader2,
   Plus,
+  Lock,
 } from 'lucide-react';
 import Profile from '../profile/Profile';
+import AskHeySasaLogo from './AskHeySasaLogo';
+import './navLock.css';
 import { useAuth } from '../../context/useAuth';
-import { useAssistant } from '../../context/useAssistant';
 import { getBusinessDisplayName } from '../../utils/businessHelpers';
 
-export default function AppShell({ activeTab, setActiveTab, onBusinessClick, children }) {
+// `locked`: the owner has not finished setup yet, so every page except Home stays closed (a lock, no click).
+// `celebrate`: setup was just finished, so the icons pop open one after another.
+export default function AppShell({ activeTab, setActiveTab, onBusinessClick, locked = false, celebrate = false, children }) {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
-  const { open: openAssistant } = useAssistant();
   const { user, activeBusinessId, getBusinesses, switchBusiness, addBusiness } = useAuth();
   const [businesses, setBusinesses] = useState([]);
   const [businessesLoading, setBusinessesLoading] = useState(true);
@@ -151,34 +154,47 @@ export default function AppShell({ activeTab, setActiveTab, onBusinessClick, chi
 
         {/* Navigation Items */}
         <div className="flex-1 overflow-y-auto py-6 px-4 flex flex-col gap-2 overflow-x-hidden">
-          {navItems.map((item) => {
+          {navItems.map((item, index) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
+            const closed = locked && item.id !== 'home';
             return (
               <button
                 key={item.id}
+                aria-disabled={closed || undefined}
+                title={closed ? 'Opens when your setup is done' : undefined}
                 onClick={() => {
+                  if (closed) return;
                   setActiveTab(item.id);
                   setIsMobileOpen(false);
                 }}
                 className={`
                   flex items-center padding-0.6rem p-3 rounded-2xl text-sm font-medium transition-all relative w-full text-left
-                  ${isActive 
-                    ? 'bg-white/70 text-[#0F172A] font-semibold shadow-sm' 
-                    : 'text-[#64748B] hover:text-[#1E293B] hover:bg-white/40'}
+                  ${closed ? 'cursor-not-allowed opacity-45' : ''}
+                  ${isActive
+                    ? 'bg-white/70 text-[#0F172A] font-semibold shadow-sm'
+                    : closed ? 'text-[#64748B]' : 'text-[#64748B] hover:text-[#1E293B] hover:bg-white/40'}
                 `}
               >
                 {/* Orange Indicator Bar for Active Tab */}
                 {isActive && (
                   <span className="absolute -left-1 top-1/2 -translate-y-1/2 w-1 h-4 bg-[#FF8C00] rounded-r-md"></span>
                 )}
-                <div className={`
-                  w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border transition-all
-                  ${isActive 
-                    ? 'bg-[#28A745] border-[#28A745] text-white shadow-lg shadow-[#28A745]/30' 
-                    : 'bg-white/50 border-white/80 text-[#64748B] hover:bg-white/90 hover:text-[#28A745]'}
+                <div
+                  style={celebrate && !closed ? { animationDelay: `${index * 90}ms` } : undefined}
+                  className={`
+                  relative w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border transition-all
+                  ${celebrate && !closed ? 'nav-unlock' : ''}
+                  ${isActive
+                    ? 'bg-[#28A745] border-[#28A745] text-white shadow-lg shadow-[#28A745]/30'
+                    : closed ? 'bg-white/50 border-white/80 text-[#64748B]' : 'bg-white/50 border-white/80 text-[#64748B] hover:bg-white/90 hover:text-[#28A745]'}
                 `}>
                   <Icon className="w-5 h-5" />
+                  {closed && (
+                    <span aria-hidden="true" className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full border border-white bg-slate-500 text-white">
+                      <Lock className="h-2.5 w-2.5" />
+                    </span>
+                  )}
                 </div>
                 <span className="ml-4 md:ml-0 md:group-hover:ml-4 max-w-[150px] md:max-w-0 md:group-hover:max-w-[150px] opacity-100 md:opacity-0 md:group-hover:opacity-100 overflow-hidden whitespace-nowrap transition-all duration-300">
                   {item.label}
@@ -186,6 +202,11 @@ export default function AppShell({ activeTab, setActiveTab, onBusinessClick, chi
               </button>
             );
           })}
+          {locked && (
+            <p className="mt-2 max-w-[150px] px-3 text-[11px] leading-snug text-slate-400 opacity-100 md:max-h-0 md:opacity-0 md:overflow-hidden md:group-hover:max-h-16 md:group-hover:opacity-100 transition-all duration-300">
+              Finish setting up HeySasa and everything here opens for you.
+            </p>
+          )}
         </div>
 
         {/* Profile Footer */}
@@ -277,15 +298,11 @@ export default function AppShell({ activeTab, setActiveTab, onBusinessClick, chi
                 </div>
               )}
             </div>
-            <button
-              type="button"
-              onClick={() => openAssistant({ surface: 'general', title: 'Ask HeySasa' })}
-              aria-label="Open Ask HeySasa"
-              title="Ask HeySasa"
-              className="flex shrink-0 items-center rounded-lg transition hover:bg-white/60 active:scale-[0.98]"
-            >
-              <img src={logo} alt="HeySasa" className="h-8 w-24 object-contain sm:h-9 sm:w-28" />
-            </button>
+            <AskHeySasaLogo
+              pulse={activeTab === 'home' && !locked}
+              className="flex items-center rounded-lg transition hover:bg-white/60 active:scale-[0.98]"
+              imgClassName="h-8 w-24 object-contain sm:h-9 sm:w-28"
+            />
           </div>
         </header>
         {/* Dynamic Page Content Rendered Here */}

@@ -22,11 +22,19 @@ function parseJson(text, fallback) {
 export async function sendTestMessage({ text, history = [], businessId, contact }) {
   const turns = [...history.map((m) => ({ role: m.role, text: typeof m.content === 'string' ? m.content : m.content?.text || '' })), { role: 'user', text }].filter((m) => m.text);
   const started = performance.now();
-  const res = await fetch(SASA_BRAIN_URL, {
-    method: 'POST',
-    headers: await authHeaders(),
-    body: JSON.stringify({ business_id: businessId, simulate: true, message: text, history: turns, ...(contact ? { contact } : {}) }),
-  });
+  // Never wait for ever: if the chat brain does not answer, say so instead of leaving the Playground "thinking".
+  let res;
+  try {
+    res = await fetch(SASA_BRAIN_URL, {
+      method: 'POST',
+      headers: await authHeaders(),
+      body: JSON.stringify({ business_id: businessId, simulate: true, message: text, history: turns, ...(contact ? { contact } : {}) }),
+      signal: AbortSignal.timeout(75_000),
+    });
+  } catch (e) {
+    if (e?.name === 'TimeoutError' || e?.name === 'AbortError') throw new Error('The chat brain did not answer in 75 seconds. It may be stuck or not deployed. Check the sasa-brain function.', { cause: e });
+    throw new Error(`Could not reach the chat brain: ${e?.message || 'network error'}`, { cause: e });
+  }
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(body?.error || `sasa-brain request failed (${res.status})`);
 

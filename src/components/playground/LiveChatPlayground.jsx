@@ -19,6 +19,19 @@ function TracePanel({ trace }) {
   );
 }
 
+// The same three bouncing dots a customer sees on WhatsApp while the AI works out its reply.
+function TypingBubble() {
+  return (
+    <div className="mb-3 flex justify-start" role="status" aria-live="polite" aria-label="HeySasa is typing">
+      <div className="flex items-center gap-1 rounded-2xl rounded-bl-sm border border-slate-200/80 bg-white px-4 py-3.5 shadow-sm">
+        {[0, 150, 300].map((delay) => (
+          <span key={delay} className="h-2 w-2 animate-bounce rounded-full bg-slate-400" style={{ animationDelay: `${delay}ms`, animationDuration: '1s' }} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function Message({ msg, onFlag }) {
   const [showTrace, setShowTrace] = useState(false);
   const isUser = msg.role === 'user';
@@ -68,7 +81,7 @@ export function LiveChatPlayground({ liveChat }) {
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, sending]);
 
   const submit = () => {
     if (!input.trim()) return;
@@ -159,6 +172,7 @@ export function LiveChatPlayground({ liveChat }) {
         {messages.map((m, i) => (
           <Message key={i} msg={m} onFlag={setFlagTarget} />
         ))}
+        {sending && <TypingBubble />}
       </div>
 
       <div className="relative flex min-w-0 items-center gap-2 border-t border-slate-200/80 px-4 py-3 max-md:px-3">

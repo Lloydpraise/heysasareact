@@ -40,7 +40,7 @@ export default function DailyMode({ businessId, connected, status, onRetrySetup 
   );
 
   return (
-    <div className="mx-auto max-w-6xl space-y-4 py-4">
+    <div className="mx-auto w-full max-w-6xl space-y-4">
       <Safe><HomeHeader connected={connected} /></Safe>
       <Safe><ResultsStrip results={results} /></Safe>
 

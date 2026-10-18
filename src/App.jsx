@@ -17,6 +17,8 @@ import LandingPage from './components/landing/LandingPage';
 import PricingPage from './components/landing/PricingPage';
 import PolicyPage from './components/policies/PolicyPage';
 import { useAuth } from './context/useAuth';
+import { useSetupStatus } from './hooks/useSetupStatus';
+import { isOnboarding } from './components/home/setupGate';
 
 function tabFromPath(path) {
   if (path.includes('/leads')) return 'leads';
@@ -64,6 +66,10 @@ class WorkspaceErrorBoundary extends Component {
 function AuthenticatedApp() {
   const { activeBusinessId } = useAuth();
   const isMobile = useIsMobile();
+  // One setup check for the whole app: Home shows it, and until it is finished the sidebar stays locked.
+  const setup = useSetupStatus(activeBusinessId);
+  const locked = isOnboarding(setup.status);
+  const [celebrate, setCelebrate] = useState(false);   // set when the owner finishes setup, so the sidebar can pop open
   const [preferencesSection, setPreferencesSection] = useState('followup');
   // On phones Preferences opens as a section list; this flag skips the list when
   // another screen deep-links straight into one section (e.g. Business settings).
@@ -91,10 +97,14 @@ function AuthenticatedApp() {
     return () => window.removeEventListener('popstate', syncTab);
   }, []);
 
+  // While locked, only Home (and Preferences, which Home itself links to for billing and WhatsApp) can be shown,
+  // even if the owner typed another address.
+  const shownTab = locked && activeTab !== 'home' && activeTab !== 'preferences' ? 'home' : activeTab;
+
   const renderMainContent = () => {
-    switch (activeTab) {
+    switch (shownTab) {
       case 'home':
-        return <HomePage />;
+        return <HomePage setup={setup} onFinish={() => setCelebrate(true)} />;
       case 'leads':
         return <LeadsPage leadRequest={leadRequest} onLeadRequestHandled={clearLeadRequest} />;
       case 'lists-campaigns':
@@ -108,7 +118,7 @@ function AuthenticatedApp() {
       case 'products':
         return <ProductsPage />;
       default:
-        return <HomePage />;
+        return <HomePage setup={setup} onFinish={() => setCelebrate(true)} />;
     }
   };
 
@@ -182,8 +192,8 @@ function AuthenticatedApp() {
 
   const Shell = isMobile ? MobileShell : AppShell;
   return (
-    <AssistantProvider businessId={activeBusinessId} page={activeTab}>
-      <Shell activeTab={activeTab} setActiveTab={handleTabChange} onBusinessClick={openBusinessSettings}>{renderMainContent()}</Shell>
+    <AssistantProvider businessId={activeBusinessId} page={shownTab}>
+      <Shell activeTab={shownTab} setActiveTab={handleTabChange} onBusinessClick={openBusinessSettings} locked={locked} celebrate={celebrate}>{renderMainContent()}</Shell>
     </AssistantProvider>
   );
 }

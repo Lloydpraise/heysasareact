@@ -10,6 +10,7 @@ import {
   Home,
   LayoutGrid,
   Loader2,
+  Lock,
   LogOut,
   Megaphone,
   Moon,
@@ -20,10 +21,10 @@ import {
   Sun,
   Users,
 } from 'lucide-react';
-import logo from '../../assets/images/heysasalogo.png';
+import AskHeySasaLogo from '../layout/AskHeySasaLogo';
+import '../layout/navLock.css';
 import { useAuth } from '../../context/useAuth';
 import { useTheme } from '../../context/useTheme';
-import { useAssistant } from '../../context/useAssistant';
 import { useBusinessList } from '../../hooks/useBusinessList';
 import { getBusinessDisplayName } from '../../utils/businessHelpers';
 import BottomSheet, { SheetRow } from './BottomSheet';
@@ -45,9 +46,9 @@ const inputClass = 'h-12 w-full rounded-xl border border-slate-200 bg-slate-50 p
 
 // Phone layout: slim top bar + bottom tab bar. The page components themselves
 // are the same ones the desktop shell renders. Only the chrome is different.
-export default function MobileShell({ activeTab, setActiveTab, onBusinessClick, children }) {
+// `locked`: setup is not finished, so only Home is open. `celebrate`: setup was just finished, so the tabs pop open.
+export default function MobileShell({ activeTab, setActiveTab, onBusinessClick, locked = false, celebrate = false, children }) {
   const { user, signOut, updatePassword, switchBusiness, addBusiness } = useAuth();
-  const { open: openAssistant } = useAssistant();
   const { isDark, toggleTheme } = useTheme();
   const { businesses, loading, error, activeBusiness, displayName, activeBusinessId } = useBusinessList();
 
@@ -91,6 +92,7 @@ export default function MobileShell({ activeTab, setActiveTab, onBusinessClick, 
   }, [isDark]);
 
   const goTo = (id) => {
+    if (locked && id !== 'home') return;   // closed until setup is finished
     if (id !== activeTab) navigator.vibrate?.(6);
     setMoreOpen(false);
     setActiveTab(id);
@@ -150,15 +152,11 @@ export default function MobileShell({ activeTab, setActiveTab, onBusinessClick, 
             </span>
             <ChevronDown size={15} className="shrink-0 text-slate-400" />
           </button>
-          <button
-            type="button"
-            onClick={() => openAssistant({ surface: 'general', title: 'Ask HeySasa' })}
-            aria-label="Open Ask HeySasa"
-            title="Ask HeySasa"
-            className="flex h-10 shrink-0 items-center rounded-lg transition hover:bg-slate-100 active:scale-[0.98]"
-          >
-            <img src={logo} alt="HeySasa" className="h-8 w-24 object-contain" />
-          </button>
+          <AskHeySasaLogo
+            pulse={activeTab === 'home' && !locked}
+            className="flex h-10 items-center rounded-lg transition hover:bg-slate-100 active:scale-[0.98]"
+            imgClassName="h-8 w-24 object-contain"
+          />
         </div>
       </header>
 
@@ -186,20 +184,26 @@ export default function MobileShell({ activeTab, setActiveTab, onBusinessClick, 
 
           {TABS.map(({ id, label, icon: Icon }, index) => {
             const active = activeIndex === index;
+            const closed = locked && id !== 'home';
             return (
               <button
                 key={id}
                 type="button"
                 onClick={() => goTo(id)}
                 aria-current={active ? 'page' : undefined}
-                className="relative flex flex-col items-center pt-[7px]"
+                aria-disabled={closed || undefined}
+                className={`relative flex flex-col items-center pt-[7px] ${closed ? 'opacity-45' : ''}`}
               >
-                <span className="flex h-8 w-16 items-center justify-center">
+                <span
+                  style={celebrate && !closed ? { animationDelay: `${index * 90}ms` } : undefined}
+                  className={`relative flex h-8 w-16 items-center justify-center rounded-full ${celebrate && !closed ? 'nav-unlock' : ''}`}
+                >
                   <Icon
                     size={21}
                     strokeWidth={active ? 2.5 : 2}
                     className={`transition-all duration-300 ${active ? 'scale-110 text-[#1f8d3d]' : 'text-slate-500'}`}
                   />
+                  {closed && <Lock size={10} aria-hidden="true" className="absolute right-3.5 top-0.5 text-slate-600" />}
                 </span>
                 <span className={`mt-0.5 text-[11px] leading-none transition-colors duration-300 ${active ? 'font-bold text-[#1f8d3d]' : 'font-medium text-slate-500'}`}>{label}</span>
               </button>
@@ -241,10 +245,10 @@ export default function MobileShell({ activeTab, setActiveTab, onBusinessClick, 
               key={id}
               icon={icon}
               label={label}
-              hint={hint}
+              hint={locked ? 'Opens when your setup is done' : hint}
               active={activeTab === id}
               onClick={() => goTo(id)}
-              trailing={<ChevronRight size={18} className="text-slate-300" />}
+              trailing={locked ? <Lock size={16} className="text-slate-400" /> : <ChevronRight size={18} className="text-slate-300" />}
             />
           ))}
         </div>
