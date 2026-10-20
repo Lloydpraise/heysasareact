@@ -50,10 +50,13 @@ export default function PlaygroundPage({ businessId }) {
       .then(({ count }) => setProductCount(count));
   }, [businessId]);
 
+  // The test chat runs edge to edge, right up under the tab row; the other sections keep their padded card.
+  const flush = activeSection === 'test';
+
   const renderSection = () => {
     switch (activeSection) {
       case 'test':
-        return <TestSection businessId={businessId} personaPack={personaPack} liveChat={liveChat} showToast={showToast} isAuthenticated={Boolean(user)} />;
+        return <TestSection businessId={businessId} personaPack={personaPack} liveChat={liveChat} showToast={showToast} isAuthenticated={Boolean(user)} onRegenerate={handleGeneratePersona} isRegenerating={isGeneratingPersona} />;
       case 'replay':
         return <ReplaySection businessId={businessId} liveChat={liveChat} />;
       case 'skills':
@@ -69,7 +72,7 @@ export default function PlaygroundPage({ businessId }) {
           />
         );
       default:
-        return <TestSection businessId={businessId} personaPack={personaPack} liveChat={liveChat} showToast={showToast} isAuthenticated={Boolean(user)} />;
+        return <TestSection businessId={businessId} personaPack={personaPack} liveChat={liveChat} showToast={showToast} isAuthenticated={Boolean(user)} onRegenerate={handleGeneratePersona} isRegenerating={isGeneratingPersona} />;
     }
   };
 
@@ -79,20 +82,18 @@ export default function PlaygroundPage({ businessId }) {
         activeSection={activeSection}
         setActiveSection={setActiveSection}
         productCount={productCount}
-        onGeneratePersona={handleGeneratePersona}
-        isGeneratingPersona={isGeneratingPersona}
       />
 
       <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
-        <div className="flex h-full min-h-0 min-w-0 flex-col p-2 sm:p-3 md:p-4 max-md:px-3 max-md:pb-2 max-md:pt-3">
+        <div className={`flex h-full min-h-0 min-w-0 flex-col max-md:px-3 max-md:pb-2 max-md:pt-3 ${flush ? 'md:p-0' : 'p-2 sm:p-3 md:p-4'}`}>
           {!personaPack.pack && (
-            <div className={activeSection === 'test' ? 'max-md:hidden' : ''}>
+            <div className={activeSection === 'test' ? 'max-md:hidden md:p-4 md:pb-0' : ''}>
             <NotificationStrip action="Generate New AI Persona" onAction={handleGeneratePersona}>
               To personalize your AI, a detailed persona pack is needed. Generate it automatically here.
             </NotificationStrip>
             </div>
           )}
-          <section className="mx-auto flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden rounded-[1.5rem] border border-white/80 bg-white/70 p-3 shadow-xl shadow-[#28A745]/5 backdrop-blur-xl sm:p-4 lg:p-5 max-md:rounded-none max-md:border-0 max-md:bg-transparent max-md:p-0 max-md:shadow-none max-md:backdrop-blur-none">
+          <section className={`mx-auto flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden ${flush ? 'md:rounded-none md:border-0 md:bg-transparent md:p-0 md:shadow-none' : 'rounded-[1.5rem] border border-white/80 bg-white/70 p-3 shadow-xl shadow-[#28A745]/5 backdrop-blur-xl sm:p-4 lg:p-5'} max-md:rounded-none max-md:border-0 max-md:bg-transparent max-md:p-0 max-md:shadow-none max-md:backdrop-blur-none`}>
             {renderSection()}
           </section>
         </div>

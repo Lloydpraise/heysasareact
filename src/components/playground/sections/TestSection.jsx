@@ -3,8 +3,9 @@ import { Bot, MessageSquare } from 'lucide-react';
 import { useIsMobile } from '../../../hooks/useIsMobile';
 import { PersonaPackEditor } from '../PersonaPackEditor';
 import { LiveChatPlayground } from '../LiveChatPlayground';
+import PlaygroundMenu from '../PlaygroundMenu';
 
-function PersonaPackScaffold() {
+function PersonaPackScaffold({ menu }) {
   const [activeTab, setActiveTab] = useState('Voice & Tone');
 
   return (
@@ -20,6 +21,7 @@ function PersonaPackScaffold() {
             {label}
           </button>
         ))}
+        {menu && <div className="ml-auto shrink-0 pb-1 pl-2">{menu}</div>}
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
         <div className="space-y-4">
@@ -40,20 +42,29 @@ function PersonaPackScaffold() {
   );
 }
 
-export function TestSection({ businessId, personaPack, liveChat, showToast, isAuthenticated }) {
+export function TestSection({ businessId, personaPack, liveChat, showToast, isAuthenticated, onRegenerate, isRegenerating }) {
   const isMobile = useIsMobile();
   const [pane, setPane] = useState('chat');
 
+  // Regenerate, PDF and the chat's own tools: one "..." menu, between the persona pack and the chat.
+  const menu = (
+    <PlaygroundMenu
+      businessId={businessId} pack={personaPack.pack} isAuthenticated={isAuthenticated} showToast={showToast}
+      onRegenerate={onRegenerate} isRegenerating={isRegenerating} liveChat={liveChat}
+    />
+  );
+
   const persona = personaPack.pack
-    ? <PersonaPackEditor businessId={businessId} personaPack={personaPack} showToast={showToast} isAuthenticated={isAuthenticated} />
-    : <PersonaPackScaffold />;
+    ? <PersonaPackEditor businessId={businessId} personaPack={personaPack} showToast={showToast} menu={isMobile ? null : menu} />
+    : <PersonaPackScaffold menu={isMobile ? null : menu} />;
 
   // Phones: one pane at a time with a segmented switch, instead of squeezing the
   // persona editor and the test chat into the same small screen.
   if (isMobile) {
     return (
       <div className="flex min-h-0 flex-1 flex-col gap-3">
-        <div className="grid shrink-0 grid-cols-2 gap-1 rounded-2xl bg-slate-100 p-1" role="tablist" aria-label="Playground view">
+        <div className="flex shrink-0 items-center gap-2">
+        <div className="grid min-w-0 flex-1 grid-cols-2 gap-1 rounded-2xl bg-slate-100 p-1" role="tablist" aria-label="Playground view">
           {[['chat', 'Test chat', MessageSquare], ['persona', 'AI persona', Bot]].map(([id, label, Icon]) => (
             <button
               key={id}
@@ -67,6 +78,8 @@ export function TestSection({ businessId, personaPack, liveChat, showToast, isAu
             </button>
           ))}
         </div>
+        {menu}
+        </div>
         <div key={pane} className="m-page-in min-h-0 flex-1">
           {pane === 'chat' ? <LiveChatPlayground liveChat={liveChat} /> : persona}
         </div>
@@ -75,8 +88,8 @@ export function TestSection({ businessId, personaPack, liveChat, showToast, isAu
   }
 
   return (
-    <div className="grid min-h-0 flex-1 grid-cols-1 items-stretch gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(18rem,1fr)]">
-      {persona}
+    <div className="grid min-h-0 flex-1 grid-cols-1 items-stretch lg:grid-cols-[minmax(0,2fr)_minmax(18rem,1fr)]">
+      <div className="min-h-0 min-w-0 p-4">{persona}</div>
       <LiveChatPlayground liveChat={liveChat} />
     </div>
   );

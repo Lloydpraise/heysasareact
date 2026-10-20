@@ -47,6 +47,9 @@ export async function sendTestMessage({ text, history = [], businessId, contact 
     error: body.error,
     skipReason: body.skip_reason,
     handoff: body.handoff,
+    // What would have gone out besides the written reply (product photos, images from the business files), and who a handoff would alert.
+    outbox: Array.isArray(body.outbox) ? body.outbox.filter((o) => o?.media?.url).map((o) => ({ url: o.media.url, caption: o.media.caption || '' })) : [],
+    handoffAlert: body.handoff_alert || null,
     flow: body.flow,
     skillsLoaded: body.skills_loaded || [],
     thoughts: body.thoughts || '',

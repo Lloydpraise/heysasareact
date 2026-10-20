@@ -4,6 +4,7 @@ import { useHomeResults } from '../../hooks/useHomeResults';
 import { getHomeSummary } from '../../services/setupService';
 import ApprovalsCard from './ApprovalsCard';
 import DoMoreCards from './DoMoreCards';
+import HandoffsCard from './HandoffsCard';
 import HomeHeader from './HomeHeader';
 import ResultsStrip from './ResultsStrip';
 import RightNowCard from './RightNowCard';
@@ -48,6 +49,8 @@ export default function DailyMode({ businessId, connected, status, onRetrySetup 
         <Safe><YourMoveCard moves={moves} loaded={summary !== null || moves.length > 0} /></Safe>
         <Safe><RightNowCard summary={summary} connected={connected} /></Safe>
       </div>
+
+      <Safe><HandoffsCard businessId={businessId} /></Safe>
 
       <div id="home-approvals" className="scroll-mt-4">
         <Safe><ApprovalsCard businessId={businessId} onChanged={loadSummary} /></Safe>

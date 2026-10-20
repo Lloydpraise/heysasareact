@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, ChevronDown, ChevronUp, Zap, Flag, RotateCcw, MoreVertical } from 'lucide-react';
-import { STRESS_TEST_SCENARIOS } from '../../constants/playgroundConfig';
+import { Send, ChevronDown, ChevronUp, Zap, Flag, ImageOff, UserRound } from 'lucide-react';
 
 const TIER_LABELS = { intelligent: 'Intelligent', medium: 'Medium', fast: 'Fast' };
 const TIER_COLORS = { intelligent: '#28A745', medium: '#FF8C00', fast: '#94A3B8' };
@@ -32,11 +31,30 @@ function TypingBubble() {
   );
 }
 
+// A photo the AI sent (a product, or an image from the business files). Signed links expire, so a dead one says so.
+function ImageBubble({ image }) {
+  const [broken, setBroken] = useState(false);
+  return (
+    <div className="mb-1.5 flex justify-start">
+      <div className="max-w-[75%] overflow-hidden rounded-2xl rounded-bl-sm border border-slate-200/80 bg-white shadow-sm max-md:max-w-[88%]">
+        {broken ? (
+          <div className="flex h-24 w-44 items-center justify-center gap-1.5 bg-slate-50 text-xs text-slate-400"><ImageOff size={14} /> Image link expired</div>
+        ) : (
+          <img src={image.url} alt={image.caption || 'Image sent by the AI'} loading="lazy" onError={() => setBroken(true)} className="max-h-72 w-full object-cover" />
+        )}
+        {image.caption && <p className="whitespace-pre-wrap px-3 py-2 text-[13px] text-[#0F172A]">{image.caption}</p>}
+      </div>
+    </div>
+  );
+}
+
 function Message({ msg, onFlag }) {
   const [showTrace, setShowTrace] = useState(false);
   const isUser = msg.role === 'user';
 
   return (
+    <>
+    {!isUser && msg.outbox?.length > 0 && <div className="mb-1">{msg.outbox.map((img, i) => <ImageBubble key={`${img.url}-${i}`} image={img} />)}</div>}
     <div className={`mb-3 flex ${isUser ? 'justify-end' : 'justify-start'}`}>
       <div className={`max-w-[75%] max-md:max-w-[88%] ${isUser ? 'order-2' : ''}`}>
         <div
@@ -64,19 +82,23 @@ function Message({ msg, onFlag }) {
             </button>
           </div>
         )}
+        {msg.handoff && msg.handoffAlert?.recipients && (
+          <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-amber-800">
+            <UserRound size={11} /> {msg.handoffAlert.recipients.length ? `Would alert ${msg.handoffAlert.recipients.map((r) => r.name).join(', ')}` : 'Handed over, no alerts number set'}
+          </p>
+        )}
         {showTrace && <TracePanel trace={msg.trace} />}
       </div>
     </div>
+    </>
   );
 }
 
 export function LiveChatPlayground({ liveChat }) {
-  const { messages, send, runScript, sending, tierPreference, setTierPreference, reset, flag } = liveChat;
+  const { messages, send, sending, flag } = liveChat;
   const [input, setInput] = useState('');
   const [flagTarget, setFlagTarget] = useState(null);
   const [flagText, setFlagText] = useState('');
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [detailOpen, setDetailOpen] = useState(null);
   const scrollRef = useRef(null);
 
   useEffect(() => {
@@ -95,80 +117,10 @@ export function LiveChatPlayground({ liveChat }) {
     setFlagText('');
   };
 
-  const openDetail = (detail) => {
-    setDetailOpen((current) => (current === detail ? null : detail));
-  };
-
   return (
-    <div className="relative flex h-full min-h-[32rem] min-w-0 flex-col max-md:min-h-0 overflow-hidden rounded-[1.25rem] border border-white/80 bg-white/70 shadow-lg shadow-[#28A745]/5 backdrop-blur-xl lg:min-h-0">
-      <div className="relative flex shrink-0 justify-end border-b border-slate-200/80 px-3 py-2">
-        <button
-          type="button"
-          onClick={() => setMenuOpen((open) => !open)}
-          aria-label="Open chat options"
-          aria-expanded={menuOpen}
-          className={`flex h-8 w-8 items-center justify-center rounded-lg border text-[#64748B] max-md:h-11 max-md:w-11 max-md:rounded-full transition hover:border-[#28A745]/40 hover:text-[#1f8d3d] ${menuOpen ? 'border-[#28A745]/40 bg-[#28A745]/10' : 'border-transparent hover:bg-slate-50'}`}
-        >
-          <MoreVertical size={16} />
-        </button>
-        {menuOpen && (
-          <div className="absolute right-3 top-full z-20 mt-1 w-[min(18rem,calc(100%-1.5rem))] rounded-2xl border border-slate-200/80 bg-white p-2 shadow-xl shadow-slate-900/10">
-            <div className="flex gap-1 border-b border-slate-100 pb-2">
-              <button
-                type="button"
-                onClick={() => openDetail('model')}
-                className={`flex-1 rounded-lg px-2 py-1.5 text-xs font-semibold ${detailOpen === 'model' ? 'bg-[#28A745]/10 text-[#1f8d3d]' : 'text-[#64748B] hover:bg-slate-50'}`}
-              >
-                Model Type
-              </button>
-              <button
-                type="button"
-                onClick={() => openDetail('objections')}
-                className={`flex-1 rounded-lg px-2 py-1.5 text-xs font-semibold ${detailOpen === 'objections' ? 'bg-[#28A745]/10 text-[#1f8d3d]' : 'text-[#64748B] hover:bg-slate-50'}`}
-              >
-                Objections
-              </button>
-              <button type="button" onClick={reset} aria-label="New test conversation" className="flex h-7 w-7 items-center justify-center rounded-lg text-[#94A3B8] hover:bg-slate-50 hover:text-[#64748B]">
-                <RotateCcw size={12} />
-              </button>
-            </div>
-
-            {detailOpen === 'model' && (
-              <div className="flex flex-wrap gap-1.5 pt-2">
-                {Object.entries(TIER_LABELS).map(([key, label]) => (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => setTierPreference(key)}
-                    className="rounded-full px-2.5 py-1 text-xs font-medium transition-colors"
-                    style={tierPreference === key ? { backgroundColor: TIER_COLORS[key], color: 'white' } : { backgroundColor: 'var(--chart-track)', color: 'var(--color-slate-500)' }}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {detailOpen === 'objections' && (
-              <div className="flex max-h-40 flex-wrap gap-1.5 overflow-y-auto pt-2">
-                {STRESS_TEST_SCENARIOS.map((scenario) => (
-                  <button
-                    key={scenario.id}
-                    type="button"
-                    onClick={() => runScript(scenario.messages)}
-                    disabled={sending}
-                    className="rounded-full border border-slate-200/80 bg-white/80 px-2.5 py-1 text-xs max-md:px-3.5 max-md:py-2.5 max-md:text-[13.5px] text-[#64748B] hover:border-[#28A745]/40 hover:text-[#1f8d3d] disabled:opacity-40"
-                  >
-                    {scenario.label}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+    <div className="relative flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-white/60 max-md:rounded-[1.25rem] max-md:border max-md:border-white/80 max-md:shadow-lg max-md:shadow-[#28A745]/5 md:border-l md:border-slate-200/80">
       <div ref={scrollRef} className="flex-1 overflow-y-auto overscroll-contain px-5 py-4 max-md:px-3">
-        {messages.length === 0 && <p className="mx-auto mt-6 max-w-[16rem] text-center text-xs leading-5 text-[#94A3B8]">Send a message or run a scenario above — nothing here reaches a real customer.</p>}
+        {messages.length === 0 && <p className="mx-auto mt-6 max-w-[16rem] text-center text-xs leading-5 text-[#94A3B8]">Write as a customer would. Nothing here reaches a real person.</p>}
         {messages.map((m, i) => (
           <Message key={i} msg={m} onFlag={setFlagTarget} />
         ))}
@@ -189,7 +141,7 @@ export function LiveChatPlayground({ liveChat }) {
       </div>
 
       {flagTarget && (
-        <div className="absolute inset-0 flex items-center justify-center rounded-[1.25rem] bg-black/30">
+        <div className="absolute inset-0 flex items-center justify-center bg-black/30">
           <div className="w-80 max-w-[calc(100%-2rem)] rounded-2xl bg-white p-5 shadow-lg">
             <p className="mb-2 text-sm font-medium text-[#0F172A]">What felt off about this reply?</p>
             <textarea

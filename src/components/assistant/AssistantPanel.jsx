@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ArrowLeft, ChevronDown, History, ListChecks, Loader2, Plus, RotateCcw, Send, X } from 'lucide-react';
+import { ArrowLeft, ChevronDown, History, ListChecks, Loader2, Plus, RotateCcw, Send, Settings, X } from 'lucide-react';
 import { approveMessage, fetchPendingActions, getConversation, listConversations, streamChat } from '../../services/assistantService';
 import { SURFACE_LABEL, SURFACE_UI } from './assistantConfig';
 import DraftCard, { WritingDraft } from './DraftCard';
-import ActionCard from './ActionCard';
+import ActionCard, { Pill } from './ActionCard';
 import GuideCard from './GuideCard';
 import ActivityView from './ActivityView';
 import assistantIcon from '../../assets/images/favicon.ico';
@@ -25,6 +25,18 @@ const timeAgo = (iso) => {
   return new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 };
 
+// "Chatting ..." with three softly pulsing dots. Not a spinner: it reads as someone typing back.
+function ChattingDots({ label = 'Chatting' }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 text-slate-400" role="status" aria-label={label}>
+      <span className="text-[13px]">{label}</span>
+      <span className="inline-flex items-center gap-[3px]" aria-hidden="true">
+        {[0, 160, 320].map((d) => <span key={d} className="h-1.5 w-1.5 animate-pulse rounded-full bg-slate-400" style={{ animationDelay: `${d}ms`, animationDuration: '1.1s' }} />)}
+      </span>
+    </span>
+  );
+}
+
 // Ask HeySasa: a docked right-hand chat (full-screen overlay on phones). The owner types a rough idea, the AI writes the copy,
 // they go back and forth, then Approve pastes the draft into the box the panel was opened from.
 export default function AssistantPanel({ businessId, target, onClose, isMobile, minimized = false, onMinimize = () => {}, onBadge = () => {}, pageLabel = '', goTo = () => {} }) {
@@ -40,7 +52,6 @@ export default function AssistantPanel({ businessId, target, onClose, isMobile, 
   const [writingDraft, setWritingDraft] = useState(false);
   const [error, setError] = useState('');
   const [failedText, setFailedText] = useState('');
-  const [resumed, setResumed] = useState(false);
   const [history, setHistory] = useState(null);
   const [historyError, setHistoryError] = useState('');
   const [closing, setClosing] = useState(false);
@@ -59,23 +70,7 @@ export default function AssistantPanel({ businessId, target, onClose, isMobile, 
 
   useEffect(() => () => abortRef.current?.abort(), []);
 
-  // Reopening the same box resumes the last conversation for it.
-  useEffect(() => {
-    if (!target.contextKey) return undefined;
-    let cancelled = false;
-    (async () => {
-      try {
-        const [latest] = await listConversations(businessId, { contextKey: target.contextKey, limit: 1 });
-        if (!latest || cancelled) return;
-        const full = await getConversation(businessId, latest.id);
-        if (cancelled) return;
-        setConversationId(full.conversation.id);
-        setMessages(withActions(full));
-        setResumed(true);
-      } catch { /* resuming is a nicety; start fresh if it fails */ }
-    })();
-    return () => { cancelled = true; };
-  }, [businessId, target.contextKey]);
+  // Always opens on a fresh chat. Older chats come back only when the owner picks one from the History button.
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
@@ -83,7 +78,7 @@ export default function AssistantPanel({ businessId, target, onClose, isMobile, 
 
   const startNew = () => {
     abortRef.current?.abort();
-    setConversationId(null); setMessages([]); setError(''); setFailedText(''); setResumed(false); setBusy(false); setStatus(''); setWritingDraft(false); setView('chat');
+    setConversationId(null); setMessages([]); setError(''); setFailedText(''); setBusy(false); setStatus(''); setWritingDraft(false); setView('chat');
   };
 
   const openHistory = async () => {
@@ -97,14 +92,13 @@ export default function AssistantPanel({ businessId, target, onClose, isMobile, 
       const full = await getConversation(businessId, id);
       setConversationId(full.conversation.id);
       setMessages(withActions(full));
-      setResumed(false);
     } catch (e) { setError(e.message); }
   };
 
   const send = async (raw, retry = false) => {
     const text = (raw ?? '').trim();
     if (!text || busy) return;
-    setError(''); setFailedText(''); setInput(''); setBusy(true); setStatus(''); setWritingDraft(false); setResumed(false);
+    setError(''); setFailedText(''); setInput(''); setBusy(true); setStatus(''); setWritingDraft(false);
     setMessages((m) => {
       const without = m.filter((x) => x.id !== PENDING);
       return [...without, ...(retry ? [] : [{ id: `u-${Date.now()}`, role: 'user', content: text }]), { id: PENDING, role: 'assistant', content: '', streaming: true }];
@@ -187,8 +181,8 @@ export default function AssistantPanel({ businessId, target, onClose, isMobile, 
             <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#28A745]/10"><img src={assistantIcon} alt="" className="h-6 w-6 object-contain" /></span>
           )}
           <div className="min-w-0 flex-1">
-            <h2 className="truncate text-[15px] font-bold text-slate-900">{view === 'history' ? 'Past chats' : view === 'activity' ? 'What I have done' : 'Ask HeySasa'}</h2>
-            <p className="truncate text-[12px] text-slate-500">{view === 'history' ? 'Pick one to continue it' : view === 'activity' ? 'Every change I made for you' : (target.title || ui.title)}</p>
+            <h2 className="truncate text-[15px] font-bold leading-tight text-slate-900">{view === 'history' ? 'Past chats' : view === 'activity' ? 'What I did' : 'Ask HeySasa'}</h2>
+            {view === 'chat' && surface !== 'general' && <p className="truncate text-[11.5px] leading-tight text-slate-500">{target.title || ui.title}</p>}
           </div>
           {view === 'chat' && (
             <>
@@ -197,6 +191,7 @@ export default function AssistantPanel({ businessId, target, onClose, isMobile, 
               <button type="button" onClick={() => setView('activity')} aria-label="What I have done" title="What I have done" className="relative flex h-10 w-10 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100"><ListChecks size={19} />{pendingCount > 0 && <span className="absolute right-1 top-1 h-2.5 w-2.5 rounded-full bg-amber-500" />}</button>
             </>
           )}
+          <button type="button" onClick={() => goTo({ tab: 'preferences', section: 'assistant' })} aria-label="Ask HeySasa settings" title="Ask HeySasa settings" className="flex h-10 w-10 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100"><Settings size={19} /></button>
           {isMobile && <button type="button" onClick={onMinimize} aria-label="Tuck away" title="Tuck away" className="flex h-10 w-10 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100"><ChevronDown size={20} /></button>}
           <button type="button" onClick={close} aria-label="Close" className="flex h-10 w-10 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100"><X size={20} /></button>
         </header>
@@ -218,21 +213,6 @@ export default function AssistantPanel({ businessId, target, onClose, isMobile, 
         ) : (
           <>
             <div ref={scrollRef} className="m-scroll min-h-0 flex-1 space-y-3 overflow-y-auto px-3 py-4">
-              {messages.length === 0 && (
-                <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
-                  <p className="font-semibold text-slate-800">{surface === 'general' ? 'Hi! I can look at your business and do things for you.' : "Tell me the rough idea. I'll write it."}</p>
-                  <p className="mt-1 text-[13px]">{surface === 'general' ? 'I can explain your numbers, find and group your leads, plan campaigns and change settings. I always show you what I will do and wait for your OK first.' : 'You can go back and forth until it sounds right, then press Approve to use it.'}</p>
-                  {ui.starters.length > 0 && (
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {ui.starters.map((s) => (
-                        <button key={s} type="button" onClick={() => { setInput(s); textareaRef.current?.focus(); }} className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-600 hover:border-[#28A745]/50">{s}</button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-              {resumed && messages.length > 0 && <p className="text-center text-[11px] text-slate-400">Continuing your last chat for this box</p>}
-
               {messages.map((m) => (
                 <div key={m.id} className={m.role === 'user' ? 'flex justify-end' : ''}>
                   {m.role === 'user' ? (
@@ -241,7 +221,7 @@ export default function AssistantPanel({ businessId, target, onClose, isMobile, 
                     <div className="max-w-[95%]">
                       {(m.content || m.streaming) && (
                         <p className="whitespace-pre-wrap rounded-2xl rounded-bl-md border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800">
-                          {m.content || <span className="inline-flex items-center gap-1.5 text-slate-400"><Loader2 size={13} className="animate-spin" /> {status || 'Thinking…'}</span>}
+                          {m.content || <ChattingDots label={status || 'Chatting'} />}
                         </p>
                       )}
                       {m.streaming && m.content && status && <p className="mt-1 text-[11px] text-slate-400">{status}</p>}
@@ -256,7 +236,7 @@ export default function AssistantPanel({ businessId, target, onClose, isMobile, 
 
               {orphans.length > 0 && (
                 <div className="max-w-[95%]">
-                  <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">Still waiting for your OK</p>
+                  <Pill tone="amber">Waiting for your OK</Pill>
                   {orphans.map((a) => <ActionCard key={a.id} businessId={businessId} action={viewOf(a)} onChange={onCardChange} onDecided={onDecided} />)}
                 </div>
               )}
@@ -272,6 +252,13 @@ export default function AssistantPanel({ businessId, target, onClose, isMobile, 
             </div>
 
             <div className="shrink-0 border-t border-slate-200 bg-white px-3 pt-2 pb-3 max-md:pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
+              {messages.length === 0 && ui.starters.length > 0 && (
+                <div className="mb-2 flex flex-wrap gap-1.5">
+                  {ui.starters.slice(0, 3).map((st) => (
+                    <button key={st} type="button" onClick={() => { setInput(st); textareaRef.current?.focus(); }} className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[12px] text-slate-600 transition hover:border-[#28A745]/50 hover:text-slate-900">{st}</button>
+                  ))}
+                </div>
+              )}
               {(hasDraft || target.currentText) && ui.chips.length > 0 && (
                 <div className="mb-2 flex gap-2 overflow-x-auto pb-1">
                   {ui.chips.map((chip) => (
@@ -285,12 +272,12 @@ export default function AssistantPanel({ businessId, target, onClose, isMobile, 
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={onKeyDown}
-                  rows={2}
+                  rows={1}
                   placeholder={hasDraft ? 'Ask for a change…' : ui.placeholder}
                   className="max-h-40 min-h-[48px] flex-1 resize-none rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-[#28A745] focus:bg-white"
                 />
                 <button type="button" onClick={() => send(input)} disabled={busy || !input.trim()} aria-label="Send" className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#28A745] text-white transition hover:bg-[#1f8d3d] disabled:opacity-40">
-                  {busy ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
+                  <Send size={18} />
                 </button>
               </div>
             </div>

@@ -97,6 +97,8 @@ export function useLiveChat(businessId) {
             skillsLoaded: json.skillsLoaded,
             holdingMessage: json.holdingMessage,
             handoff: json.handoff,
+            outbox: json.outbox,
+            handoffAlert: json.handoffAlert,
           },
         ]);
       } catch (err) {

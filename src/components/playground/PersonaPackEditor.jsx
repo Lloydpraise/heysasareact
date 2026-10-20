@@ -1,6 +1,8 @@
 import { useState } from 'react';
-import { FileDown, X, Plus, Save } from 'lucide-react';
-import { downloadPersonaPackPdf } from '../../utils/downloadPersonaPackPdf';
+import { X, Plus, Save } from 'lucide-react';
+import KnowledgeTab from './KnowledgeTab';
+import HandoffTab from './HandoffTab';
+import { useHandoffConfig } from '../../hooks/useHandoffConfig';
 
 const SENTIMENT_KEYS = ['positive', 'neutral', 'hesitant', 'price_resistant', 'time_poor', 'trust_deficit', 'negative', 'aggressive'];
 
@@ -11,6 +13,7 @@ const TABS = [
   { id: 'customer_profiles', label: 'Customer Profiles' },
   { id: 'sentiment_response_map', label: 'Sentiment' },
   { id: 'handoff_closing', label: 'Handoff & Closing' },
+  { id: 'knowledge', label: 'Knowledge' },   // not part of the pack: the business's own files, kept by the backend
 ];
 
 function TagList({ label, values = [], onChange, placeholder }) {
@@ -181,25 +184,36 @@ function SentimentSection({ data, onChange }) {
   );
 }
 
-export function PersonaPackEditor({ businessId, personaPack, showToast, isAuthenticated }) {
+export function PersonaPackEditor({ businessId, personaPack, showToast, menu = null }) {
   const { pack, version, updateField, saveSection, isSaving } = personaPack;
   const [activeTab, setActiveTab] = useState('persona');
   const [dirtyTabs, setDirtyTabs] = useState(new Set());
+  const handoff = useHandoffConfig(businessId);
 
   if (!pack) return null;
 
   const set = (key, val) => {
     updateField(key, val);
-    setDirtyTabs((prev) => new Set(prev).add(activeTab));
+    setDirtyTabs((prev) => {
+      const next = new Set(prev).add(activeTab);
+      if (activeTab === 'handoff_closing') next.add('handoff_pack');
+      return next;
+    });
   };
 
   const handleSave = async () => {
     const keys = activeTab === 'handoff_closing' ? ['closing_triggers', 'human_handoff_triggers'] : [activeTab];
-    const ok = await saveSection(keys);
+    if (activeTab === 'handoff_closing' && handoff.dirty) {
+      // The people and cases are saved by the backend, beside the pack. If they are not valid nothing else is saved either.
+      try { await handoff.save(); } catch (error) { showToast(error.message || 'Could not save who gets told.', 'error'); return; }
+    }
+    const packDirty = activeTab !== 'handoff_closing' || dirtyTabs.has('handoff_pack');
+    const ok = packDirty ? await saveSection(keys) : true;
     if (ok) {
       setDirtyTabs((prev) => {
         const next = new Set(prev);
         next.delete(activeTab);
+        next.delete('handoff_pack');
         return next;
       });
       const tabLabel = TABS.find((t) => t.id === activeTab)?.label ?? 'Persona pack';
@@ -209,20 +223,7 @@ export function PersonaPackEditor({ businessId, personaPack, showToast, isAuthen
     }
   };
 
-  const isDirty = dirtyTabs.has(activeTab);
-
-  const handleDownloadPdf = () => {
-    if (!isAuthenticated || !businessId) {
-      showToast(!isAuthenticated ? 'Sign in to download the persona pack.' : 'Business context is missing.', 'error');
-      return;
-    }
-    try {
-      downloadPersonaPackPdf(pack, businessId);
-      showToast('Persona pack PDF downloaded.');
-    } catch (error) {
-      showToast(error.message || 'Could not download the persona pack.', 'error');
-    }
-  };
+  const isDirty = dirtyTabs.has(activeTab) || (activeTab === 'handoff_closing' && handoff.dirty);
 
   return (
     <div className="flex h-full min-h-0 flex-col rounded-[1.25rem] border border-white/80 bg-white/70 shadow-lg shadow-[#28A745]/5 backdrop-blur-xl">
@@ -238,23 +239,14 @@ export function PersonaPackEditor({ businessId, personaPack, showToast, isAuthen
               }`}
             >
               {t.label}
-              {dirtyTabs.has(t.id) && <span className="ml-1.5 inline-block h-1.5 w-1.5 rounded-full bg-[#FF8C00]" />}
+              {(dirtyTabs.has(t.id) || (t.id === 'handoff_closing' && handoff.dirty)) && <span className="ml-1.5 inline-block h-1.5 w-1.5 rounded-full bg-[#FF8C00]" />}
             </button>
           ))}
           </div>
         </div>
-        <div className="flex shrink-0 items-center gap-2 pl-3">
-          <button
-            type="button"
-            onClick={handleDownloadPdf}
-            disabled={!isAuthenticated || !businessId}
-            title="Download this business persona pack as PDF"
-            className="inline-flex items-center gap-1 rounded-lg border border-[#28A745]/30 px-2 py-1.5 text-xs font-semibold text-[#218c3a] transition hover:bg-[#28A745]/5 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <FileDown size={14} />
-            PDF
-          </button>
+        <div className="flex shrink-0 items-center gap-1 pl-3">
           <span className="whitespace-nowrap text-xs text-[#94A3B8]">v{version}</span>
+          {menu}
         </div>
       </div>
 
@@ -293,13 +285,15 @@ export function PersonaPackEditor({ businessId, personaPack, showToast, isAuthen
         )}
         {activeTab === 'sentiment_response_map' && <SentimentSection data={pack.sentiment_response_map || {}} onChange={(v) => set('sentiment_response_map', v)} />}
         {activeTab === 'handoff_closing' && (
-          <div>
+          <HandoffTab businessId={businessId} handoff={handoff} showToast={showToast}>
             <TagList label="Closing triggers" values={pack.closing_triggers || []} onChange={(v) => set('closing_triggers', v)} placeholder="A signal the customer's ready to buy" />
             <TagList label="Human handoff triggers" values={pack.human_handoff_triggers || []} onChange={(v) => set('human_handoff_triggers', v)} placeholder="A signal to bring in a human" />
-          </div>
+          </HandoffTab>
         )}
+        {activeTab === 'knowledge' && <KnowledgeTab businessId={businessId} showToast={showToast} />}
       </div>
 
+      {activeTab !== 'knowledge' && (
       <div className="flex items-center justify-end gap-3 border-t border-slate-200/80 px-4 py-3">
         <button
           disabled={!isDirty || isSaving}
@@ -309,6 +303,7 @@ export function PersonaPackEditor({ businessId, personaPack, showToast, isAuthen
           <Save size={14} /> {isSaving ? 'Saving…' : 'Save this section'}
         </button>
       </div>
+      )}
     </div>
   );
 }
