@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Settings2, Sparkles } from 'lucide-react';
 import AnCard from '../../../analytics/shared/AnCard';
 import AutoCampaignModal from './AutoCampaignModal';
+import CampaignFunnel from './CampaignFunnel';
 import {
   activateAutoCampaign,
   fetchAutoCampaigns,
@@ -28,7 +29,7 @@ function spanLabel(steps) {
   return `${steps.length} message${steps.length === 1 ? '' : 's'}${days > 0 ? ` over ${days} day${days === 1 ? '' : 's'}` : ''}`;
 }
 
-export default function AutoCampaignsPanel({ businessId, onChanged, openRuleId = null, onOpenRuleHandled, onRuleMissing }) {
+export default function AutoCampaignsPanel({ businessId, onChanged, openRuleId = null, onOpenRuleHandled, onRuleMissing, campaigns = [], onViewResponders }) {
   const [items, setItems] = useState(null);
   const [selected, setSelected] = useState(null);
   const [busyRule, setBusyRule] = useState('');
@@ -113,7 +114,10 @@ export default function AutoCampaignsPanel({ businessId, onChanged, openRuleId =
       </p>
       {error && <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-600">{error}</p>}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {items.map((auto) => (
+        {items.map((auto) => {
+          // The live campaign behind this auto-list (if it has ever run) carries the results.
+          const results = auto.campaignId ? campaigns.find((campaign) => campaign.id === auto.campaignId) : null;
+          return (
           <AnCard key={auto.ruleId} className="flex flex-col gap-3 p-4">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
@@ -131,6 +135,7 @@ export default function AutoCampaignsPanel({ businessId, onChanged, openRuleId =
             <p className="text-[11px] text-slate-400">
               {spanLabel(auto.steps)} · {auto.readyCount} ready to enrol
             </p>
+            {results && <CampaignFunnel campaign={results} onViewResponders={onViewResponders} compact />}
             <div className="mt-auto flex items-center justify-between gap-2 pt-1">
               <button
                 type="button"
@@ -159,7 +164,8 @@ export default function AutoCampaignsPanel({ businessId, onChanged, openRuleId =
               </button>
             </div>
           </AnCard>
-        ))}
+          );
+        })}
       </div>
 
       <AutoCampaignModal

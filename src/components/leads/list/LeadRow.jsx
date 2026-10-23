@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Megaphone, Mic, Image as ImageIcon, MoreVertical, Pencil, ThumbsUp, Trash2, User } from 'lucide-react';
 import { useIsMobile } from '../../../hooks/useIsMobile';
 import BottomSheet, { SheetRow } from '../../mobile/BottomSheet';
+import IntentBadge from '../shared/IntentBadge';
 import {
   stateConfig,
   formatInterest,
@@ -13,7 +14,6 @@ import {
   getPhoneDisplay,
   isNameMissing,
   isNonCustomer,
-  unansweredCount,
   NON_CUSTOMER_LABELS,
 } from '../../../utils/leadHelpers';
 
@@ -23,7 +23,6 @@ function LeadRow({ lead, isActive, onClick, selectMode, selected, onToggleSelect
   const sc = stateConfig(lead.lead_state);
   const rr = lead.read_receipt ? readReceiptIcon(lead.read_receipt) : null;
   const isPersonal = isNonCustomer(lead);
-  const unanswered = unansweredCount(lead);
   const nameMissing = isNameMissing(lead);
   const isWon = lead.lead_state === 'won';
   const displayName = getLeadDisplayName(lead.name, lead.phone, lead);
@@ -72,16 +71,13 @@ function LeadRow({ lead, isActive, onClick, selectMode, selected, onToggleSelect
             <span className="truncate text-[13px] font-semibold text-slate-900 max-md:text-[15.5px]">{displayName}</span>
           )}
           <div className="flex flex-shrink-0 items-center gap-1.5">
-            {unanswered > 0 ? (
-              <span title={`${unanswered} unanswered on WhatsApp`} className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[#28A745] px-1 text-[10px] font-bold text-white max-md:h-5 max-md:min-w-[20px] max-md:text-[11.5px]">
-                {unanswered}
-              </span>
-            ) : rr ? (
+            {rr && (
               <span className={`text-[10px] font-semibold ${rr.colorClass}`} title={rr.title}>
                 {rr.glyph}
               </span>
-            ) : null}
+            )}
             <span className="text-[9.5px] font-medium text-slate-400 max-md:text-[12px]" title={lead.last_inbound_at ? `They last wrote ${formatDate(lead.last_inbound_at)}` : 'No message from them yet'}>{lead.last_inbound_at ? timeAgo(lead.last_inbound_at) : ''}</span>
+            {!isPersonal && <IntentBadge score={lead.intent_score} size="sm" showEmpty className="max-md:h-7 max-md:w-7 max-md:text-[11.5px]" />}
           </div>
         </div>
 
@@ -108,6 +104,13 @@ function LeadRow({ lead, isActive, onClick, selectMode, selected, onToggleSelect
         <div className="mt-1.5 flex flex-wrap items-center gap-1 max-md:mt-2 max-md:gap-1.5">
           {!isPersonal && <Tag className={isWon ? 'bg-[#28A745]/10 text-[#27500A]' : 'bg-slate-100 text-slate-600'}>{sc.label}</Tag>}
           {isPersonal && NON_CUSTOMER_LABELS[lead.lead_type] && <Tag className="bg-slate-100 text-slate-500">{NON_CUSTOMER_LABELS[lead.lead_type]}</Tag>}
+          {lead.campaign_response && (
+            <Tag className="bg-indigo-50 text-indigo-700">
+              <span title={`${lead.campaign_response.campaignName || 'A campaign'} \u00b7 ${lead.campaign_response.reacted && !lead.campaign_response.replied ? 'reacted' : 'replied'}`}>
+                {lead.campaign_response.reacted && !lead.campaign_response.replied ? (lead.campaign_response.emoji || '\u21a9') : '\u21a9'} Campaign reply &middot; {timeAgo(lead.campaign_response.at)}
+              </span>
+            </Tag>
+          )}
           {lead.is_ad_lead && (
             <Tag className="bg-slate-100 text-slate-600">
               <Megaphone size={9} className="inline -mt-px mr-0.5" /> Ad

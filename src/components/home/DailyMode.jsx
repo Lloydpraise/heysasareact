@@ -4,9 +4,8 @@ import { useHomeResults } from '../../hooks/useHomeResults';
 import { getHomeSummary } from '../../services/setupService';
 import ApprovalsCard from './ApprovalsCard';
 import DoMoreCards from './DoMoreCards';
-import HandoffsCard from './HandoffsCard';
 import HomeHeader from './HomeHeader';
-import ResultsStrip from './ResultsStrip';
+import ResultsLine from './ResultsLine';
 import RightNowCard from './RightNowCard';
 import Safe from './Safe';
 import SwitchesCard from './SwitchesCard';
@@ -15,8 +14,9 @@ import YourMoveCard from './YourMoveCard';
 import { buildMoves } from './buildMoves';
 import { normalizeSummary } from './normalizeSummary';
 
-// After setup, top to bottom: a greeting, what HeySasa earned for you, what you should do now, what HeySasa is doing,
-// what waits for your OK (with the pause switch always in view), who to talk to, then what else you could switch on.
+// After setup, top to bottom: a greeting, the one thing to do now, what HeySasa is doing (four small status pills),
+// one line of good news, what waits for your OK, who to talk to, then what else you could switch on.
+// Numbers and charts live in Analytics; Home is for action, so it carries no KPI tiles.
 // Every block is wrapped in <Safe>: if one ever fails, only that block disappears and the rest of Home keeps working.
 export default function DailyMode({ businessId, connected, status, onRetrySetup }) {
   const { overview, topUp, canTopUp } = useBilling(businessId);
@@ -41,16 +41,11 @@ export default function DailyMode({ businessId, connected, status, onRetrySetup 
   );
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-4">
+    <div className="mx-auto w-full max-w-4xl space-y-4">
       <Safe><HomeHeader connected={connected} /></Safe>
-      <Safe><ResultsStrip results={results} /></Safe>
-
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <Safe><YourMoveCard moves={moves} loaded={summary !== null || moves.length > 0} /></Safe>
-        <Safe><RightNowCard summary={summary} connected={connected} /></Safe>
-      </div>
-
-      <Safe><HandoffsCard businessId={businessId} /></Safe>
+      <Safe><YourMoveCard moves={moves} loaded={summary !== null || moves.length > 0} /></Safe>
+      <Safe><RightNowCard summary={summary} connected={connected} /></Safe>
+      <Safe><ResultsLine results={results} /></Safe>
 
       <div id="home-approvals" className="scroll-mt-4">
         <Safe><ApprovalsCard businessId={businessId} onChanged={loadSummary} /></Safe>

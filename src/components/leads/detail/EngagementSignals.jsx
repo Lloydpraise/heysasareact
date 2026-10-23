@@ -1,13 +1,13 @@
 import { Mic, Image, Smile } from 'lucide-react';
 import { timeAgo, intentTone, unansweredCount } from '../../../utils/leadHelpers';
 
-// The row of signal tiles right under "Let HeySasa do it": intent score (a coloured tile: green 80+, orange
-// 40-79, red below), last seen, last online, and how many of their messages are still waiting for a reply on
+// The row of signal tiles right under "Let HeySasa do it": intent score (a coloured tile: hot red 70+, medium
+// orange 40-69, cold blue below), last seen, last online, and how many of their messages are still waiting for a reply on
 // WhatsApp. Purely presentational, reads straight off the lead.
 const TILE_TONE = {
-  green: 'border-[#28A745] bg-[#28A745] text-white',
-  orange: 'border-[#FF8C00] bg-[#FF8C00] text-white',
-  red: 'border-red-500 bg-red-500 text-white',
+  hot: 'border-red-500 bg-red-500 text-white',
+  medium: 'border-[#FF8C00] bg-[#FF8C00] text-white',
+  cold: 'border-sky-500 bg-sky-500 text-white',
   none: 'border-slate-200 bg-white text-slate-800',
 };
 
@@ -46,7 +46,7 @@ export default function EngagementSignals({ lead }) {
   return (
     <div className="flex flex-wrap items-stretch gap-2 px-4 py-3 md:px-6">
       <div
-        title={hasScore ? `${tone.label} (${Math.round(Number(score))}/100)` : 'Not scored yet'}
+        title={hasScore ? `${tone.label} intent (${Math.round(Number(score))}/100)` : 'Not scored yet'}
         className={`flex min-w-[110px] flex-1 flex-col gap-1 rounded-xl border px-3 py-2 ${TILE_TONE[tone.key]}`}
       >
         <span className={`text-[10.5px] font-medium uppercase tracking-wide ${hasScore ? 'text-white/80' : 'text-slate-400'}`}>Intent score</span>

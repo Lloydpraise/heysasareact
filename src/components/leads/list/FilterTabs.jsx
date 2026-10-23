@@ -7,6 +7,7 @@ const STATES = [
   { id: 'all', label: 'All' },
   { id: 'hot', label: 'Hot', tone: 'hot' },
   { id: 'unread', label: 'Unreplied', tone: 'warn' },
+  { id: 'replied', label: 'Campaign replies', tone: 'reply' },
   { id: 'engaged', label: 'Engaged' },
   { id: 'warm', label: 'Warm' },
   { id: 'stalled', label: 'Going cold' },
@@ -35,7 +36,7 @@ export default function FilterTabs({
   return (
     <>
       <div className="flex snap-x items-stretch gap-1 overflow-x-auto pb-2 mb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden max-md:mb-0 max-md:scroll-px-4 max-md:gap-2 max-md:px-4 max-md:pb-3">
-        {STATES.map((s) => (
+        {STATES.filter((s) => s.id !== 'replied' || counts.replied > 0 || stateFilter === 'replied').map((s) => (
           <FilterChip
             key={s.id}
             active={s.id === 'all' ? allActive : stateFilter === s.id && typeFilter === 'all'}
@@ -122,7 +123,7 @@ export function ViewRuleBanner({ rule, label, campaign, onOpenCampaign, onClear,
 }
 
 function FilterChip({ active, onClick, children, count, tone }) {
-  const inactiveTone = tone === 'hot' ? 'bg-red-50 text-red-600 hover:bg-red-100' : tone === 'warn' ? 'bg-[#FFF7ED] text-[#c26a00] hover:bg-[#FFEDD5]' : 'bg-slate-100 text-slate-600 hover:bg-slate-200';
+  const inactiveTone = tone === 'hot' ? 'bg-red-50 text-red-600 hover:bg-red-100' : tone === 'warn' ? 'bg-[#FFF7ED] text-[#c26a00] hover:bg-[#FFEDD5]' : tone === 'reply' ? 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100' : 'bg-slate-100 text-slate-600 hover:bg-slate-200';
   return (
     <button
       type="button"

@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { fetchWhatsAppSessions } from './businessService';
-import { fetchManualListLeadIds, fetchLeadCampaignEnrollment } from './listsCampaignsService';
+import { fetchManualListLeadIds, fetchLeadCampaignEnrollment, fetchRecentCampaignResponderMap } from './listsCampaignsService';
 import { hasUnrepliedCustomerMessage } from '../utils/leadHelpers';
 
 const EVOLUTION_API_URL = (import.meta.env.VITE_EVOLUTION_API_URL || 'http://localhost:8080').replace(/\/$/, '');
@@ -305,10 +305,20 @@ async function fetchLiveLeads(businessId) {
       sessionIdsByContact.set(link.contact_id, current);
     });
 
+    // People who answered or reacted to a campaign message recently. Never allowed to break the Leads page:
+    // if this can't be read, leads simply load without the campaign-reply tag.
+    let campaignResponders = new Map();
+    try {
+      campaignResponders = await fetchRecentCampaignResponderMap(id);
+    } catch (responderError) {
+      console.warn('[leadsService] Campaign responders unavailable:', responderError.message);
+    }
+
     return leadsWithCampaigns.map((lead) => {
       const extra = extraById.get(lead.id) || {};
       return {
         ...lead,
+        campaign_response: campaignResponders.get(lead.id) || null,
         created_at: extra.created_at || lead.created_at,
         added_date: extra.added_date || lead.added_date,
         social_username: extra.social_username || lead.social_username,

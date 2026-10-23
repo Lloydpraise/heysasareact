@@ -29,6 +29,8 @@ import FilterTabs, { ViewRuleBanner } from './list/FilterTabs';
 import LeadRow from './list/LeadRow';
 import ListToolsMenu from './list/ListToolsMenu';
 import BulkBar from './list/BulkBar';
+import StartHere from './list/StartHere';
+import LeadsEmptyDetail from './detail/LeadsEmptyDetail';
 import DetailPanel from './detail/DetailPanel';
 import ChatDrawer from './drawers/ChatDrawer';
 import ApprovalDrawer from './drawers/ApprovalDrawer';
@@ -726,7 +728,10 @@ export default function LeadsPage({ leadRequest = null, onLeadRequestHandled }) 
       <div className={`flex min-h-0 w-full shrink-0 flex-col overflow-hidden border-b border-slate-200 bg-white/70 backdrop-blur-xl ${isDisconnected || showHistoryPrompt ? 'pt-16' : ''} md:w-[340px] md:min-w-[280px] md:max-w-[340px] md:border-b-0 md:border-r ${mobileDetailOpen ? 'hidden md:flex' : 'flex'}`}>
         <div ref={leadsScrollRootRef} className="min-h-0 flex-1 overflow-y-auto px-0 pt-3 md:px-3.5 md:pt-4">
           <div className="mb-3 flex items-center justify-between px-3 md:px-0">
-            <h2 className="text-lg font-bold tracking-tight text-slate-900">Leads</h2>
+            <div className="min-w-0">
+              <h2 className="text-lg font-bold tracking-tight text-slate-900">Leads</h2>
+              <p className="text-[11.5px] text-slate-400">People who messaged you</p>
+            </div>
             <div className="flex items-center gap-1.5">
               <button
                 type="button"
@@ -783,6 +788,8 @@ export default function LeadsPage({ leadRequest = null, onLeadRequestHandled }) 
               to approve
             </button>
           )}
+
+          {!isFiltered && !selectMode && <StartHere stats={stats} onSetStateFilter={handleStateFilter} />}
 
           <FilterTabs
             stateFilter={stateFilter}
@@ -903,13 +910,7 @@ export default function LeadsPage({ leadRequest = null, onLeadRequestHandled }) 
           {activeLead ? (
             <DetailPanel {...detailPanelProps} />
           ) : (
-            <div className="flex h-full items-center justify-start pl-[clamp(1.5rem,5vw,4rem)]">
-              <div className="flex flex-col items-start gap-2 text-left text-slate-400">
-                <User size={48} strokeWidth={1.3} />
-                <p className="text-sm font-medium">Select a lead to view their profile</p>
-                <p className="text-xs">Click any lead from the list</p>
-              </div>
-            </div>
+            <LeadsEmptyDetail />
           )}
         </div>
 

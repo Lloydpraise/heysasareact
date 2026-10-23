@@ -235,18 +235,16 @@ export function intentColor(score) {
   return 'bg-red-500';
 }
 
-// Intent score -> round badge colours. 80+ is green, 40-79 is orange (still warm), below 40 is red.
-export const INTENT_GREEN_MIN = 80;
-export const INTENT_ORANGE_MIN = 40;
-
+// Intent score -> hot / medium / cold colours for the round badge on each conversation and the detail tile.
+// Uses the same cut-offs as the Hot filter: 70+ is hot (red), 40-69 is medium (orange), below 40 is cold (blue).
 export function intentTone(score) {
   if (score === null || score === undefined || Number.isNaN(Number(score))) {
-    return { key: 'none', badgeClass: 'bg-slate-100 text-slate-400 ring-slate-200', label: 'Not scored' };
+    return { key: 'none', badgeClass: 'bg-slate-100 text-slate-400 ring-slate-200', label: 'Not scored yet' };
   }
   const value = Number(score);
-  if (value >= INTENT_GREEN_MIN) return { key: 'green', badgeClass: 'bg-[#28A745] text-white ring-[#28A745]/30', label: 'Strong intent' };
-  if (value >= INTENT_ORANGE_MIN) return { key: 'orange', badgeClass: 'bg-[#FF8C00] text-white ring-[#FF8C00]/30', label: 'Warm intent' };
-  return { key: 'red', badgeClass: 'bg-red-500 text-white ring-red-500/30', label: 'Low intent' };
+  if (value >= HOT_MIN_SCORE) return { key: 'hot', badgeClass: 'bg-red-500 text-white ring-red-500/30', label: 'Hot' };
+  if (value >= WARM_MIN_SCORE) return { key: 'medium', badgeClass: 'bg-[#FF8C00] text-white ring-[#FF8C00]/30', label: 'Medium' };
+  return { key: 'cold', badgeClass: 'bg-sky-500 text-white ring-sky-500/30', label: 'Cold' };
 }
 
 // Builds the small "what's next" label shown under a lead row for its

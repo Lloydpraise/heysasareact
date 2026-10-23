@@ -11,6 +11,7 @@ import MessageUsage from './MessageUsage';
 import SequenceStepList from './SequenceStepList';
 import CreateCampaignModal from './createCampaignModal/CreateCampaignModal';
 import CampaignActivityLog from './CampaignActivityLog';
+import CampaignRespondersPanel from './CampaignRespondersPanel';
 import AutoCampaignsPanel from './AutoCampaignsPanel';
 import AdPlaybooksPanel from '../../../followupAi/AdPlaybooksPanel';
 import { fetchPlaybooks } from '../../../../services/followupAiService';
@@ -35,6 +36,7 @@ export default function CampaignRunnerTab({ onNeedLists, presetListId = null, on
   const [startWithImport, setStartWithImport] = useState(false);
   const [createPreset, setCreatePreset] = useState(null);
   const [activeChatLead, setActiveChatLead] = useState(null);
+  const [respondersCampaign, setRespondersCampaign] = useState(null);
   const hasLists = (lists || []).length > 0;
   // ad playbooks written by the Follow-up AI that are waiting for the owner
   const [reviewCount, setReviewCount] = useState(0);
@@ -54,6 +56,12 @@ export default function CampaignRunnerTab({ onNeedLists, presetListId = null, on
       name: response.contactName || response.contactPhone || 'Lead',
     });
   }, []);
+
+  // Opening a chat from the responders list closes the list, so the chat is not stacked on top of it.
+  const openChatFromResponders = useCallback((responder) => {
+    setRespondersCampaign(null);
+    openChatForResponse(responder);
+  }, [openChatForResponse]);
 
   const handleChatSend = useCallback((text) => {
     if (!activeChatLead) return Promise.reject(new Error('No lead selected.'));
@@ -148,6 +156,7 @@ export default function CampaignRunnerTab({ onNeedLists, presetListId = null, on
             onEdit={openEditCampaign}
             expanded={expandedId === campaign.id}
             onToggleExpand={() => setExpandedId(expandedId === campaign.id ? null : campaign.id)}
+            onViewResponders={setRespondersCampaign}
           />
           {expandedId === campaign.id && (
             <div className="border-b border-slate-100 bg-slate-50/40 px-3 py-3">
@@ -164,7 +173,7 @@ export default function CampaignRunnerTab({ onNeedLists, presetListId = null, on
       {items.map((campaign) => (
         <div key={campaign.id} className="min-w-0 space-y-3">
           <div onClick={() => setExpandedId(expandedId === campaign.id ? null : campaign.id)} className="cursor-pointer">
-            <CampaignCard campaign={campaign} onChanged={refetch} onEdit={openEditCampaign} />
+            <CampaignCard campaign={campaign} onChanged={refetch} onEdit={openEditCampaign} onViewResponders={setRespondersCampaign} />
           </div>
           <MessageUsage businessId={businessId} dailyCap={campaign.dailyCap} initialSentToday={campaign.sentToday} />
           {expandedId === campaign.id && (
@@ -271,6 +280,8 @@ export default function CampaignRunnerTab({ onNeedLists, presetListId = null, on
           openRuleId={autoRuleToOpen}
           onOpenRuleHandled={onAutoRuleHandled}
           onRuleMissing={onRuleMissing}
+          campaigns={campaigns}
+          onViewResponders={setRespondersCampaign}
         />
       )}
 
@@ -312,6 +323,13 @@ export default function CampaignRunnerTab({ onNeedLists, presetListId = null, on
         }}
         businessId={businessId}
         onLaunched={refetch}
+      />
+
+      <CampaignRespondersPanel
+        key={respondersCampaign?.id || 'none'}
+        campaign={respondersCampaign}
+        onClose={() => setRespondersCampaign(null)}
+        onOpenChat={openChatFromResponders}
       />
 
       <ChatDrawer

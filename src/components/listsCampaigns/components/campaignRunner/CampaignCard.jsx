@@ -1,6 +1,7 @@
 import KpiTile from '../../../analytics/shared/KpiTile';
 import AnCard from '../../../analytics/shared/AnCard';
 import CampaignActionsMenu from './CampaignActionsMenu';
+import CampaignFunnel from './CampaignFunnel';
 
 const STATUS_CONFIG = {
   active: { label: 'Ongoing', className: 'bg-emerald-50 text-emerald-700' },
@@ -8,7 +9,7 @@ const STATUS_CONFIG = {
   completed: { label: 'Completed', className: 'bg-slate-100 text-slate-600' },
 };
 
-export default function CampaignCard({ campaign, onChanged, onEdit }) {
+export default function CampaignCard({ campaign, onChanged, onEdit, onViewResponders }) {
   const reached = campaign.reached ?? 0;
   const reachedPercent = campaign.enrolled ? Math.round((reached / campaign.enrolled) * 100) : 0;
   const status = STATUS_CONFIG[campaign.status] || { label: campaign.status || 'Unknown', className: 'bg-slate-100 text-slate-600' };
@@ -38,10 +39,11 @@ export default function CampaignCard({ campaign, onChanged, onEdit }) {
         <KpiTile
           label="Response Rate"
           value={`${campaign.responseRate}%`}
-          sub={`${campaign.repliesCount} responses${campaign.actionCount ? ` · ${campaign.actionCount} need attention` : ''}${campaign.positiveCount ? ` · ${campaign.positiveCount} positive` : ''}`}
+          sub={`${campaign.respondedCount ?? campaign.repliesCount} responses${campaign.actionCount ? ` · ${campaign.actionCount} need attention` : ''}${campaign.positiveCount ? ` · ${campaign.positiveCount} positive` : ''}`}
         />
         <KpiTile label="Realized Revenue" value={`KES ${campaign.revenue.toLocaleString()}`} valueClassName="text-[32px] max-md:text-[20px]" />
       </div>
+      <CampaignFunnel campaign={campaign} onViewResponders={onViewResponders} />
       <div className="flex flex-wrap gap-x-4 gap-y-1 border-t border-slate-100 pt-3 text-[11px] text-slate-500 max-md:text-[12.5px]">
         <span><strong className="font-semibold text-emerald-700">{campaign.sent} sent</strong></span>
         <span>{campaign.skipped ?? 0} skipped</span>

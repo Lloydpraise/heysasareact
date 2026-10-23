@@ -353,6 +353,13 @@ export async function fetchCampaigns(businessId) {
       sentToday: Number(row.sent_today ?? 0),
       enrolled: Number(row.enrolled_count ?? 0),
       sent: deliveryCounts.get(row.campaign_id)?.sent ?? Number(row.sent_count ?? 0),
+      // The feedback funnel is counted from tracked sends only, so delivered/read/responded are always
+      // measured against the same "sent" number (sentTracked), never against the queue count above.
+      sentTracked: Number(row.sent_count ?? 0),
+      deliveredCount: Number(row.delivered_count ?? 0),
+      readCount: Number(row.read_count ?? 0),
+      respondedCount: Number(row.responded_count ?? 0),
+      respondedLeads: Number(row.responded_leads ?? 0),
       reached: Number(row.reached_count ?? 0),
       responseRate: Number(row.response_rate ?? 0),
       repliesCount: Number(row.replies_count ?? 0),
@@ -374,6 +381,9 @@ export async function fetchCampaigns(businessId) {
           delayHours: s.delay_hours,
           condition: s.condition,
           sentCount: s.sent_count,
+          deliveredCount: s.delivered_count ?? 0,
+          readCount: s.read_count ?? 0,
+          respondedCount: s.responded_count ?? 0,
           repliedCount: s.replied_count,
           reactedCount: s.reacted_count ?? 0,
           actionCount: s.action_count ?? 0,
@@ -425,6 +435,88 @@ export async function fetchCampaignResponses(campaignId) {
     replyIntent: row.reply_intent,
     optedOutAt: row.opted_out_at,
   }));
+}
+
+function mapResponder(row) {
+  return {
+    campaignId: row.campaign_id,
+    campaignName: row.campaign_name,
+    // The contact that holds the real WhatsApp chat (an uploaded contact and the person's chat can be two rows).
+    contactId: row.chat_contact_id,
+    enrolledContactId: row.enrolled_contact_id,
+    contactName: row.contact_name,
+    contactPhone: row.contact_phone,
+    firstRespondedAt: row.first_responded_at,
+    lastRespondedAt: row.last_responded_at,
+    responses: Number(row.responses ?? 1),
+    replied: Boolean(row.replied),
+    reacted: Boolean(row.reacted),
+    lastStepNumber: row.last_step_number,
+    reactionEmoji: row.last_reaction_emoji,
+    replyIntent: row.last_reply_intent,
+  };
+}
+
+// Everyone who replied to or reacted to this campaign, newest first - the "who responded" list.
+export async function fetchCampaignResponders(campaignId) {
+  if (!campaignId) return [];
+  const pageSize = 1000;
+  const rows = [];
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await supabase
+      .from('v_campaign_responders')
+      .select('*')
+      .eq('campaign_id', campaignId)
+      .order('last_responded_at', { ascending: false })
+      .order('enrolled_contact_id', { ascending: true })
+      .range(offset, offset + pageSize - 1);
+    if (error) throw error;
+    rows.push(...(data || []));
+    if (!data || data.length < pageSize) break;
+  }
+  return rows.map(mapResponder);
+}
+
+// How long a campaign response keeps a lead on the Leads priority list.
+export const RESPONDER_PRIORITY_DAYS = 7;
+
+// Recent campaign responders for a whole business, keyed by contact id (both the chat contact and the
+// uploaded contact it was matched from), so the Leads page can rank and tag them. The newest response wins.
+export async function fetchRecentCampaignResponderMap(businessId, days = RESPONDER_PRIORITY_DAYS) {
+  if (!supabase || !businessId) return new Map();
+  const since = new Date(Date.now() - days * 86400000).toISOString();
+  const rows = [];
+  const pageSize = 1000;
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await supabase
+      .from('v_campaign_responders')
+      .select('*')
+      .eq('business_id', businessId)
+      .gte('last_responded_at', since)
+      .order('last_responded_at', { ascending: false })
+      .range(offset, offset + pageSize - 1);
+    if (error) throw error;
+    rows.push(...(data || []));
+    if (!data || data.length < pageSize) break;
+  }
+  const byContact = new Map();
+  for (const row of rows.map(mapResponder)) {
+    const entry = {
+      at: row.lastRespondedAt,
+      campaignId: row.campaignId,
+      campaignName: row.campaignName,
+      replied: row.replied,
+      reacted: row.reacted,
+      emoji: row.reactionEmoji,
+      intent: row.replyIntent,
+    };
+    for (const id of [row.contactId, row.enrolledContactId]) {
+      if (id == null) continue;
+      const current = byContact.get(id);
+      if (!current || new Date(entry.at) > new Date(current.at)) byContact.set(id, entry);
+    }
+  }
+  return byContact;
 }
 
 async function assertCampaignEditable(campaignId) {

@@ -1,5 +1,4 @@
 import { Bot, Send, Wallet, Wifi, WifiOff } from 'lucide-react';
-import AnCard, { SectionLabel } from '../analytics/shared/AnCard';
 import { comma } from '../../utils/analyticsHelpers';
 import { goToTab, openPreferences } from './homeCopy';
 
@@ -10,75 +9,52 @@ const DOT = {
   grey: 'bg-slate-300',
 };
 
-function StatusTile({ icon: Icon, label, state, detail, tone, onClick }) {
+function Pill({ icon: Icon, label, state, tone, onClick }) {
   return (
     <button type="button" onClick={onClick}
-      className="flex flex-col gap-1.5 rounded-xl border border-slate-200 bg-white p-3.5 text-left transition-all hover:-translate-y-px hover:shadow-[0_4px_16px_rgba(0,0,0,0.06)] max-md:min-h-[44px]">
-      <div className="flex items-center justify-between">
-        <Icon size={16} className="text-slate-400" aria-hidden="true" />
-        <span className={`h-2 w-2 rounded-full ${DOT[tone]}`} aria-hidden="true" />
-      </div>
-      <div className="text-[10.5px] font-semibold uppercase tracking-wide text-slate-400">{label}</div>
-      <div className="text-[17px] font-bold leading-tight text-slate-900">{state}</div>
-      {detail && <div className="text-[11.5px] text-slate-400">{detail}</div>}
+      className="flex min-w-0 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-left transition hover:shadow-[0_4px_16px_rgba(0,0,0,0.06)] max-md:min-h-[48px]">
+      <Icon size={16} className="shrink-0 text-slate-400" aria-hidden="true" />
+      <span className="min-w-0 flex-1">
+        <span className="block text-[10px] font-semibold uppercase tracking-wide text-slate-400">{label}</span>
+        <span className="block truncate text-[14px] font-bold leading-tight text-slate-900">{state}</span>
+      </span>
+      <span className={`h-2 w-2 shrink-0 rounded-full ${DOT[tone]}`} aria-hidden="true" />
     </button>
   );
 }
 
-function Count({ value, label }) {
-  return (
-    <div className="rounded-xl bg-slate-50 px-2 py-3 text-center">
-      <div className="text-[22px] font-bold leading-none text-slate-900">{value === undefined ? '–' : comma(value)}</div>
-      <div className="mt-1 text-[11px] text-slate-500">{label}</div>
-    </div>
-  );
-}
-
-// "What is HeySasa doing right now": four live switches, then what it did in the last day.
+// "What is HeySasa doing right now": four live switches in one slim row. Details live on each page.
 export default function RightNowCard({ summary, connected }) {
   const live = summary?.live;
-  const nextText = live?.next_send_at
-    ? `next at ${new Date(live.next_send_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
-    : null;
   const messagesLeft = live?.messages_left;
-  const lowBalance = messagesLeft !== null && messagesLeft !== undefined && messagesLeft < 200;
+  const unknownBalance = messagesLeft === null || messagesLeft === undefined;
+  const lowBalance = !unknownBalance && messagesLeft < 200;
 
   return (
-    <AnCard>
-      <SectionLabel>HeySasa right now</SectionLabel>
-      <div className="grid grid-cols-2 gap-2.5">
-        <StatusTile
-          icon={connected ? Wifi : WifiOff} label="WhatsApp"
-          state={connected ? 'Connected' : 'Disconnected'} tone={connected ? 'green' : 'red'}
-          detail={connected ? 'reading every chat' : 'tap to reconnect'}
-          onClick={() => openPreferences('whatsapp')}
-        />
-        <StatusTile
-          icon={Send} label="Follow-ups"
-          state={!live ? '–' : live.followups_on ? 'On' : 'Paused'} tone={!live ? 'grey' : live.followups_on ? 'green' : 'amber'}
-          detail={!live ? '' : live.followups_on ? (live.queued_now ? `${comma(live.queued_now)} queued${nextText ? ` · ${nextText}` : ''}` : 'nothing queued') : 'not sending'}
-          onClick={() => goToTab('lists-campaigns')}
-        />
-        <StatusTile
-          icon={Bot} label="Chat AI"
-          state={!live ? '–' : live.chat_on ? 'Replying' : 'Off'} tone={!live ? 'grey' : live.chat_on ? 'green' : 'grey'}
-          detail={!live ? '' : live.chat_on ? `${comma(live.chat_chats_24h)} chats today` : 'you answer every chat'}
-          onClick={() => goToTab('playground')}
-        />
-        <StatusTile
-          icon={Wallet} label="Balance"
-          state={messagesLeft === null || messagesLeft === undefined ? '–' : `~${comma(messagesLeft)}`}
-          tone={messagesLeft === null || messagesLeft === undefined ? 'grey' : messagesLeft <= 0 ? 'red' : lowBalance ? 'amber' : 'green'}
-          detail="messages left"
-          onClick={() => openPreferences('billing')}
-        />
-      </div>
-      <div className="mt-4 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Last 24 hours</div>
-      <div className="mt-2 grid grid-cols-3 gap-2.5">
-        <Count value={summary?.sent_24h} label="follow-ups sent" />
-        <Count value={live?.chat_replies_24h} label="AI replies" />
-        <Count value={live?.new_leads_24h} label="new leads" />
-      </div>
-    </AnCard>
+    <div className="grid grid-cols-2 gap-2.5 xl:grid-cols-4">
+      <Pill
+        icon={connected ? Wifi : WifiOff} label="WhatsApp"
+        state={connected ? 'Connected' : 'Disconnected'} tone={connected ? 'green' : 'red'}
+        onClick={() => openPreferences('whatsapp')}
+      />
+      <Pill
+        icon={Send} label="Follow-ups"
+        state={!live ? '–' : live.followups_on ? (live.queued_now ? `${comma(live.queued_now)} queued` : 'On') : 'Paused'}
+        tone={!live ? 'grey' : live.followups_on ? 'green' : 'amber'}
+        onClick={() => goToTab('lists-campaigns')}
+      />
+      <Pill
+        icon={Bot} label="Chat AI"
+        state={!live ? '–' : live.chat_on ? 'Replying' : 'Off'}
+        tone={!live ? 'grey' : live.chat_on ? 'green' : 'grey'}
+        onClick={() => goToTab('playground')}
+      />
+      <Pill
+        icon={Wallet} label="Balance"
+        state={unknownBalance ? '–' : `~${comma(messagesLeft)} msgs`}
+        tone={unknownBalance ? 'grey' : messagesLeft <= 0 ? 'red' : lowBalance ? 'amber' : 'green'}
+        onClick={() => openPreferences('billing')}
+      />
+    </div>
   );
 }

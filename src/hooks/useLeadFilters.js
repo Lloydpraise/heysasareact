@@ -25,6 +25,7 @@ export const VIEW_RULES = {
   all: { label: 'All', rule: null },
   hot: { label: 'Hot', rule: 'Leads most likely to buy if you follow up.', campaign: { ruleId: 'hot_inquiries', label: 'Hot' } },
   unread: { label: 'Unreplied', rule: 'Customers waiting on your reply. The longer they wait, the less likely they buy.', campaign: { ruleId: 'unanswered', label: 'Unreplied' } },
+  replied: { label: 'Campaign replies', rule: 'Leads who replied to or reacted to one of your campaign messages in the last 7 days. They are warm right now, so answer them first.' },
   engaged: { label: 'Engaged', rule: 'Customers you are talking to right now.' },
   new: { label: 'New', rule: 'Saved contacts who have not messaged you yet.' },
   warm: { label: 'Warm', rule: 'Interested but not ready to buy. Keep the conversation going.' },
@@ -44,6 +45,7 @@ function matchesView(lead, view) {
   switch (view) {
     case 'all': return true;
     case 'unread': return hasUnrepliedCustomerMessage(lead);
+    case 'replied': return Boolean(lead.campaign_response);
     case 'hot': return isReallyHot(lead);
     case 'warm': return getTemperature(lead).key === 'warm';
     default: return lead.lead_state === view;
@@ -79,6 +81,15 @@ export function useLeadFilters(leads) {
         return matchesSearch && matchesView(lead, stateFilter) && matchesType && matchesInstance;
       })
       .sort((a, b) => {
+        // People who just answered a campaign come first (newest answer on top): re-engaging them is the point of
+        // a campaign, and they are only warm for a few days.
+        const aReplied = a.campaign_response ? 1 : 0;
+        const bReplied = b.campaign_response ? 1 : 0;
+        if (aReplied !== bReplied) return bReplied - aReplied;
+        if (aReplied && bReplied) {
+          const byRecency = new Date(b.campaign_response.at) - new Date(a.campaign_response.at);
+          if (byRecency !== 0) return byRecency;
+        }
         // Hot first, then the people waiting on you, then by how likely they are to buy, then most recent talk.
         const aHot = isReallyHot(a) ? 1 : 0;
         const bHot = isReallyHot(b) ? 1 : 0;
@@ -105,6 +116,7 @@ export function useLeadFilters(leads) {
       all: customers.length,
       hot: count('hot'),
       unread: count('unread'),
+      replied: count('replied'),
       engaged: count('engaged'),
       new: count('new'),
       warm: count('warm'),

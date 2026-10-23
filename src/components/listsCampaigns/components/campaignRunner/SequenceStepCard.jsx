@@ -55,8 +55,9 @@ export default function SequenceStepCard({ step, index, responses = [], onOpenCh
   const positiveCount = step.positiveCount ?? 0;
   const negativeCount = step.negativeCount ?? 0;
 
-  const deliveredCount = responses.filter((r) => ['DELIVERY_ACK', 'READ'].includes(r.deliveryStatus)).length;
-  const readCount = responses.filter((r) => r.isRead).length;
+  const deliveredCount = step.deliveredCount ?? 0;
+  const readCount = step.readCount ?? 0;
+  const respondedCount = step.respondedCount ?? 0;
   const respondedList = responses
     .filter((r) => r.repliedAt || r.reactedAt)
     .sort((a, b) => {
@@ -83,8 +84,9 @@ export default function SequenceStepCard({ step, index, responses = [], onOpenCh
       {/* Raw engagement numbers — every one of these is a response, not just replies */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-400">
         <span>{sentCount} sent</span>
-        {readCount > 0 && <span>{readCount} read</span>}
-        {!readCount && deliveredCount > 0 && <span>{deliveredCount} delivered</span>}
+        <span>{deliveredCount} delivered</span>
+        <span>{readCount} read</span>
+        <span className="font-semibold text-slate-600">{respondedCount} responded</span>
         <span>{repliedCount} replied</span>
         {reactedCount > 0 && <span>{reactedCount} reacted</span>}
         {step.optOuts > 0 && <span className="text-red-400">{step.optOuts} opt-outs</span>}

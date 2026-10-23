@@ -1,6 +1,7 @@
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import AnCard from '../../../analytics/shared/AnCard';
 import CampaignActionsMenu from './CampaignActionsMenu';
+import CampaignFunnel from './CampaignFunnel';
 
 const STATUS_CONFIG = {
   active: { label: 'Ongoing', className: 'bg-emerald-50 text-emerald-700' },
@@ -9,7 +10,7 @@ const STATUS_CONFIG = {
   failed: { label: 'Failed', className: 'bg-red-50 text-red-700' },
 };
 
-export default function CampaignRow({ campaign, onChanged, onEdit, expanded, onToggleExpand }) {
+export default function CampaignRow({ campaign, onChanged, onEdit, expanded, onToggleExpand, onViewResponders }) {
   const reached = campaign.reached ?? 0;
   const reachedPercent = campaign.enrolled ? Math.round((reached / campaign.enrolled) * 100) : 0;
   const status = STATUS_CONFIG[campaign.status] || { label: campaign.status || 'Unknown', className: 'bg-slate-100 text-slate-600' };
@@ -47,7 +48,7 @@ export default function CampaignRow({ campaign, onChanged, onEdit, expanded, onT
             {campaign.responseRate}%
             {expanded ? <ChevronUp size={13} className="text-slate-400" /> : <ChevronDown size={13} className="text-slate-400" />}
           </p>
-          <p className="text-[10px] text-slate-400">{campaign.repliesCount} responses</p>
+          <p className="text-[10px] text-slate-400">{campaign.respondedCount ?? campaign.repliesCount} responses</p>
         </button>
         <div>
           <p className="text-[10px] font-medium text-slate-400">Campaign activity</p>
@@ -56,6 +57,7 @@ export default function CampaignRow({ campaign, onChanged, onEdit, expanded, onT
           {campaign.positiveCount > 0 && <p className="text-[10px] font-semibold text-emerald-600">{campaign.positiveCount} positive</p>}
         </div>
       </div>
+      <CampaignFunnel campaign={campaign} onViewResponders={onViewResponders} />
     </AnCard>
   );
 }
