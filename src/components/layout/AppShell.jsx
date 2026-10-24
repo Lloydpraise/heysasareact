@@ -18,7 +18,10 @@ import {
   Loader2,
   Plus,
   Lock,
+  UserCog,
 } from 'lucide-react';
+import AccountSwitcher from '../accounts/AccountSwitcher';
+import { useAccount } from '../../context/useAccount';
 import Profile from '../profile/Profile';
 import AskHeySasaLogo from './AskHeySasaLogo';
 import './navLock.css';
@@ -30,6 +33,7 @@ import { getBusinessDisplayName } from '../../utils/businessHelpers';
 export default function AppShell({ activeTab, setActiveTab, onBusinessClick, locked = false, celebrate = false, children }) {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const { user, activeBusinessId, getBusinesses, switchBusiness, addBusiness } = useAuth();
+  const { isAdmin } = useAccount();
   const [businesses, setBusinesses] = useState([]);
   const [businessesLoading, setBusinessesLoading] = useState(true);
   const [businessesError, setBusinessesError] = useState('');
@@ -108,6 +112,7 @@ export default function AppShell({ activeTab, setActiveTab, onBusinessClick, loc
     { id: 'playground', label: PAGE_NAMES.playground, icon: FlaskConical },
     { id: 'products', label: 'Products', icon: Package },
     { id: 'preferences', label: 'Preferences', icon: Sliders },
+    ...(isAdmin ? [{ id: 'team', label: 'Team', icon: UserCog }] : []),
   ];
 
   return (
@@ -297,6 +302,8 @@ export default function AppShell({ activeTab, setActiveTab, onBusinessClick, loc
                   <button type="button" onClick={() => { setBusinessMenuOpen(false); onBusinessClick?.(); }} className="mt-1 w-full rounded-xl border-t border-slate-100 px-2 py-2.5 text-left text-xs font-semibold text-[#28A745] hover:bg-green-50">Business settings</button>
                 </div>
               )}
+              <span aria-hidden="true" className="mx-1 hidden h-8 w-px bg-slate-200 sm:block" />
+              <AccountSwitcher />
             </div>
             <AskHeySasaLogo
               pulse={activeTab === 'home' && !locked}

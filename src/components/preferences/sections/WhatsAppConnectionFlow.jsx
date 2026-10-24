@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, CheckCircle2, LoaderCircle, MessageCircleMore, Smartphone, X } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, LoaderCircle, MessageCircleMore, Plus, Smartphone, X } from 'lucide-react';
 import { whatsappFetch } from '../../../services/whatsappApi';
+import { useAccount } from '../../../context/useAccount';
+import { accountDisplayName, accountStatusLabel, accountStatusTone, formatAccountPhone } from '../../../services/accountsService';
+import PhoneMismatchNotice from '../../accounts/PhoneMismatchNotice';
 
 const INSTANCE_PREFIX = import.meta.env.VITE_EVOLUTION_INSTANCE_NAME || 'business';
 const POLL_INTERVAL = 20000;
@@ -57,7 +60,33 @@ function readState(data) {
 
 const OPEN_STATES = ['open', 'connected', 'ready', 'authenticated'];
 
-export function WhatsAppConnectionFlow({ open, onClose, onConnected }) {
+// Turns a refused /wa answer into a clear message. A locked-number refusal keeps its details for PhoneMismatchNotice.
+function connectionError(data, fallback, actual = '') {
+  const code = data?.message || data?.error;
+  if (code === 'phone_mismatch') {
+    const error = new Error(`This account is locked to ${formatAccountPhone(data.expected)}. Create a new account for that number.`);
+    error.mismatch = { code: 'phone_mismatch', expected: data.expected, actual: actual || null };
+    return error;
+  }
+  if (code === 'account_already_connected') return new Error('This account already has a WhatsApp number connected. To connect another number, create a new account.');
+  if (code === 'account_required') return new Error('Pick which WhatsApp account to connect first.');
+  if (code === 'account_not_allowed') return new Error('You do not have access to that WhatsApp account.');
+  return new Error(data?.response?.message?.[0] || code || fallback);
+}
+
+// Connects a WhatsApp number to one HeySasa account: `accountId` when given, otherwise the selected account. With
+// Business wide selected and several accounts, it asks which account first. A business with no account yet gets its
+// first one when the number connects.
+export function WhatsAppConnectionFlow({ open, onClose, onConnected, accountId: accountIdProp }) {
+  const { accounts, selectedAccountId, isAdmin, openAddAccount, refresh } = useAccount();
+  const [pickedAccountId, setPickedAccountId] = useState(null);
+  const [mismatch, setMismatch] = useState(null);
+  const targetAccountId = accountIdProp || selectedAccountId || pickedAccountId || (accounts.length === 1 ? accounts[0].id : null);
+  const targetAccount = accounts.find((account) => account.id === targetAccountId) || null;
+  const needsPick = !targetAccountId && accounts.length > 1;
+  const targetConnected = targetAccount?.status === 'connected';
+  // null = no account header (first account of the business); otherwise act for exactly this account.
+  const wa = (path, options = {}) => whatsappFetch(path, { ...options, accountId: targetAccountId || null });
   const pollIntervalRef = useRef(null);
   const receivedChallengeRef = useRef(false);
   const [step, setStep] = useState(1);
@@ -87,23 +116,23 @@ export function WhatsAppConnectionFlow({ open, onClose, onConnected }) {
   // create the instance with qrcode:false and let connect?number= start it.
   const createInstance = async (name, { withQr }) => {
     // The backend creates the instance (and saves it to this business straight away).
-    const response = await whatsappFetch('/instance/create', {
+    const response = await wa('/instance/create', {
       method: 'POST',
       body: { instanceName: name, qrcode: withQr },
     });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data?.response?.message?.[0] || data?.message || data?.error || 'We could not start the connection. Please try again.');
+    if (!response.ok) throw connectionError(data, 'We could not start the connection. Please try again.');
   };
 
   const deleteInstanceQuietly = async (name) => {
     if (!name) return;
     try {
-      await whatsappFetch(`/instance/delete/${encodeURIComponent(name)}`, { method: 'DELETE' });
+      await wa(`/instance/delete/${encodeURIComponent(name)}`, { method: 'DELETE' });
     } catch { /* best effort */ }
   };
 
   const fetchConnectionState = async (targetInstanceName) => {
-    const response = await whatsappFetch(`/instance/connectionState/${encodeURIComponent(targetInstanceName)}`);
+    const response = await wa(`/instance/connectionState/${encodeURIComponent(targetInstanceName)}`);
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data?.message || data?.error || 'Could not read the connection state.');
     return readState(data);
@@ -111,16 +140,18 @@ export function WhatsAppConnectionFlow({ open, onClose, onConnected }) {
 
   const markConnected = () => {
     stopPolling();
+    // The number is now on the account (or refused if it is locked to another one): reload the account list.
+    refresh?.();
     setStatus(receivedChallengeRef.current ? 'success' : 'already-connected');
     setStep(3);
   };
 
   const fetchConnection = async (phone = '', targetInstanceName) => {
     const query = phone ? `?number=${encodeURIComponent(phone.replace(/\D/g, ''))}` : '';
-    const response = await whatsappFetch(`/instance/connect/${encodeURIComponent(targetInstanceName)}${query}`);
+    const response = await wa(`/instance/connect/${encodeURIComponent(targetInstanceName)}${query}`);
     const data = await response.json().catch(() => ({}));
 
-    if (!response.ok) throw new Error(data?.response?.message?.[0] || data?.message || data?.error || 'WhatsApp did not answer. Please try again.');
+    if (!response.ok) throw connectionError(data, 'WhatsApp did not answer. Please try again.', phone);
     const qrValue = data.base64 || data.qrcode?.base64 || data.qr_code || data.qrCode;
     const pairingValue = data.pairingCode || data.pairing_code || data.qrcode?.pairingCode;
 
@@ -196,6 +227,7 @@ export function WhatsAppConnectionFlow({ open, onClose, onConnected }) {
       }
     } catch (error) {
       setFormError(error.message || 'Could not connect to WhatsApp. Please try again.');
+      setMismatch(error.mismatch || null);
       setStatus('failed');
       setStep(3);
       stopPolling();
@@ -218,6 +250,8 @@ export function WhatsAppConnectionFlow({ open, onClose, onConnected }) {
     setIsLoading(false);
     setFormError('');
     setInstanceName('');
+    setMismatch(null);
+    setPickedAccountId(null);
   };
 
   useEffect(() => {
@@ -240,6 +274,20 @@ export function WhatsAppConnectionFlow({ open, onClose, onConnected }) {
   };
 
   const handleStart = () => {
+    if (needsPick) {
+      setFormError('Pick which WhatsApp account to connect first.');
+      return;
+    }
+    if (targetConnected) {
+      setFormError('This account already has a WhatsApp number connected. To connect another number, create a new account.');
+      return;
+    }
+    if (method === 'number' && targetAccount?.phone_number && normalizedPhone && normalizedPhone !== String(targetAccount.phone_number).replace(/\D/g, '')) {
+      setMismatch({ code: 'phone_mismatch', expected: targetAccount.phone_number, actual: normalizedPhone });
+      setFormError('');
+      return;
+    }
+    setMismatch(null);
     if (method === 'number' && normalizedPhone.length < 10) {
       setFormError('Enter a valid phone number with country code.');
       return;
@@ -292,6 +340,7 @@ export function WhatsAppConnectionFlow({ open, onClose, onConnected }) {
     setStatus('idle');
     setStep(1);
     setFormError('');
+    setMismatch(null);
     setPairingCode('');
     setQrCode('');
     receivedChallengeRef.current = false;
@@ -312,6 +361,38 @@ export function WhatsAppConnectionFlow({ open, onClose, onConnected }) {
           {step === 1 && (
             <div className="space-y-5">
               <div className="rounded-2xl border border-[#28A745]/15 bg-[#28A745]/5 p-3 text-sm text-slate-600">Link the WhatsApp number your customers message. Scan a code with your phone, or get a code to type in.</div>
+              {needsPick && (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-slate-700">Which account is this number for?</p>
+                  {accounts.map((account) => (
+                    <button key={account.id} type="button" onClick={() => { setPickedAccountId(account.id); setFormError(''); }} disabled={account.status === 'connected'} className="flex w-full items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-left transition hover:border-[#28A745]/40 disabled:cursor-not-allowed disabled:opacity-50">
+                      <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${accountStatusTone(account)}`} />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-semibold text-slate-800">{accountDisplayName(account)}</span>
+                        <span className="block truncate text-xs text-slate-500">{[formatAccountPhone(account.phone_number), accountStatusLabel(account)].filter(Boolean).join(' · ')}</span>
+                      </span>
+                    </button>
+                  ))}
+                  {isAdmin && <button type="button" onClick={() => { handleClose(); openAddAccount(); }} className="flex w-full items-center gap-2 rounded-2xl border border-dashed border-[#28A745]/35 px-3 py-2.5 text-sm font-semibold text-[#28A745] hover:bg-[#28A745]/5"><Plus className="h-4 w-4" />A new number: add a WhatsApp account</button>}
+                </div>
+              )}
+              {targetAccount && (
+                <div className="flex items-center justify-between gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm">
+                  <span className="min-w-0">
+                    <span className="block text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">Connecting for</span>
+                    <span className="block truncate font-semibold text-slate-800">{accountDisplayName(targetAccount)}</span>
+                    {targetAccount.phone_number && <span className="block text-xs text-slate-500">Locked to {formatAccountPhone(targetAccount.phone_number)}. Connect that same number.</span>}
+                  </span>
+                  {pickedAccountId && !accountIdProp && !selectedAccountId && <button type="button" onClick={() => setPickedAccountId(null)} className="shrink-0 text-xs font-semibold text-[#28A745]">Change</button>}
+                </div>
+              )}
+              {targetConnected && (
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                  This account already has a WhatsApp number connected. To connect another number, create a new account.
+                  {isAdmin && <button type="button" onClick={() => { handleClose(); openAddAccount(); }} className="mt-2 flex items-center gap-1.5 rounded-xl bg-[#28A745] px-3 py-1.5 text-xs font-semibold text-white"><Plus className="h-3.5 w-3.5" />Add WhatsApp account</button>}
+                </div>
+              )}
+              <PhoneMismatchNotice error={mismatch} />
               <div className="grid grid-cols-2 gap-2 rounded-2xl bg-slate-100 p-1">
                 {['qr', 'number'].map((option) => <button key={option} type="button" onClick={() => setMethod(option)} className={`rounded-xl px-3 py-2.5 text-sm font-semibold transition ${method === option ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>{option === 'qr' ? 'QR code' : 'Phone number'}</button>)}
               </div>
@@ -325,9 +406,9 @@ export function WhatsAppConnectionFlow({ open, onClose, onConnected }) {
 
           {step === 2 && <div className="space-y-5"><div className="flex items-center justify-between"><div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Step 2</p><h4 className="mt-1 text-lg font-semibold text-slate-800">{method === 'qr' ? 'Scan the QR code' : 'Enter the pairing code'}</h4></div><button type="button" onClick={() => { stopPolling(); setStep(1); }} className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600"><ArrowLeft className="h-3.5 w-3.5" />Back</button></div>{method === 'qr' ? <div className="space-y-4"><div className="mx-auto flex min-h-[252px] w-full max-w-[270px] items-center justify-center rounded-3xl border border-slate-200 bg-slate-50 p-4 shadow-inner shadow-slate-200/60">{qrCode ? <img src={qrCode} alt="WhatsApp QR code" className="h-[220px] w-[220px] rounded-xl bg-white p-2" /> : <div className="flex flex-col items-center gap-3 text-sm text-slate-500"><LoaderCircle className="h-6 w-6 animate-spin text-[#28A745]" />Generating QR code...</div>}</div><p className="rounded-2xl border border-[#28A745]/10 bg-[#28A745]/5 p-3 text-center text-sm text-slate-600">Open WhatsApp on your phone and scan this code. It refreshes automatically every 20 seconds.</p><button type="button" onClick={() => { stopPolling(); setMethod('number'); setStep(1); }} className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700">Connect via phone number instead</button></div> : <div className="space-y-4"><div className="flex min-h-24 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 p-4 text-center"><div><p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">Pairing code</p><strong className="mt-2 block text-3xl tracking-[0.25em] text-[#28A745]">{pairingCode ? formatPairingCode(pairingCode) : <LoaderCircle className="mx-auto h-7 w-7 animate-spin text-[#28A745]" />}</strong><p className="mt-2 text-xs text-slate-500">For +{normalizedPhone}</p></div></div><p className="rounded-2xl border border-[#28A745]/10 bg-[#28A745]/5 p-3 text-center text-sm text-slate-600">On your phone open WhatsApp, go to Linked devices, tap Link a device, then choose Link with phone number instead and enter this code. This screen updates when connected.</p><button type="button" onClick={handleNewCode} disabled={isLoading} className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 disabled:opacity-60">Code expired? Get a new code</button></div>}{formError && <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">{formError}</p>}</div>}
 
-          {step === 3 && status === 'success' && <div className="space-y-5"><div className="flex flex-col items-center text-center"><div className="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-[#28A745]/10 text-[#28A745]"><CheckCircle2 className="h-8 w-8" /></div><p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#28A745]">Connected</p><h4 className="mt-2 text-xl font-semibold text-slate-800">WhatsApp number ready</h4></div><div className="rounded-2xl border border-slate-200 bg-slate-50 p-3"><label className="mb-2 block text-sm font-medium text-slate-700">Name this connection</label><input type="text" value={connectionName} onChange={(event) => setConnectionName(event.target.value)} placeholder="Support WhatsApp" className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-[#28A745]" /></div>{formError && <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">{formError}</p>}<button type="button" onClick={handleNameSave} disabled={isLoading} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#28A745] px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-[#28A745]/20 transition hover:bg-[#1f8d3d] disabled:cursor-not-allowed disabled:opacity-60">{isLoading && <LoaderCircle className="h-4 w-4 animate-spin" />}{isLoading ? 'Saving connection...' : 'Save connection'}</button></div>}
+          {step === 3 && status === 'success' && <div className="space-y-5"><div className="flex flex-col items-center text-center"><div className="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-[#28A745]/10 text-[#28A745]"><CheckCircle2 className="h-8 w-8" /></div><p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#28A745]">Connected</p><h4 className="mt-2 text-xl font-semibold text-slate-800">WhatsApp number ready</h4></div><PhoneMismatchNotice error={targetAccount?.connect_error} /><div className="rounded-2xl border border-slate-200 bg-slate-50 p-3"><label className="mb-2 block text-sm font-medium text-slate-700">Name this connection</label><input type="text" value={connectionName} onChange={(event) => setConnectionName(event.target.value)} placeholder="Support WhatsApp" className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-[#28A745]" /></div>{formError && <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">{formError}</p>}<button type="button" onClick={handleNameSave} disabled={isLoading} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#28A745] px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-[#28A745]/20 transition hover:bg-[#1f8d3d] disabled:cursor-not-allowed disabled:opacity-60">{isLoading && <LoaderCircle className="h-4 w-4 animate-spin" />}{isLoading ? 'Saving connection...' : 'Save connection'}</button></div>}
           {step === 3 && status === 'already-connected' && <div className="space-y-5"><div className="flex flex-col items-center text-center"><div className="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-amber-100 text-amber-600"><MessageCircleMore className="h-7 w-7" /></div><p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-amber-600">Already connected</p><h4 className="mt-2 text-xl font-semibold text-slate-800">This WhatsApp is already linked</h4></div><p className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">This number was already linked, so there was nothing new to scan.</p><button type="button" onClick={handleRetry} className="w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white">Try again</button></div>}
-          {step === 3 && status === 'failed' && <div className="space-y-5"><div className="flex flex-col items-center text-center"><div className="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-red-100 text-red-500"><MessageCircleMore className="h-7 w-7" /></div><h4 className="text-xl font-semibold text-slate-800">Connection unsuccessful</h4></div><p className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{formError}</p><button type="button" onClick={handleRetry} className="w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white">Retry</button></div>}
+          {step === 3 && status === 'failed' && <div className="space-y-5"><div className="flex flex-col items-center text-center"><div className="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-red-100 text-red-500"><MessageCircleMore className="h-7 w-7" /></div><h4 className="text-xl font-semibold text-slate-800">Connection unsuccessful</h4></div>{mismatch ? <PhoneMismatchNotice error={mismatch} /> : <p className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{formError}</p>}<button type="button" onClick={handleRetry} className="w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white">Retry</button></div>}
         </div>
       </div>
     </div>

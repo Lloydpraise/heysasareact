@@ -1,5 +1,6 @@
 // listsCampaigns/listsCampaignsService.js
 import { supabase } from '../lib/supabase';
+import { accountUpsert, currentAccountId, withAccountArg } from '../lib/accountScope';
 import { parseDateTimeLocalInTimeZone } from '../utils/businessTime';
 import { fetchWhatsAppSessions } from './businessService';
 import { findOrCreateContacts } from './contactImport';
@@ -18,22 +19,24 @@ export async function fetchAutomationRules(businessId) {
 
 export async function toggleAutomationRule(businessId, ruleId, enabled) {
   if (!supabase || !businessId) return;
-  const { error } = await supabase.from('segmentation_rules').upsert({
+  const rule = accountUpsert({
     business_id: businessId,
     rule_id: ruleId,
     enabled,
     disabled_at: enabled ? null : new Date().toISOString(),
-  }, { onConflict: 'business_id,rule_id' });
+  }, 'account_id,rule_id', 'business_id,rule_id');
+  const { error } = await supabase.from('segmentation_rules').upsert(rule.row, { onConflict: rule.onConflict });
   if (error) throw error;
 
   // Auto-lists mirror rule state: create/restore the list row on ON, archive it on OFF.
-  const { error: listError } = await supabase.from('lists').upsert({
+  const list = accountUpsert({
     business_id: businessId,
     rule_id: ruleId,
     type: 'auto',
     archived: !enabled,
     disabled_at: enabled ? null : new Date().toISOString(),
-  }, { onConflict: 'business_id,rule_id' });
+  }, 'account_id,rule_id', 'business_id,rule_id');
+  const { error: listError } = await supabase.from('lists').upsert(list.row, { onConflict: list.onConflict });
   if (listError) throw listError;
 }
 
@@ -583,7 +586,10 @@ export async function launchCampaign(
       business_id: businessId,
       list_id: primaryListId,
       name,
+      // The selected account owns the campaign (the database also fills account_id from the x-account-id header).
+      ...(currentAccountId() ? { account_id: currentAccountId() } : {}),
       whatsapp_instance_name: selectedInstanceName,
+      whatsapp_instances: [selectedInstanceName],
       sequence_mode: safeSequenceMode,
       smart_timing: smartTiming ?? true,
       status: 'active',
@@ -666,6 +672,7 @@ export async function updateCampaign(
       list_id: primaryListId,
       name,
       whatsapp_instance_name: selectedInstanceName,
+      whatsapp_instances: [selectedInstanceName],
       status: 'active',
       failure_reason: null,
       failed_at: null,
@@ -740,18 +747,28 @@ export async function updateCampaign(
   return { id: campaignId };
 }
 
+// The number a campaign sends from. A campaign belongs to the selected WhatsApp account, so it uses that account's
+// instance (accounts.instance_name). With no account selected (a business without accounts yet, or editing from
+// Business wide) the campaign's own or the only connected number is used; with several accounts the owner must pick one.
 async function resolveCampaignInstanceName(businessId, instanceId, instanceName) {
-  if (instanceId) {
-    const sessions = await fetchWhatsAppSessions(businessId);
-    const selectedSession = sessions.find((session) => session.id === instanceId);
-    if (selectedSession?.status === 'connected' && selectedSession.instance_name) {
-      return selectedSession.instance_name;
-    }
-    throw new Error('Select a connected WhatsApp instance before saving the campaign.');
+  const accountId = currentAccountId();
+  if (accountId) {
+    const { data: account, error } = await supabase.from('accounts').select('instance_name, status').eq('id', accountId).maybeSingle();
+    if (error) throw error;
+    if (account?.instance_name) return account.instance_name;
+    throw new Error('This WhatsApp account is not connected. Connect it in Preferences, WhatsApp, before saving the campaign.');
   }
-
   if (instanceName) return instanceName;
-  throw new Error('Select a WhatsApp instance before saving the campaign.');
+  const { data: accounts } = await supabase.from('accounts').select('id').eq('business_id', businessId).neq('status', 'closed');
+  if ((accounts || []).length > 1) throw new Error('Pick a WhatsApp account at the top of the page first. A campaign sends from one number.');
+  const sessions = await fetchWhatsAppSessions(businessId);
+  if (instanceId) {
+    const selectedSession = sessions.find((session) => session.id === instanceId);
+    if (selectedSession?.status === 'connected' && selectedSession.instance_name) return selectedSession.instance_name;
+  }
+  const usable = sessions.filter((session) => session.status === 'connected' && session.instance_name);
+  if (usable.length) return usable[0].instance_name;
+  throw new Error('Connect WhatsApp before saving the campaign.');
 }
 
 async function syncCampaignEnrollments(campaignId, businessId, leadIds, firstSendAtIso) {
@@ -1061,7 +1078,7 @@ export function subscribeToCapacity(businessId, onChange) {
     .channel(`capacity-${businessId}-${++capacityChannelId}`)
     .on(
       'postgres_changes',
-      { event: '*', schema: 'public', table: 'daily_send_counters', filter: `business_id=eq.${businessId}` },
+      { event: '*', schema: 'public', table: 'daily_send_counters', filter: currentAccountId() ? `account_id=eq.${currentAccountId()}` : `business_id=eq.${businessId}` },
       (payload) => onChange(payload.new)
     )
     .subscribe();
@@ -1227,10 +1244,11 @@ export async function saveAutoCampaignConfig(businessId, ruleId, patch) {
   if (patch.whatsappInstanceName !== undefined) row.whatsapp_instance_name = patch.whatsappInstanceName || null;
   if (patch.dailyCap !== undefined) row.daily_cap = patch.dailyCap || null;
 
-  const { error } = await supabase.from('auto_campaign_configs').upsert(row, { onConflict: 'business_id,rule_id' });
+  const config = accountUpsert(row, 'account_id,rule_id', 'business_id,rule_id');
+  const { error } = await supabase.from('auto_campaign_configs').upsert(config.row, { onConflict: config.onConflict });
   if (error) throw error;
   // If a live campaign exists, push the new settings/steps to it.
-  const { error: applyError } = await supabase.rpc('apply_auto_campaign_config', { p_business_id: businessId, p_rule_id: ruleId });
+  const { error: applyError } = await supabase.rpc('apply_auto_campaign_config', withAccountArg({ p_business_id: businessId, p_rule_id: ruleId }));
   if (applyError) throw applyError;
 }
 
@@ -1241,7 +1259,7 @@ export async function resetAutoCampaignToDefault(businessId, ruleId) {
     .eq('business_id', businessId)
     .eq('rule_id', ruleId);
   if (error) throw error;
-  const { error: applyError } = await supabase.rpc('apply_auto_campaign_config', { p_business_id: businessId, p_rule_id: ruleId });
+  const { error: applyError } = await supabase.rpc('apply_auto_campaign_config', withAccountArg({ p_business_id: businessId, p_rule_id: ruleId }));
   if (applyError) throw applyError;
 }
 
@@ -1255,7 +1273,7 @@ const AUTO_CAMPAIGN_ERRORS = {
 };
 
 export async function activateAutoCampaign(businessId, ruleId) {
-  const { data, error } = await supabase.rpc('activate_auto_campaign', { p_business_id: businessId, p_rule_id: ruleId });
+  const { data, error } = await supabase.rpc('activate_auto_campaign', withAccountArg({ p_business_id: businessId, p_rule_id: ruleId }));
   if (error) {
     const key = Object.keys(AUTO_CAMPAIGN_ERRORS).find((code) => (error.message || '').includes(code));
     throw new Error(key ? AUTO_CAMPAIGN_ERRORS[key] : error.message);

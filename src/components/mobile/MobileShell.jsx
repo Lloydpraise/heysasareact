@@ -20,7 +20,10 @@ import {
   Sliders,
   Sun,
   Users,
+  UserCog,
 } from 'lucide-react';
+import AccountSwitcher from '../accounts/AccountSwitcher';
+import { useAccount } from '../../context/useAccount';
 import AskHeySasaLogo from '../layout/AskHeySasaLogo';
 import '../layout/navLock.css';
 import { useAuth } from '../../context/useAuth';
@@ -50,6 +53,8 @@ const inputClass = 'h-12 w-full rounded-xl border border-slate-200 bg-slate-50 p
 export default function MobileShell({ activeTab, setActiveTab, onBusinessClick, locked = false, celebrate = false, children }) {
   const { user, signOut, updatePassword, switchBusiness, addBusiness } = useAuth();
   const { isDark, toggleTheme } = useTheme();
+  const { isAdmin } = useAccount();
+  const moreTabs = isAdmin ? [...MORE_TABS, { id: 'team', label: 'Team', hint: 'People and the accounts they manage', icon: UserCog }] : MORE_TABS;
   const { businesses, loading, error, activeBusiness, displayName, activeBusinessId } = useBusinessList();
 
   const [switchOpen, setSwitchOpen] = useState(false);
@@ -158,6 +163,9 @@ export default function MobileShell({ activeTab, setActiveTab, onBusinessClick, 
             imgClassName="h-8 w-24 object-contain"
           />
         </div>
+        <div className="flex items-center px-3 pb-1.5">
+          <AccountSwitcher compact />
+        </div>
       </header>
 
       {/* Page content */}
@@ -240,7 +248,7 @@ export default function MobileShell({ activeTab, setActiveTab, onBusinessClick, 
         </div>
 
         <div className="flex flex-col gap-0.5">
-          {MORE_TABS.map(({ id, label, hint, icon }) => (
+          {moreTabs.map(({ id, label, hint, icon }) => (
             <SheetRow
               key={id}
               icon={icon}

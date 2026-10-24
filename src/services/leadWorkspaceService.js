@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { scopeHeaders } from '../lib/accountScope';
 import { createManualList } from './listsCampaignsService';
 
 const BACKEND_API_URL = (import.meta.env.VITE_BACKEND_API_URL || 'http://localhost:3000').replace(/\/$/, '');
@@ -496,7 +497,7 @@ export async function draftNextMessage({ businessId, leadId, goal }) {
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${session.access_token}`,
-      'X-Business-Id': businessId,
+      ...scopeHeaders(businessId),
     },
     body: JSON.stringify({ businessId, goal: goal || null }),
   });

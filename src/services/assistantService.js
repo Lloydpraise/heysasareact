@@ -1,11 +1,12 @@
 import { supabase } from '../lib/supabase';
+import { scopeHeaders } from '../lib/accountScope';
 
 // Ask HeySasa talks to the Node backend (not an edge function), so replies can stream.
 const BACKEND_API_URL = (import.meta.env.VITE_BACKEND_API_URL || 'http://localhost:3000').replace(/\/$/, '');
 
 async function headers(businessId) {
   const { data: { session } } = await supabase.auth.getSession();
-  return { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}`, 'X-Business-Id': businessId };
+  return { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}`, ...scopeHeaders(businessId) };
 }
 
 async function request(businessId, path, { method = 'GET', body } = {}) {

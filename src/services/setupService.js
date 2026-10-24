@@ -1,6 +1,7 @@
 // Everything the Home screen needs: the setup runner and the two switches (backend routes), plus the few things
 // it reads straight from Supabase (top leads, discovered products). Backend calls send the signed-in token.
 import { supabase } from '../lib/supabase';
+import { scopeHeaders } from '../lib/accountScope';
 import { activatePlaybook, approveAllItems } from './followupAiService';
 
 const BACKEND_API_URL = (import.meta.env.VITE_BACKEND_API_URL || 'http://localhost:3000').replace(/\/$/, '');
@@ -23,7 +24,7 @@ async function call(path, { method = 'GET', body, businessId } = {}) {
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${session.access_token}`,
-      ...(businessId ? { 'X-Business-Id': businessId } : {}),
+      ...scopeHeaders(businessId),
     },
     ...(body ? { body: JSON.stringify({ ...body, ...(businessId ? { businessId } : {}) }) } : {}),
   });

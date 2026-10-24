@@ -1,5 +1,5 @@
 import { Check, X, Undo2 } from 'lucide-react';
-import { AiDot, CategoryChip, InlineProductField, PhotoTile } from './shared';
+import { AiDot, CatalogBadge, CategoryChip, InlineProductField, PhotoTile } from './shared';
 import { confidenceLabel, formatMoney, isActiveForAi, sourceLabel } from '../../utils/productHelpers';
 
 export default function ProductRow({ product, currency, selected, onSelect, onOpen, onInlineSave, onToggleAi, onAddPhoto, onApprove, onDismiss, onRestore }) {
@@ -38,6 +38,7 @@ export default function ProductRow({ product, currency, selected, onSelect, onOp
         />
         <span className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1">
           <CategoryChip name={product.category} />
+          <CatalogBadge product={product} />
           {discovered && (
             <span className="truncate text-[11px] text-slate-500">
               {sourceLabel(product.source)}{product.mention_count ? `, ${product.mention_count} mention${product.mention_count === 1 ? '' : 's'}` : ''}

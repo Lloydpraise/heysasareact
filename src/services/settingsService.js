@@ -1,5 +1,6 @@
 import { mockBalance, mockBusiness, mockMaterials, mockPrefs } from './mockPreferences';
 import { supabase } from '../lib/supabase';
+import { scopeHeaders } from '../lib/accountScope';
 
 const STORAGE_KEY = 'heysasa_preferences_v1';
 // The follow-up settings API runs in followup-engine, separately from the
@@ -71,7 +72,7 @@ export async function getSettings() {
     const [businessResult, prefsResult] = await Promise.all([
       supabase.from('businesses').select('*').eq('business_id', businessId).maybeSingle(),
       fetch(`${getFollowupApiUrl()}/settings/followup`, {
-        headers: { Authorization: `Bearer ${token}`, 'X-Business-Id': businessId },
+        headers: { Authorization: `Bearer ${token}`, ...scopeHeaders(businessId) },
       }).then((res) => readBackendResponse(res, 'Could not load follow-up preferences.')),
     ]);
 
@@ -126,7 +127,7 @@ export async function saveSettings(nextSettings) {
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
-          'X-Business-Id': businessId,
+          ...scopeHeaders(businessId),
         },
         body: JSON.stringify(payload.prefs),
       }).then((res) => readBackendResponse(res, 'Could not save follow-up preferences.')),

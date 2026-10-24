@@ -11,6 +11,9 @@ import {
 } from '../../../services/businessService';
 import leadsService from '../../../services/leadsService';
 import { useAuth } from '../../../context/useAuth';
+import { useAccount } from '../../../context/useAccount';
+import PhoneMismatchNotice from '../../accounts/PhoneMismatchNotice';
+import { accountDisplayName, accountStatusLabel, accountStatusTone, formatAccountPhone } from '../../../services/accountsService';
 
 const HISTORY_COOLDOWN_MS = 30 * 24 * 60 * 60 * 1000;
 
@@ -24,6 +27,16 @@ export function WhatsAppSection() {
   const [currentTime] = useState(() => Date.now());
   const [historyError, setHistoryError] = useState('');
   const [disconnectingId, setDisconnectingId] = useState(null);
+  // WhatsApp is connected per account (one number each). flowAccountId: the account the connect window acts for.
+  const { accounts, selectedAccountId, isAdmin, openAddAccount, refresh: refreshAccounts } = useAccount();
+  const [flowAccountId, setFlowAccountId] = useState(null);
+  const shownAccounts = selectedAccountId ? accounts.filter((account) => account.id === selectedAccountId) : accounts;
+  const accountIds = new Set(accounts.map((account) => account.id));
+  // Connections of the shown accounts, plus older ones saved before accounts existed (Business wide only).
+  const shownConnections = connections.filter((connection) => (
+    selectedAccountId ? connection.account_id === selectedAccountId : (!connection.account_id || accountIds.has(connection.account_id) || !accounts.length)
+  ));
+  const openFlow = (accountId = null) => { setFlowAccountId(accountId); setIsFlowOpen(true); };
 
   const handleLoadHistory = async (connection) => {
     if (!activeBusinessId || historyLoading) return;
@@ -56,6 +69,7 @@ export function WhatsAppSection() {
         instanceName: connection.instance_name,
       });
       setConnections((current) => current.filter((item) => item.id !== connection.id));
+      refreshAccounts();
     } catch (error) {
       setHistoryError(error.message || 'Could not disconnect this WhatsApp instance.');
     } finally {
@@ -97,18 +111,42 @@ export function WhatsAppSection() {
         <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h3 className="text-sm font-semibold text-slate-800">WhatsApp Connection</h3>
-            <p className="mt-1 text-sm text-slate-600">Manage your active WhatsApp instances and sync settings.</p>
+            <p className="mt-1 text-sm text-slate-600">Each WhatsApp number is its own HeySasa account. An account stays locked to the first number you connect to it.</p>
           </div>
           <div className="flex items-center gap-2 self-start rounded-full border border-green-500/20 bg-green-500/10 px-3 py-1 text-xs font-medium text-green-600 sm:self-auto">
             <span className="h-2 w-2 animate-pulse rounded-full bg-green-500"></span>
-            {connections.length} connected
+            {shownConnections.length} connected
           </div>
         </div>
 
         <div className="space-y-3">
-          {!loading && connections.length === 0 && <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center"><p className="text-sm font-semibold text-slate-700">No WhatsApp connected</p><button type="button" onClick={() => setIsFlowOpen(true)} className="mt-3 rounded-lg bg-[#28A745] px-3 py-2 text-xs font-semibold text-white">Connect now</button></div>}
+          {shownAccounts.map((account) => {
+            const connected = shownConnections.some((connection) => connection.account_id === account.id);
+            return (
+              <div key={account.id} className="rounded-2xl border border-slate-200 bg-white p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${accountStatusTone(account)}`} aria-hidden="true" />
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-slate-800">{accountDisplayName(account)}</p>
+                      <p className="truncate text-xs text-slate-500">
+                        {[account.phone_number ? `Locked to ${formatAccountPhone(account.phone_number)}` : 'No number yet', accountStatusLabel(account), account.billing_mode === 'separate' ? 'Separate billing' : 'Business billing'].filter(Boolean).join(' · ')}
+                      </p>
+                    </div>
+                  </div>
+                  {!connected && account.status !== 'connected' && (
+                    <button type="button" onClick={() => openFlow(account.id)} className="self-start rounded-lg bg-[#28A745] px-3 py-2 text-xs font-semibold text-white sm:self-auto">
+                      {account.phone_number ? `Reconnect ${formatAccountPhone(account.phone_number)}` : 'Connect a number'}
+                    </button>
+                  )}
+                </div>
+                <PhoneMismatchNotice error={account.connect_error} className="mt-3" />
+              </div>
+            );
+          })}
+          {!loading && !accounts.length && connections.length === 0 && <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center"><p className="text-sm font-semibold text-slate-700">No WhatsApp connected</p><button type="button" onClick={() => openFlow(null)} className="mt-3 rounded-lg bg-[#28A745] px-3 py-2 text-xs font-semibold text-white">Connect now</button></div>}
           {loading && <p className="py-5 text-center text-sm text-slate-400">Loading WhatsApp connections...</p>}
-          {!loading && connections.map((connection, index) => (
+          {!loading && shownConnections.map((connection, index) => (
             <div
               key={connection.id}
               className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between"
@@ -126,7 +164,11 @@ export function WhatsAppSection() {
                       <span className="rounded-full bg-green-500/10 px-2 py-0.5 text-[10px] font-medium text-green-600">Primary</span>
                     )}
                   </div>
-                  <div className="text-sm text-slate-600">WhatsApp Business App</div>
+                  <div className="text-sm text-slate-600">
+                    {connection.account_id && accounts.length > 1 && !selectedAccountId
+                      ? `${accountDisplayName(accounts.find((account) => account.id === connection.account_id))} · WhatsApp Business App`
+                      : 'WhatsApp Business App'}
+                  </div>
                 </div>
               </div>
 
@@ -165,19 +207,19 @@ export function WhatsAppSection() {
         </div>
         {historyError && <p className="mt-3 text-right text-xs text-red-500">{historyError}</p>}
 
-        <button
+        {(isAdmin || !accounts.length) && <button
           type="button"
-          onClick={() => setIsFlowOpen(true)}
+          onClick={() => (accounts.length ? openAddAccount() : openFlow(null))}
           className="mt-5 flex w-full items-center justify-between rounded-2xl border border-dashed border-[#28A745]/35 bg-[#28A745]/5 px-4 py-3.5 text-left text-sm font-medium text-slate-700 transition hover:border-[#28A745]/50 hover:bg-[#28A745]/10 sm:w-auto sm:min-w-[240px]"
         >
           <span className="flex items-center gap-3">
             <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-[#28A745] shadow-sm">
               <Plus className="h-4 w-4" />
             </span>
-            Connect another number
+            {accounts.length ? 'Add WhatsApp account (new number)' : 'Connect a number'}
           </span>
           <ChevronRight className="h-4 w-4 text-slate-400" />
-        </button>
+        </button>}
 
         <div className="space-y-6 border-t border-slate-200/80 pt-4">
           <Toggle 
@@ -197,6 +239,7 @@ export function WhatsAppSection() {
 
       <WhatsAppConnectionFlow
         open={isFlowOpen}
+        accountId={flowAccountId}
         onClose={() => setIsFlowOpen(false)}
         onConnected={async (newConnection) => {
           try {
@@ -209,6 +252,7 @@ export function WhatsAppSection() {
             if (savedConnection) {
               setConnections((current) => [savedConnection, ...current]);
             }
+            refreshAccounts();
           } catch (error) {
             console.error('[WhatsAppSection] save failed:', error);
             throw error;

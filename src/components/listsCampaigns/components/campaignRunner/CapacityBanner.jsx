@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react';
 import { subscribeToCapacity } from '../../../../services/listsCampaignsService';
+import { useAccount } from '../../../../context/useAccount';
+import { accountDisplayName, formatAccountPhone } from '../../../../services/accountsService';
 
 export default function CapacityBanner({ businessId, dailyCap, initialSentToday, gateway }) {
   const [sentToday, setSentToday] = useState(initialSentToday);
+  const { selectedAccount } = useAccount();
 
   useEffect(() => {
     if (!businessId) return undefined;
@@ -16,7 +19,11 @@ export default function CapacityBanner({ businessId, dailyCap, initialSentToday,
   return (
     <div className="rounded-[14px] bg-white border border-slate-200 p-5 space-y-2">
       <div className="flex items-center justify-between text-[12px] text-slate-500">
-        <span>{gateway} Instance Pacing</span>
+        <span>
+          {selectedAccount
+            ? `Sending pace for ${accountDisplayName(selectedAccount)}${selectedAccount.phone_number ? ` (${formatAccountPhone(selectedAccount.phone_number)})` : ''}`
+            : `${gateway} sending pace, all accounts`}
+        </span>
         <span>Sent Today: {sentToday} / {dailyCap}</span>
       </div>
       <div className="h-2 rounded-full bg-slate-100 overflow-hidden">

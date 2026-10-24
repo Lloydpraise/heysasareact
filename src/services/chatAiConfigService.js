@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { withAccountArg } from '../lib/accountScope';
 
 // Skills and flows of the chat AI (sasa-brain). Both live in Supabase with row-level security, so the signed-in
 // owner can read and write only their own business. Every business gets its own copy of the default skills
@@ -44,12 +45,12 @@ export async function deleteSkill(businessId, id) {
 }
 
 export async function resetSkill(businessId, key) {
-  must(await supabase.rpc('chat_ai_reset_skill', { p_business_id: businessId, p_key: key }));
+  must(await supabase.rpc('chat_ai_reset_skill', withAccountArg({ p_business_id: businessId, p_key: key })));
 }
 
 // Adds any default skill the business does not have (e.g. one it deleted). Existing skills are never touched.
 export async function restoreMissingDefaults(businessId) {
-  return must(await supabase.rpc('chat_ai_seed_skills', { p_business_id: businessId }));
+  return must(await supabase.rpc('chat_ai_seed_skills', withAccountArg({ p_business_id: businessId })));
 }
 
 export async function fetchFlows(businessId) {

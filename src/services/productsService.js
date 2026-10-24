@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { scopeHeaders } from '../lib/accountScope';
 import { dedupeKey, findMatchingProduct, newProductId, cleanCategory } from '../utils/productHelpers';
 
 const BACKEND_API_URL = (import.meta.env.VITE_BACKEND_API_URL || 'http://localhost:3000').replace(/\/$/, '');
@@ -8,7 +9,7 @@ const CHUNK = 100;
 
 // Never select the embedding columns: they are huge and the page does not need them.
 const PRODUCT_COLUMNS = [
-  'id', 'business_id', 'title', 'type', 'status', 'category', 'category_source', 'price', 'old_price',
+  'id', 'business_id', 'account_id', 'title', 'type', 'status', 'category', 'category_source', 'price', 'old_price',
   'stock_quantity', 'description_short', 'description_long', 'key_features', 'images', 'aliases',
   'is_visible', 'ai_visible', 'source', 'price_source', 'mention_count', 'last_mentioned_at',
   'discovery_confidence', 'discovery_meta', 'observed_prices', 'discovered_at', 'approved_at', 'created_at', 'updated_at',
@@ -219,7 +220,7 @@ export async function runImport(businessId, plan, format) {
 // ─── product discovery (same backend the admin console uses) ───────────────────
 async function backendHeaders(businessId) {
   const { data: { session } } = await requireClient().auth.getSession();
-  return { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}`, 'X-Business-Id': businessId };
+  return { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}`, ...scopeHeaders(businessId) };
 }
 
 export async function startDiscovery(businessId) {

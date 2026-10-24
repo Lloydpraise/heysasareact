@@ -11,6 +11,9 @@ import {
 import { fetchWhatsAppSessions } from '../../../../services/businessService';
 import { getSettings } from '../../../../services/settingsService';
 import { formatDateTimeLocalInTimeZone } from '../../../../utils/businessTime';
+import { useAccount } from '../../../../context/useAccount';
+import { pickSendingSession } from '../../../../services/accountsService';
+import SendingFrom from '../../../accounts/SendingFrom';
 
 function Toggle({ checked, onChange, label }) {
   return (
@@ -41,9 +44,16 @@ export default function AutoCampaignModal({ open, auto, businessId, onClose, onC
   const [steps, setSteps] = useState([]);
   const [aiRewrite, setAiRewrite] = useState(true);
   const [autoApprove, setAutoApprove] = useState(false);
-  const [instanceName, setInstanceName] = useState('');
+  // Auto campaigns send from the selected WhatsApp account; its connected number is used, nothing to pick.
+  const { accounts, selectedAccountId } = useAccount();
   const [dailyCap, setDailyCap] = useState(40);
   const [sessions, setSessions] = useState([]);
+  const sendingSession = pickSendingSession(sessions, {
+    accountId: selectedAccountId,
+    instanceName: selectedAccountId ? null : auto?.whatsappInstanceName,
+  });
+  const sendingAccount = accounts.find((account) => account.id === (sendingSession?.account_id || selectedAccountId)) || null;
+  const instanceName = sendingSession?.instance_name || '';
   const [timezone, setTimezone] = useState('Africa/Nairobi');
   const [quiet, setQuiet] = useState({ start: 21, end: 8 });
   const [busy, setBusy] = useState('');
@@ -56,7 +66,6 @@ export default function AutoCampaignModal({ open, auto, businessId, onClose, onC
     setSteps(auto.steps.map((s) => ({ ...s, media: null })));
     setAiRewrite(auto.aiRewriteEnabled);
     setAutoApprove(auto.autoApprove);
-    setInstanceName(auto.whatsappInstanceName);
     setDailyCap(auto.dailyCap);
     setError('');
   }, [open, auto]);
@@ -218,24 +227,8 @@ export default function AutoCampaignModal({ open, auto, businessId, onClose, onC
           </div>
 
           <div className="space-y-3 border-t border-slate-200 pt-4">
-            <div className="max-w-xl space-y-1.5">
-              <label htmlFor="auto-campaign-instance" className="block text-sm font-medium text-slate-700">
-                Send from <span className="text-red-500">*</span>
-              </label>
-              <select
-                id="auto-campaign-instance"
-                value={instanceName}
-                onChange={(e) => setInstanceName(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-[#28A745]"
-              >
-                <option value="">Choose a connected WhatsApp number</option>
-                {sessions.map((s, i) => (
-                  <option key={s.id} value={s.instance_name}>
-                    {s.label || s.first_name || s.phone_number || s.instance_name || `WhatsApp ${i + 1}`}
-                  </option>
-                ))}
-              </select>
-              {!sessions.length && <p className="text-xs text-amber-600">Connect a WhatsApp number to activate this campaign.</p>}
+            <div className="max-w-xl">
+              <SendingFrom account={sendingAccount} session={sendingSession} businessWide={!selectedAccountId && accounts.length > 1} />
             </div>
 
             <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 p-3">

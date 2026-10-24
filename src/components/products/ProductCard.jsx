@@ -1,5 +1,5 @@
 import { Check, X, Undo2 } from 'lucide-react';
-import { AiDot, CategoryChip, InlineProductField, PhotoTile } from './shared';
+import { AiDot, CatalogBadge, CategoryChip, InlineProductField, PhotoTile } from './shared';
 import { confidenceLabel, formatMoney, isActiveForAi } from '../../utils/productHelpers';
 
 function evidenceLine(p) {
@@ -67,6 +67,7 @@ export default function ProductCard({ product, currency, selected, selectMode, o
         </div>
         <div className="flex min-h-[1.25rem] items-center gap-2">
           <CategoryChip name={product.category} />
+          <CatalogBadge product={product} />
         </div>
 
         {discovered && (

@@ -1,3 +1,4 @@
+import { currentAccountId } from '../../../../lib/accountScope';
 import { CampaignsSkeleton } from '../../../shared/Skeleton';
 import { useCallback, useEffect, useState } from 'react';
 import { Settings2, Sparkles } from 'lucide-react';
@@ -76,8 +77,9 @@ export default function AutoCampaignsPanel({ businessId, onChanged, openRuleId =
       }
       return;
     }
-    // Activating needs a sending number; if none is chosen yet, open the configure view.
-    if (!auto.whatsappInstanceName) {
+    // Activating needs a sending number. With an account selected, its own number is used (saved on activate);
+    // otherwise, if none is chosen yet, open the configure view.
+    if (!auto.whatsappInstanceName && !currentAccountId()) {
       setSelected(auto);
       return;
     }

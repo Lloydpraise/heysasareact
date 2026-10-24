@@ -518,7 +518,7 @@ export default function LeadsPage({ leadRequest = null, onLeadRequestHandled }) 
 
   const connectionStrip = (isDisconnected || showHistoryPrompt) ? (
     <>
-      <NotificationStrip action={isDisconnected ? <><MessageCircleMore className="mr-1.5 inline h-3.5 w-3.5" />Connect now</> : <><LoaderCircle className={`mr-1.5 inline h-3.5 w-3.5 ${historyLoading ? 'animate-spin' : ''}`} />{historyLoading ? 'Loading...' : 'Load History'}</>} onAction={isDisconnected ? () => setIsConnectionOpen(true) : loadHistory}><span>{isDisconnected ? 'No WhatsApp connected for this business.' : 'Load your chat history for the last 90 days to start seeing data here!'}</span></NotificationStrip>{historyError && <p className="mt-1 text-xs text-red-500">{historyError}</p>}
+      <NotificationStrip action={isDisconnected ? <><MessageCircleMore className="mr-1.5 inline h-3.5 w-3.5" />Connect now</> : <><LoaderCircle className={`mr-1.5 inline h-3.5 w-3.5 ${historyLoading ? 'animate-spin' : ''}`} />{historyLoading ? 'Loading...' : 'Load History'}</>} onAction={isDisconnected ? () => setIsConnectionOpen(true) : loadHistory}><span>{isDisconnected ? 'No WhatsApp connected here yet.' : 'Load your chat history for the last 90 days to start seeing data here!'}</span></NotificationStrip>{historyError && <p className="mt-1 text-xs text-red-500">{historyError}</p>}
     </>
   ) : null;
 

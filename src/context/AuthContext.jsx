@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { AuthContext } from './auth-context-value';
 import { createBusiness, fetchUserBusinesses } from '../services/businessService';
+import { clearAccountSelection } from '../lib/accountScope';
 
 function getBusinessId(user) {
   return user?.app_metadata?.business_id
@@ -78,10 +79,13 @@ export function AuthProvider({ children }) {
     if (supabase) await supabase.auth.signOut();
     localStorage.removeItem('business_id');
     delete window.currentBusinessId;
+    clearAccountSelection();
   };
 
   const switchBusiness = useCallback((businessId) => {
     if (!businessId || businessId === activeBusinessId) return;
+    // Accounts belong to one business, so the saved account is dropped; the new business picks its own.
+    clearAccountSelection();
     localStorage.setItem('business_id', businessId);
     window.currentBusinessId = businessId;
     setActiveBusinessId(businessId);

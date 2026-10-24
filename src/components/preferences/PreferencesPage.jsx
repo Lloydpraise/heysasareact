@@ -18,13 +18,17 @@ import { useIsMobile } from '../../hooks/useIsMobile';
 import { useBackClose } from '../../hooks/useBackClose';
 import { mockBusiness } from '../../services/mockPreferences';
 import NotificationStrip from '../shared/NotificationStrip';
+import { useAccount } from '../../context/useAccount';
 
 // Desktop: sidebar + section, as before.
 // Phone: a list of sections; tapping one opens it as its own screen that slides
 // in (Back button / arrow returns to the list) with a Save bar that stays put.
 // `startInSection` lets other screens (e.g. Business settings) skip the list.
 export default function PreferencesPage({ initialSection = 'followup', startInSection = false }) {
-  const [activeSection, setActiveSection] = useState(initialSection);
+  // Billing belongs to owners and admins; members only see the sections for their accounts.
+  const { isAdmin } = useAccount();
+  const sections = isAdmin ? PREF_SECTIONS : PREF_SECTIONS.filter((section) => section.id !== 'billing');
+  const [activeSection, setActiveSection] = useState(!isAdmin && initialSection === 'billing' ? 'followup' : initialSection);
   const [mobileSectionOpen, setMobileSectionOpen] = useState(startInSection);
   const isMobile = useIsMobile();
   const { prefs, business, updatePref, updateBusiness, savePrefs, isSaving, loadError, isDirty } = usePreferences();
@@ -73,13 +77,13 @@ export default function PreferencesPage({ initialSection = 'followup', startInSe
       case 'assistant':
         return <AssistantSection />;
       case 'billing':
-        return <BillingSection />;
+        return isAdmin ? <BillingSection /> : null;
       default:
         return <FollowupSection prefs={prefs} updatePref={updatePref} />;
     }
   };
 
-  const activeLabel = PREF_SECTIONS.find((section) => section.id === activeSection)?.label ?? 'Follow-up';
+  const activeLabel = sections.find((section) => section.id === activeSection)?.label ?? 'Follow-up';
   const showSave = activeSection !== 'billing' && activeSection !== 'assistant' && activeSection !== 'chat';
 
   const body = (
@@ -105,7 +109,7 @@ export default function PreferencesPage({ initialSection = 'followup', startInSe
             <NotificationStrip>Set up your business details so HeySasa can work the way you want.</NotificationStrip>
           )}
           <div className="flex flex-col gap-2.5">
-            {PREF_SECTIONS.map((section, index) => (
+            {sections.map((section, index) => (
               <button
                 key={section.id}
                 type="button"
@@ -163,6 +167,7 @@ export default function PreferencesPage({ initialSection = 'followup', startInSe
   return (
     <div className="relative flex h-full flex-col gap-2 overflow-hidden p-2 md:flex-row md:gap-6 md:p-0">
       <PrefSidebar
+        sections={sections}
         activeSection={activeSection}
         setActiveSection={setActiveSection}
       />

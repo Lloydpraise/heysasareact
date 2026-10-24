@@ -12,6 +12,9 @@ import { SEQUENCE_TYPE, EDUCATIONAL_FREQUENCY } from '../../../constants';
 import { launchCampaign, previewCampaignAudience, updateCampaign } from '../../../../../services/listsCampaignsService';
 import { fetchWhatsAppSessions } from '../../../../../services/businessService';
 import { getSettings } from '../../../../../services/settingsService';
+import { useAccount } from '../../../../../context/useAccount';
+import { pickSendingSession } from '../../../../../services/accountsService';
+import SendingFrom from '../../../../accounts/SendingFrom';
 import { formatDateTimeLocalInTimeZone, parseDateTimeLocalInTimeZone } from '../../../../../utils/businessTime';
 
 const STEPS = ['Select lists', 'Build campaign'];
@@ -48,8 +51,15 @@ export default function CreateCampaignModal({ open, campaign, preset = null, onC
   const [campaignName, setCampaignName] = useState(() => campaign?.name || preset?.name || '');
   // Reopening Ask HeySasa for the same message resumes its chat, but a brand-new campaign starts fresh.
   const [assistantKey] = useState(() => (campaign?.id ? `campaign_${campaign.id}` : `campaign_draft_${Date.now()}`));
+  // The campaign sends from the selected WhatsApp account, so there is no number to pick here.
+  const { accounts, selectedAccountId } = useAccount();
   const [whatsappSessions, setWhatsappSessions] = useState([]);
-  const [selectedInstanceId, setSelectedInstanceId] = useState('');
+  const sendingSession = pickSendingSession(whatsappSessions, { accountId: selectedAccountId, instanceName: campaign?.whatsappInstanceName });
+  const sendingAccount = accounts.find((account) => account.id === (sendingSession?.account_id || selectedAccountId)) || null;
+  const selectedInstanceId = sendingSession?.id || '';
+  // A new campaign needs one account: with Business wide and several accounts, the owner picks one first.
+  const needsAccount = !selectedAccountId && accounts.length > 1 && !campaign;
+  const canSend = !needsAccount && Boolean(sendingAccount?.instance_name || sendingSession);
   const [selectedListIds, setSelectedListIds] = useState(() => (campaign?.listId ? [campaign.listId] : (preset?.listIds || [])));
   const [audience, setAudience] = useState(() => (
     campaign ? { sendableCount: campaign.enrolled ?? 0 } : null
@@ -122,18 +132,13 @@ export default function CreateCampaignModal({ open, campaign, preset = null, onC
         if (!isMounted) return;
         const connectedSessions = sessions.filter((session) => session.status === 'connected' && session.instance_name);
         setWhatsappSessions(connectedSessions);
-        const existing = connectedSessions.find((session) => session.instance_name === campaign?.whatsappInstanceName);
-        setSelectedInstanceId(existing?.id || (preset && !campaign && connectedSessions.length === 1 ? connectedSessions[0].id : ''));
       })
       .catch(() => {
-        if (isMounted) {
-          setWhatsappSessions([]);
-          setSelectedInstanceId('');
-        }
+        if (isMounted) setWhatsappSessions([]);
       });
 
     return () => { isMounted = false; };
-  }, [businessId, campaign, preset]);
+  }, [businessId]);
 
   // A preset skips the list step, so work out who will be messaged here.
   useEffect(() => {
@@ -163,7 +168,6 @@ export default function CreateCampaignModal({ open, campaign, preset = null, onC
     setImportedName('');
     setStepIndex(0);
     setCampaignName('');
-    setSelectedInstanceId('');
     setSelectedListIds([]);
     setAudience(null);
     setSequenceType(SEQUENCE_TYPE.BROADCAST);
@@ -193,7 +197,7 @@ export default function CreateCampaignModal({ open, campaign, preset = null, onC
   const canContinueFromLists = selectedListIds.length > 0 && audience && !audience.error;
   const canLaunch =
     campaignName.trim().length > 0 &&
-    selectedInstanceId &&
+    canSend &&
     steps.every((s) => s.content.trim().length > 0) &&
     (sequenceType !== SEQUENCE_TYPE.EDUCATIONAL || educationalTopic.trim().length > 0);
 
@@ -235,6 +239,7 @@ export default function CreateCampaignModal({ open, campaign, preset = null, onC
         timezone,
         name: campaignName.trim(),
         whatsappInstanceId: selectedInstanceId,
+        whatsappInstanceName: campaign?.whatsappInstanceName || sendingAccount?.instance_name || sendingSession?.instance_name || undefined,
         listIds: selectedListIds,
         sequenceType,
         educationalTopic: sequenceType === SEQUENCE_TYPE.EDUCATIONAL ? educationalTopic.trim() : null,
@@ -299,27 +304,8 @@ export default function CreateCampaignModal({ open, campaign, preset = null, onC
                     <span className="truncate">Written from the ad &ldquo;{preset.ad.headline}&rdquo;</span>
                   </p>
                 )}
-                <div className="mt-4 max-w-xl space-y-2">
-                  <label htmlFor="campaign-whatsapp-instance" className="block text-sm font-medium text-slate-700">
-                    Select instance <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    id="campaign-whatsapp-instance"
-                    value={selectedInstanceId}
-                    onChange={(event) => setSelectedInstanceId(event.target.value)}
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-[#28A745]"
-                    required
-                  >
-                    <option value="">Choose a connected WhatsApp instance</option>
-                    {whatsappSessions.map((session, index) => (
-                      <option key={session.id} value={session.id}>
-                        {session.label || session.first_name || session.phone_number || session.instance_name || `WhatsApp ${index + 1}`}
-                      </option>
-                    ))}
-                  </select>
-                  {!whatsappSessions.length && (
-                    <p className="text-xs text-amber-600">Connect a WhatsApp instance before launching a campaign.</p>
-                  )}
+                <div className="mt-3 max-w-xl">
+                  <SendingFrom account={sendingAccount} session={needsAccount ? null : (sendingSession || (sendingAccount?.instance_name ? { instance_name: sendingAccount.instance_name } : null))} businessWide={needsAccount} />
                 </div>
                 <p className="text-sm text-slate-500">
                   {audience?.sendableCount ?? '—'} leads will be sent to · from {selectedListIds.length} list{selectedListIds.length === 1 ? '' : 's'}

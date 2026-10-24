@@ -6,6 +6,7 @@ import { SkillsFlowsSection } from './sections/SkillsFlowsSection';
 import { VersionHistorySection } from './sections/VersionHistorySection';
 import { Toast } from '../preferences/shared/Toast';
 import NotificationStrip from '../shared/NotificationStrip';
+import PersonaGapsCard from './PersonaGapsCard';
 import { usePersonaPack } from '../../hooks/usePersonaPack';
 import { useLiveChat } from '../../hooks/useLiveChat';
 import { useToast } from '../../hooks/useToast';
@@ -91,6 +92,11 @@ export default function PlaygroundPage({ businessId }) {
             <NotificationStrip action="Generate New AI Persona" onAction={handleGeneratePersona}>
               To personalize your AI, a detailed persona pack is needed. Generate it automatically here.
             </NotificationStrip>
+            </div>
+          )}
+          {personaPack.pack && (
+            <div className={activeSection === 'test' ? 'max-md:hidden md:p-4 md:pb-0' : ''}>
+              <PersonaGapsCard personaPack={personaPack} showToast={showToast} />
             </div>
           )}
           <section className={`mx-auto flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden ${flush ? 'md:rounded-none md:border-0 md:bg-transparent md:p-0 md:shadow-none' : 'rounded-[1.5rem] border border-white/80 bg-white/70 p-3 shadow-xl shadow-[#28A745]/5 backdrop-blur-xl sm:p-4 lg:p-5'} max-md:rounded-none max-md:border-0 max-md:bg-transparent max-md:p-0 max-md:shadow-none max-md:backdrop-blur-none`}>

@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { scopeHeaders } from '../lib/accountScope';
 import { fetchWhatsAppSessions } from './businessService';
 import { fetchManualListLeadIds, fetchLeadCampaignEnrollment, fetchRecentCampaignResponderMap } from './listsCampaignsService';
 import { hasUnrepliedCustomerMessage } from '../utils/leadHelpers';
@@ -1030,7 +1031,7 @@ async function analyzeContacts(contactIds = [], businessId) {
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${session.access_token}`,
-        'X-Business-Id': selectedBusinessId,
+        ...scopeHeaders(selectedBusinessId),
       },
       body: JSON.stringify({ businessId: selectedBusinessId, contactIds: normalizedContactIds }),
     });

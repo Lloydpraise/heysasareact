@@ -25,7 +25,7 @@ export async function fetchWhatsAppSessions(businessId) {
   const evolutionInstances = await fetchEvolutionInstances(businessId);
   const { data, error } = await supabase
     .from('whatsapp_sessions')
-    .select('id, business_id, phone_number, status, instance_name, evolution_instance_id, history_loaded_at, updated_at, session_data')
+    .select('id, business_id, account_id, phone_number, status, instance_name, evolution_instance_id, history_loaded_at, updated_at, session_data')
     .eq('business_id', businessId)
     .eq('status', 'connected')
     .order('created_at', { ascending: false });
@@ -83,7 +83,7 @@ export async function saveWhatsAppSession({ businessId, phoneNumber, instanceNam
   if (!supabase) throw new Error('Supabase is not configured.');
   if (!businessId) throw new Error('No active business is available to save this WhatsApp connection.');
 
-  const columns = 'id, business_id, phone_number, status, instance_name, evolution_instance_id, history_loaded_at, updated_at, session_data';
+  const columns = 'id, business_id, account_id, phone_number, status, instance_name, evolution_instance_id, history_loaded_at, updated_at, session_data';
   // The backend already saved this connection as pending when it was started (so its messages are recognised at once).
   // Finish that row; only insert when there is none (an older backend).
   const { data: started } = instanceName
@@ -150,7 +150,7 @@ export async function fetchUserBusinesses(userId) {
   const { data, error } = await queryBusinesses(
     'business_id, name, industry, website_url, billing_business_id, business_logo_url'
   );
-  if (!error) return data || [];
+  if (!error) return withTeamBusinesses(userId, data || []);
 
   const missingLogoColumn = error.message?.includes('business_logo_url')
     && (error.code === '42703' || /does not exist|could not find|schema cache/i.test(error.message));
@@ -160,7 +160,31 @@ export async function fetchUserBusinesses(userId) {
     'business_id, name, industry, website_url, billing_business_id'
   );
   if (fallbackError) throw fallbackError;
-  return businesses || [];
+  return withTeamBusinesses(userId, businesses || []);
+}
+
+// Businesses the person joined through a team invite (business_users), added after the ones they own. If the
+// business row itself cannot be read, a placeholder keeps the business selectable.
+async function withTeamBusinesses(userId, owned) {
+  const { data: links, error } = await supabase
+    .from('business_users')
+    .select('business_id, role')
+    .eq('user_id', userId)
+    .eq('status', 'active');
+  if (error || !links?.length) return owned;
+  const ownedIds = new Set(owned.map((business) => business.business_id));
+  const joinedIds = [...new Set(links.map((link) => link.business_id))].filter((id) => !ownedIds.has(id));
+  if (!joinedIds.length) return owned;
+  const { data: rows } = await supabase
+    .from('businesses')
+    .select('business_id, name, industry, website_url, billing_business_id')
+    .in('business_id', joinedIds);
+  const byId = new Map((rows || []).map((row) => [row.business_id, row]));
+  const joined = joinedIds.map((id) => ({
+    ...(byId.get(id) || { business_id: id, name: null }),
+    team_role: links.find((link) => link.business_id === id)?.role || 'member',
+  }));
+  return [...owned, ...joined];
 }
 
 export async function uploadBusinessLogo(businessId, file) {

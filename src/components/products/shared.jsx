@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { Camera, Loader2, Save } from 'lucide-react';
 import { tileTone } from '../../utils/productHelpers';
+import { currentAccountId } from '../../lib/accountScope';
 
 // The green dot: this product is approved AND switched on for the AI.
 // Grey: approved but hidden from the AI. Not shown at all on products still waiting for review.
@@ -166,3 +167,14 @@ export function Field({ label, hint, children, className = '' }) {
 
 export const inputClass =
   'w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus:border-[#28A745] focus:outline-none focus:ring-2 focus:ring-[#28A745]/20';
+
+// Marks a product shared by the whole business (account_id is null) while one WhatsApp account is selected.
+export function CatalogBadge({ product, className = '' }) {
+  if (!currentAccountId() || product?.account_id) return null;
+  return (
+    <span title="Shared by every WhatsApp account of the business. Import it to change it for this account only." className={`shrink-0 rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-semibold text-sky-700 ${className}`}>
+      Business catalog
+    </span>
+  );
+}
+

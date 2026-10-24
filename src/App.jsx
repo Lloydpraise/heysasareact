@@ -17,6 +17,9 @@ import ResetPasswordPage from './components/auth/ResetPasswordPage';
 import LandingPage from './components/landing/LandingPage';
 import PricingPage from './components/landing/PricingPage';
 import PolicyPage from './components/policies/PolicyPage';
+import InvitePage, { PENDING_INVITE_KEY } from './components/auth/InvitePage';
+import TeamPage from './components/team/TeamPage';
+import { AccountProvider } from './context/AccountContext';
 import { useAuth } from './context/useAuth';
 import { useSetupStatus } from './hooks/useSetupStatus';
 import { isOnboarding } from './components/home/setupGate';
@@ -28,6 +31,7 @@ function tabFromPath(path) {
   if (path.includes('/playground')) return 'playground';
   if (path.includes('/products')) return 'products';
   if (path.includes('/analytics')) return 'analytics';
+  if (path.includes('/team')) return 'team';
   return 'home';   // Home is the first page, also for "/"
 }
 
@@ -71,10 +75,18 @@ function AuthenticatedApp() {
   const setup = useSetupStatus(activeBusinessId);
   const locked = isOnboarding(setup.status);
   const [celebrate, setCelebrate] = useState(false);   // set when the owner finishes setup, so the sidebar can pop open
-  const [preferencesSection, setPreferencesSection] = useState('followup');
+  // A WhatsApp account that was just created opens straight on the WhatsApp section, ready to connect its number.
+  const [openWhatsApp] = useState(() => {
+    try {
+      const flag = sessionStorage.getItem('heysasa:open-whatsapp') === '1';
+      sessionStorage.removeItem('heysasa:open-whatsapp');
+      return flag;
+    } catch { return false; }
+  });
+  const [preferencesSection, setPreferencesSection] = useState(openWhatsApp ? 'whatsapp' : 'followup');
   // On phones Preferences opens as a section list; this flag skips the list when
   // another screen deep-links straight into one section (e.g. Business settings).
-  const [preferencesDirect, setPreferencesDirect] = useState(false);
+  const [preferencesDirect, setPreferencesDirect] = useState(openWhatsApp);
   const [activeTab, setActiveTab] = useState(() => tabFromPath(window.location.pathname));
   // A campaign another screen asked to open ({ ruleId } for an auto campaign, { adKey } for an ad). The Lists & Campaigns
   // page clears it once it has acted on it.
@@ -118,6 +130,8 @@ function AuthenticatedApp() {
         return <PlaygroundPage businessId={activeBusinessId} />;
       case 'products':
         return <ProductsPage />;
+      case 'team':
+        return <TeamPage />;
       default:
         return <HomePage setup={setup} onFinish={() => setCelebrate(true)} />;
     }
@@ -210,6 +224,17 @@ function AuthenticatedApp() {
 //                yet), always
 // A logged-in visitor who lands on /login or /signup is bounced to "/"
 // rather than shown a page that makes no sense to someone already in.
+function readPendingInvite() {
+  try { return localStorage.getItem(PENDING_INVITE_KEY); } catch { return null; }
+}
+
+// Someone opened an invite link while signed out, then signed in: take them back to the invite to finish joining.
+function PendingInviteGate({ children }) {
+  const pending = readPendingInvite();
+  if (pending) return <Navigate to={`/invite/${encodeURIComponent(pending)}`} replace />;
+  return children;
+}
+
 export default function App() {
   const { user, loading } = useAuth();
 
@@ -228,7 +253,8 @@ export default function App() {
         <Route path="/privacy" element={<PolicyPage page="privacy" />} />
         <Route path="/contact" element={<PolicyPage page="contact" />} />
         <Route path="/contact-us" element={<PolicyPage page="contact" />} />
-        <Route path="*" element={user ? <WorkspaceErrorBoundary><AuthenticatedApp /></WorkspaceErrorBoundary> : <LandingPage />} />
+        <Route path="/invite/:token" element={<InvitePage />} />
+        <Route path="*" element={user ? <PendingInviteGate><AccountProvider><WorkspaceErrorBoundary><AuthenticatedApp /></WorkspaceErrorBoundary></AccountProvider></PendingInviteGate> : <LandingPage />} />
       </Routes>
     </BrowserRouter>
   );

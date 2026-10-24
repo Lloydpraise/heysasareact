@@ -1,6 +1,8 @@
 import { useRef, useState } from 'react';
 import { AlertCircle, Check, ExternalLink, FileText, Film, Image as ImageIcon, Loader2, Mic, Pencil, Plus, RotateCw, StickyNote, Trash2, Upload, X, File as FileIcon } from 'lucide-react';
 import { useKnowledge } from '../../hooks/useKnowledge';
+import { useAccount } from '../../context/useAccount';
+import { accountDisplayName, importToAccount } from '../../services/accountsService';
 import { ACCEPT, KINDS, MAX_FILE_BYTES, USED_BY } from '../../services/knowledgeService';
 
 const TYPE_ICON = { pdf: FileText, image: ImageIcon, audio: Mic, video: Film, document: FileText, text: StickyNote };
@@ -136,7 +138,7 @@ function SourceForm({ initial, editing, onSave, onCancel }) {
   );
 }
 
-function SourceCard({ source, onEdit, onToggle, onRetry, onDelete, onOpen, busy }) {
+function SourceCard({ source, onEdit, onToggle, onRetry, onDelete, onOpen, busy, shared = false }) {
   const [confirming, setConfirming] = useState(false);
   const Icon = TYPE_ICON[source.file_type] ?? FileIcon;
   const status = source.status === 'ready' ? <Pill tone="green" icon={Check}>Ready</Pill>
@@ -155,6 +157,7 @@ function SourceCard({ source, onEdit, onToggle, onRetry, onDelete, onOpen, busy 
             {status}
             <Pill>{kindLabel(source.kind)}</Pill>
             <Pill>{usedByLabel(source.used_by)}</Pill>
+            {shared && <Pill>Business catalog</Pill>}
           </div>
           {source.status === 'failed' && source.status_detail && <p className="mt-2 text-[12px] text-red-600">{source.status_detail}</p>}
           {source.status === 'ready' && source.status_detail && <p className="mt-2 text-[12px] text-slate-400">{source.status_detail}</p>}
@@ -184,7 +187,24 @@ function SourceCard({ source, onEdit, onToggle, onRetry, onDelete, onOpen, busy 
 // The Knowledge tab of the persona pack. It is not part of the pack itself: it is the business's own files and notes,
 // which the AI looks things up in. Mirrors Materials in Preferences.
 export default function KnowledgeTab({ businessId, showToast }) {
-  const { sources, loading, error, add, update, retry, remove, openFile } = useKnowledge(businessId);
+  const { sources, loading, error, add, update, retry, remove, openFile, reload } = useKnowledge(businessId);
+  // With one WhatsApp account selected, shared business files (account_id empty) show too and can be copied in.
+  const { selectedAccountId, selectedAccount } = useAccount();
+  const [importing, setImporting] = useState(false);
+  const sharedCount = selectedAccountId ? sources.filter((s) => !s.account_id).length : 0;
+  const importShared = async () => {
+    if (!window.confirm(`Copy the business catalog files into ${accountDisplayName(selectedAccount)}? The copies belong to this account only.`)) return;
+    setImporting(true);
+    try {
+      const copied = await importToAccount(businessId, selectedAccountId, 'knowledge', null);
+      await reload();
+      showToast?.(copied ? `Copied ${copied} file${copied === 1 ? '' : 's'} into this account.` : 'Nothing new to copy.');
+    } catch (e) {
+      showToast?.(e.message || 'Could not import from the business catalog.', 'error');
+    } finally {
+      setImporting(false);
+    }
+  };
   const [form, setForm] = useState(null);   // { initial, editing }
   const [busyId, setBusyId] = useState(null);
 
@@ -221,6 +241,14 @@ export default function KnowledgeTab({ businessId, showToast }) {
         </button>
       </div>
 
+      {sharedCount > 0 && (
+        <div className="flex flex-col gap-2 rounded-2xl border border-sky-100 bg-sky-50/70 px-3 py-2.5 text-[12.5px] text-slate-600 sm:flex-row sm:items-center sm:justify-between">
+          <span>Files marked Business catalog are shared by every WhatsApp account.</span>
+          <button type="button" onClick={importShared} disabled={importing} className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[12px] font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60">
+            {importing && <Loader2 size={13} className="animate-spin" />}Import from business catalog
+          </button>
+        </div>
+      )}
       {error && <p className="rounded-2xl bg-red-50 px-3 py-2 text-[12.5px] text-red-700">{error}</p>}
       {loading && <p className="flex items-center gap-2 py-6 text-sm text-slate-400"><Loader2 size={15} className="animate-spin" /> Loading…</p>}
 
@@ -236,7 +264,7 @@ export default function KnowledgeTab({ businessId, showToast }) {
       <div className="space-y-2.5">
         {sources.map((s) => (
           <SourceCard
-            key={s.id} source={s} busy={busyId === s.id}
+            key={s.id} source={s} busy={busyId === s.id} shared={Boolean(selectedAccountId && !s.account_id)}
             onEdit={edit}
             onToggle={(src, v) => guard(() => update(src.id, { is_active: v }), 'Could not change that.')}
             onRetry={(src) => { setBusyId(src.id); guard(() => retry(src.id), 'Could not retry.').finally(() => setBusyId(null)); }}
