@@ -16,7 +16,7 @@ export default function TopNav() {
 
         <div className="flex shrink-0 items-center justify-end gap-2.5 md:pl-3">
           {lastFetchedAt && !loading && (
-            <span className="text-[10px] font-medium text-slate-400 max-md:hidden sm:text-[10.5px]">Updated {timeAgo(lastFetchedAt.toISOString())} ago</span>
+            <span className="text-[10px] font-medium text-slate-400 max-md:hidden sm:text-[10.5px]">Updated {timeAgo(lastFetchedAt.toISOString()) === 'now' ? 'just now' : `${timeAgo(lastFetchedAt.toISOString())} ago`}</span>
           )}
           <button
             type="button"

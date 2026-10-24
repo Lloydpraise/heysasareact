@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ArrowRight, LockKeyhole, Mail } from 'lucide-react';
 import { useAuth } from '../../context/useAuth';
+import { supabase } from '../../lib/supabase';
 
 export default function LoginPage() {
   const { signIn } = useAuth();
@@ -8,6 +9,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [notice, setNotice] = useState('');
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -16,6 +18,17 @@ export default function LoginPage() {
     const { error: signInError } = await signIn(email.trim(), password);
     if (signInError) setError(signInError.message);
     setSubmitting(false);
+  };
+
+  // Sends a reset link to the email typed above. The link opens /reset-password, where a new password is chosen.
+  const handleForgot = async () => {
+    setError('');
+    setNotice('');
+    if (!email.trim()) { setError('Type your email above first, then tap "Forgot password?" again.'); return; }
+    if (!supabase) { setError('Sign-in is not available right now.'); return; }
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: `${window.location.origin}/reset-password` });
+    if (resetError) setError(resetError.message);
+    else setNotice('Check your email for a link to set a new password.');
   };
 
   return (
@@ -43,12 +56,21 @@ export default function LoginPage() {
               <input required type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-3 outline-none transition focus:border-[#28A745] focus:ring-4 focus:ring-[#28A745]/10" />
             </span>
           </label>
+          <div className="-mt-2 text-right">
+            <button type="button" onClick={handleForgot} className="text-sm font-semibold text-[#28A745] hover:underline">Forgot password?</button>
+          </div>
+          {notice && <p role="status" className="rounded-xl bg-green-50 px-3 py-2 text-sm text-green-700">{notice}</p>}
           {error && <p role="alert" className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
           <button disabled={submitting} className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#28A745] font-bold text-white shadow-lg shadow-[#28A745]/20 transition hover:bg-[#218838] disabled:cursor-wait disabled:opacity-60">
             {submitting ? 'Signing in...' : 'Sign in'}
             {!submitting && <ArrowRight className="h-4 w-4" />}
           </button>
         </form>
+        <p className="mt-6 text-center text-sm text-slate-500">
+          New to HeySasa? <a href="/?waitlist=1" className="font-semibold text-[#28A745] hover:underline">Join the waitlist</a>
+          <span className="mx-2 text-slate-300">·</span>
+          <a href="/" className="font-semibold text-slate-600 hover:underline">Back to home</a>
+        </p>
       </section>
     </main>
   );

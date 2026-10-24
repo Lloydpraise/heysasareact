@@ -2,9 +2,9 @@ import { supabase } from '../lib/supabase';
 import { fetchWhatsAppSessions } from './businessService';
 import { fetchManualListLeadIds, fetchLeadCampaignEnrollment, fetchRecentCampaignResponderMap } from './listsCampaignsService';
 import { hasUnrepliedCustomerMessage } from '../utils/leadHelpers';
+import { whatsappFetch } from './whatsappApi';
+import { findOrCreateContacts } from './contactImport';
 
-const EVOLUTION_API_URL = (import.meta.env.VITE_EVOLUTION_API_URL || 'http://localhost:8080').replace(/\/$/, '');
-const EVOLUTION_API_KEY = import.meta.env.VITE_EVOLUTION_API_KEY || '';
 const BACKEND_API_URL = (import.meta.env.VITE_BACKEND_API_URL || 'http://localhost:3000').replace(/\/$/, '');
 
 const PRIORITY_TABS = {
@@ -477,13 +477,13 @@ async function sendChatMessage({ phone, text }) {
   const session = sessions.find((item) => item.status === 'connected' && item.instance_name);
   if (!session) throw new Error('No connected WhatsApp instance is available.');
 
-  const response = await fetch(`${EVOLUTION_API_URL}/message/sendText/${encodeURIComponent(session.instance_name)}`, {
+  const response = await whatsappFetch(`/message/sendText/${encodeURIComponent(session.instance_name)}`, {
     method: 'POST',
-    headers: { apikey: EVOLUTION_API_KEY, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
+    businessId,
+    body: {
       number: phone.replace(/\D/g, ''),
       text,
-    }),
+    },
   });
   const result = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(result?.message || result?.error || 'Could not send WhatsApp message.');
@@ -529,10 +529,10 @@ async function loadChatMessageMedia(message) {
   const session = sessions.find((item) => item.status === 'connected' && item.instance_name);
   if (!session) return message;
 
-  const response = await fetch(`${EVOLUTION_API_URL}/chat/getBase64FromMediaMessage/${encodeURIComponent(session.instance_name)}`, {
+  const response = await whatsappFetch(`/chat/getBase64FromMediaMessage/${encodeURIComponent(session.instance_name)}`, {
     method: 'POST',
-    headers: { apikey: EVOLUTION_API_KEY, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message: message.rawMessage }),
+    businessId,
+    body: { message: message.rawMessage },
   });
   const result = await response.json().catch(() => ({}));
   if (!response.ok) return message;
@@ -623,10 +623,10 @@ async function loadEvolutionChats(instanceName = null, businessName = '') {
   }
   if (!targetInstanceName) throw new Error('No connected WhatsApp instance is available.');
 
-  const response = await fetch(`${EVOLUTION_API_URL}/chat/findChats/${encodeURIComponent(targetInstanceName)}`, {
+  const response = await whatsappFetch(`/chat/findChats/${encodeURIComponent(targetInstanceName)}`, {
     method: 'POST',
-    headers: { apikey: EVOLUTION_API_KEY, 'Content-Type': 'application/json' },
-    body: JSON.stringify({}),
+    businessId,
+    body: {},
   });
   const result = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(result?.message || result?.error || 'Could not load WhatsApp chats.');
@@ -783,14 +783,14 @@ async function loadPastChatMessages({ phone, instanceName = null }) {
   const messagesById = new Map();
 
   for (let page = 1; page <= maxPages; page += 1) {
-    const response = await fetch(`${EVOLUTION_API_URL}/chat/findMessages/${encodeURIComponent(targetInstanceName)}`, {
+    const response = await whatsappFetch(`/chat/findMessages/${encodeURIComponent(targetInstanceName)}`, {
       method: 'POST',
-      headers: { apikey: EVOLUTION_API_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+      businessId,
+      body: {
         where: { key: { remoteJid } },
         page,
         offset: pageSize,
-      }),
+      },
     });
     const result = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(result?.message || result?.error || 'Could not load past WhatsApp messages.');
@@ -899,13 +899,9 @@ async function createLead(leadInput = {}) {
   };
 
   try {
-    const { data, error } = await supabase
-      .from('contacts')
-      .insert([payload])
-      .select()
-      .single();
-
-    if (error) throw error;
+    // A number the business already has is reused, not added twice.
+    const [data] = await findOrCreateContacts(businessId, [payload]);
+    if (!data) throw new Error('Could not save this lead.');
 
     return { ok: true, lead: normalizeLead(data) };
   } catch (error) {
@@ -935,12 +931,8 @@ async function createBulkLeads(leadInputs = []) {
   if (!payload.length) return { ok: false, error: 'No valid leads to import.' };
 
   try {
-    const { data, error } = await supabase
-      .from('contacts')
-      .insert(payload)
-      .select();
-
-    if (error) throw error;
+    // Numbers the business already has are reused, and a number repeated in the file is added once.
+    const data = await findOrCreateContacts(businessId, payload);
 
     return { ok: true, leads: (data || []).map(normalizeLead) };
   } catch (error) {

@@ -2,6 +2,7 @@
 import { supabase } from '../lib/supabase';
 import { parseDateTimeLocalInTimeZone } from '../utils/businessTime';
 import { fetchWhatsAppSessions } from './businessService';
+import { findOrCreateContacts } from './contactImport';
 
 // ============================================================
 // Module A — Automation Rules
@@ -215,11 +216,8 @@ export async function createManualListWithContacts(businessId, name, contacts) {
     lead_type: 'business',
     is_ad_lead: false,
   }));
-  const { data: createdContacts, error: contactsError } = await supabase
-    .from('contacts')
-    .insert(contactPayload)
-    .select('id');
-  if (contactsError) throw contactsError;
+  // People already in HeySasa (from WhatsApp or an earlier list) are reused, so their replies reach this list's campaign.
+  const createdContacts = await findOrCreateContacts(businessId, contactPayload, { select: 'id' });
 
   const memberships = (createdContacts || []).map((contact) => ({
     list_id: list.id,

@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, CheckCircle2, LoaderCircle, MessageCircleMore, Smartphone, X } from 'lucide-react';
+import { whatsappFetch } from '../../../services/whatsappApi';
 
-const EVOLUTION_API_URL = (import.meta.env.VITE_EVOLUTION_API_URL || 'http://localhost:8080').replace(/\/$/, '');
-const EVOLUTION_API_KEY = import.meta.env.VITE_EVOLUTION_API_KEY || '';
 const INSTANCE_PREFIX = import.meta.env.VITE_EVOLUTION_INSTANCE_NAME || 'business';
 const POLL_INTERVAL = 20000;
 const STATE_POLL_INTERVAL = 4000;
@@ -10,7 +9,6 @@ const PAIRING_ATTEMPTS = 4;
 const PAIRING_RETRY_DELAY = 2500;
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-const apiHeaders = () => ({ apikey: EVOLUTION_API_KEY, 'Content-Type': 'application/json' });
 
 function getQrImageSource(value) {
   if (!value) return '';
@@ -88,28 +86,24 @@ export function WhatsAppConnectionFlow({ open, onClose, onConnected }) {
   // that QR session and never issues a pairing code. So the phone flow must
   // create the instance with qrcode:false and let connect?number= start it.
   const createInstance = async (name, { withQr }) => {
-    const response = await fetch(`${EVOLUTION_API_URL}/instance/create`, {
+    // The backend creates the instance (and saves it to this business straight away).
+    const response = await whatsappFetch('/instance/create', {
       method: 'POST',
-      headers: apiHeaders(),
-      body: JSON.stringify({
-        instanceName: name,
-        integration: 'WHATSAPP-BAILEYS',
-        qrcode: withQr,
-      }),
+      body: { instanceName: name, qrcode: withQr },
     });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data?.response?.message?.[0] || data?.message || data?.error || 'Evolution API could not create this instance.');
+    if (!response.ok) throw new Error(data?.response?.message?.[0] || data?.message || data?.error || 'We could not start the connection. Please try again.');
   };
 
   const deleteInstanceQuietly = async (name) => {
     if (!name) return;
     try {
-      await fetch(`${EVOLUTION_API_URL}/instance/delete/${name}`, { method: 'DELETE', headers: apiHeaders() });
+      await whatsappFetch(`/instance/delete/${encodeURIComponent(name)}`, { method: 'DELETE' });
     } catch { /* best effort */ }
   };
 
   const fetchConnectionState = async (targetInstanceName) => {
-    const response = await fetch(`${EVOLUTION_API_URL}/instance/connectionState/${targetInstanceName}`, { headers: apiHeaders() });
+    const response = await whatsappFetch(`/instance/connectionState/${encodeURIComponent(targetInstanceName)}`);
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data?.message || data?.error || 'Could not read the connection state.');
     return readState(data);
@@ -123,10 +117,10 @@ export function WhatsAppConnectionFlow({ open, onClose, onConnected }) {
 
   const fetchConnection = async (phone = '', targetInstanceName) => {
     const query = phone ? `?number=${encodeURIComponent(phone.replace(/\D/g, ''))}` : '';
-    const response = await fetch(`${EVOLUTION_API_URL}/instance/connect/${targetInstanceName}${query}`, { headers: apiHeaders() });
+    const response = await whatsappFetch(`/instance/connect/${encodeURIComponent(targetInstanceName)}${query}`);
     const data = await response.json().catch(() => ({}));
 
-    if (!response.ok) throw new Error(data?.response?.message?.[0] || data?.message || data?.error || 'Evolution API could not start this connection.');
+    if (!response.ok) throw new Error(data?.response?.message?.[0] || data?.message || data?.error || 'WhatsApp did not answer. Please try again.');
     const qrValue = data.base64 || data.qrcode?.base64 || data.qr_code || data.qrCode;
     const pairingValue = data.pairingCode || data.pairing_code || data.qrcode?.pairingCode;
 
@@ -178,7 +172,7 @@ export function WhatsAppConnectionFlow({ open, onClose, onConnected }) {
             const state = await fetchConnectionState(targetInstanceName);
             if (OPEN_STATES.includes(state)) markConnected();
           } catch (error) {
-            setFormError(error.message || 'Error connecting to Evolution API.');
+            setFormError(error.message || 'Could not connect to WhatsApp. Please try again.');
             setStatus('failed');
             setStep(3);
             stopPolling();
@@ -193,7 +187,7 @@ export function WhatsAppConnectionFlow({ open, onClose, onConnected }) {
       if (!isAlreadyConnected) {
         pollIntervalRef.current = setInterval(() => {
           fetchConnection('', targetInstanceName).catch((error) => {
-            setFormError(error.message || 'Error connecting to Evolution API.');
+            setFormError(error.message || 'Could not connect to WhatsApp. Please try again.');
             setStatus('failed');
             setStep(3);
             stopPolling();
@@ -201,7 +195,7 @@ export function WhatsAppConnectionFlow({ open, onClose, onConnected }) {
         }, POLL_INTERVAL);
       }
     } catch (error) {
-      setFormError(error.message || 'Error connecting to Evolution API.');
+      setFormError(error.message || 'Could not connect to WhatsApp. Please try again.');
       setStatus('failed');
       setStep(3);
       stopPolling();
@@ -280,7 +274,7 @@ export function WhatsAppConnectionFlow({ open, onClose, onConnected }) {
     try {
       await onConnected?.({
         id: `inst_${Date.now()}`,
-        number: method === 'number' && normalizedPhone ? `+${normalizedPhone}` : `Evolution instance: ${instanceName}`,
+        number: method === 'number' && normalizedPhone ? `+${normalizedPhone}` : null,
         instanceName,
         label: cleanedName,
         active: true,
@@ -310,14 +304,14 @@ export function WhatsAppConnectionFlow({ open, onClose, onConnected }) {
     <div className="sheet-overlay fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/35 p-4 sm:p-6">
       <div className="sheet-panel static w-full max-w-lg max-h-[calc(100vh-2rem)] overflow-y-auto rounded-[1.5rem] border border-white/80 bg-white/95 shadow-2xl shadow-slate-900/15 backdrop-blur-xl sm:max-h-[calc(100vh-3rem)]">
         <div className="flex items-center justify-between border-b border-slate-200/80 px-4 py-3 sm:px-5">
-          <div><p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Evolution API</p><h3 className="mt-1 text-base font-semibold text-slate-800">Connect WhatsApp</h3></div>
+          <div><p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">WhatsApp</p><h3 className="mt-1 text-base font-semibold text-slate-800">Connect WhatsApp</h3></div>
           <button type="button" onClick={handleClose} className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:text-slate-800" aria-label="Close connection flow"><X className="h-4 w-4" /></button>
         </div>
 
         <div className="p-4 sm:p-5">
           {step === 1 && (
             <div className="space-y-5">
-              <div className="rounded-2xl border border-[#28A745]/15 bg-[#28A745]/5 p-3 text-sm text-slate-600">A unique Evolution instance will be created for this WhatsApp connection.</div>
+              <div className="rounded-2xl border border-[#28A745]/15 bg-[#28A745]/5 p-3 text-sm text-slate-600">Link the WhatsApp number your customers message. Scan a code with your phone, or get a code to type in.</div>
               <div className="grid grid-cols-2 gap-2 rounded-2xl bg-slate-100 p-1">
                 {['qr', 'number'].map((option) => <button key={option} type="button" onClick={() => setMethod(option)} className={`rounded-xl px-3 py-2.5 text-sm font-semibold transition ${method === option ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>{option === 'qr' ? 'QR code' : 'Phone number'}</button>)}
               </div>
@@ -325,14 +319,14 @@ export function WhatsAppConnectionFlow({ open, onClose, onConnected }) {
               {method === 'number' && <div className="space-y-2"><label className="text-sm font-medium text-slate-700">Phone number</label><div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 focus-within:border-[#28A745] focus-within:bg-white"><select value={countryCode} onChange={(event) => setCountryCode(event.target.value)} className="w-24 bg-transparent text-sm font-medium text-slate-700 outline-none" aria-label="Country code"><option value="+254">+254</option><option value="+1">+1</option><option value="+44">+44</option><option value="+61">+61</option><option value="+971">+971</option><option value="+27">+27</option></select><input type="tel" inputMode="numeric" value={phoneNumber} onChange={(event) => setPhoneNumber(event.target.value)} placeholder="712 345 678" className="w-full bg-transparent text-base text-slate-800 outline-none placeholder:text-slate-400" /></div></div>}
               {formError && <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">{formError}</p>}
               <button type="button" onClick={handleStart} disabled={isLoading} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#28A745] px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-[#28A745]/20 transition hover:bg-[#1f8d3d] disabled:cursor-not-allowed disabled:opacity-60">{isLoading && <LoaderCircle className="h-4 w-4 animate-spin" />}{isLoading ? 'Starting connection...' : 'Continue'}</button>
-              <div className="flex items-center justify-center gap-2 text-xs text-slate-500"><Smartphone className="h-3.5 w-3.5" />Powered by Evolution API</div>
+              <div className="flex items-center justify-center gap-2 text-xs text-slate-500"><Smartphone className="h-3.5 w-3.5" />Works like WhatsApp Web. Your phone stays connected as usual.</div>
             </div>
           )}
 
           {step === 2 && <div className="space-y-5"><div className="flex items-center justify-between"><div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Step 2</p><h4 className="mt-1 text-lg font-semibold text-slate-800">{method === 'qr' ? 'Scan the QR code' : 'Enter the pairing code'}</h4></div><button type="button" onClick={() => { stopPolling(); setStep(1); }} className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600"><ArrowLeft className="h-3.5 w-3.5" />Back</button></div>{method === 'qr' ? <div className="space-y-4"><div className="mx-auto flex min-h-[252px] w-full max-w-[270px] items-center justify-center rounded-3xl border border-slate-200 bg-slate-50 p-4 shadow-inner shadow-slate-200/60">{qrCode ? <img src={qrCode} alt="WhatsApp QR code" className="h-[220px] w-[220px] rounded-xl bg-white p-2" /> : <div className="flex flex-col items-center gap-3 text-sm text-slate-500"><LoaderCircle className="h-6 w-6 animate-spin text-[#28A745]" />Generating QR code...</div>}</div><p className="rounded-2xl border border-[#28A745]/10 bg-[#28A745]/5 p-3 text-center text-sm text-slate-600">Open WhatsApp on your phone and scan this code. It refreshes automatically every 20 seconds.</p><button type="button" onClick={() => { stopPolling(); setMethod('number'); setStep(1); }} className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700">Connect via phone number instead</button></div> : <div className="space-y-4"><div className="flex min-h-24 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 p-4 text-center"><div><p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">Pairing code</p><strong className="mt-2 block text-3xl tracking-[0.25em] text-[#28A745]">{pairingCode ? formatPairingCode(pairingCode) : <LoaderCircle className="mx-auto h-7 w-7 animate-spin text-[#28A745]" />}</strong><p className="mt-2 text-xs text-slate-500">For +{normalizedPhone}</p></div></div><p className="rounded-2xl border border-[#28A745]/10 bg-[#28A745]/5 p-3 text-center text-sm text-slate-600">On your phone open WhatsApp, go to Linked devices, tap Link a device, then choose Link with phone number instead and enter this code. This screen updates when connected.</p><button type="button" onClick={handleNewCode} disabled={isLoading} className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 disabled:opacity-60">Code expired? Get a new code</button></div>}{formError && <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">{formError}</p>}</div>}
 
           {step === 3 && status === 'success' && <div className="space-y-5"><div className="flex flex-col items-center text-center"><div className="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-[#28A745]/10 text-[#28A745]"><CheckCircle2 className="h-8 w-8" /></div><p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#28A745]">Connected</p><h4 className="mt-2 text-xl font-semibold text-slate-800">WhatsApp number ready</h4></div><div className="rounded-2xl border border-slate-200 bg-slate-50 p-3"><label className="mb-2 block text-sm font-medium text-slate-700">Name this connection</label><input type="text" value={connectionName} onChange={(event) => setConnectionName(event.target.value)} placeholder="Support WhatsApp" className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-[#28A745]" /></div>{formError && <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">{formError}</p>}<button type="button" onClick={handleNameSave} disabled={isLoading} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#28A745] px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-[#28A745]/20 transition hover:bg-[#1f8d3d] disabled:cursor-not-allowed disabled:opacity-60">{isLoading && <LoaderCircle className="h-4 w-4 animate-spin" />}{isLoading ? 'Saving connection...' : 'Save connection'}</button></div>}
-          {step === 3 && status === 'already-connected' && <div className="space-y-5"><div className="flex flex-col items-center text-center"><div className="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-amber-100 text-amber-600"><MessageCircleMore className="h-7 w-7" /></div><p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-amber-600">Already connected</p><h4 className="mt-2 text-xl font-semibold text-slate-800">This WhatsApp is already linked</h4></div><p className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">Evolution reports the <span className="font-semibold">{instanceName}</span> instance as already open.</p><button type="button" onClick={handleRetry} className="w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white">Try again</button></div>}
+          {step === 3 && status === 'already-connected' && <div className="space-y-5"><div className="flex flex-col items-center text-center"><div className="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-amber-100 text-amber-600"><MessageCircleMore className="h-7 w-7" /></div><p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-amber-600">Already connected</p><h4 className="mt-2 text-xl font-semibold text-slate-800">This WhatsApp is already linked</h4></div><p className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">This number was already linked, so there was nothing new to scan.</p><button type="button" onClick={handleRetry} className="w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white">Try again</button></div>}
           {step === 3 && status === 'failed' && <div className="space-y-5"><div className="flex flex-col items-center text-center"><div className="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-red-100 text-red-500"><MessageCircleMore className="h-7 w-7" /></div><h4 className="text-xl font-semibold text-slate-800">Connection unsuccessful</h4></div><p className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{formError}</p><button type="button" onClick={handleRetry} className="w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white">Retry</button></div>}
         </div>
       </div>

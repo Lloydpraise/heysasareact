@@ -74,7 +74,7 @@ export default function Health() {
       </div>
 
       <AnCard>
-        <SectionLabel info="Track how many of your sent messages are delivered, read, and then replied to. Requires Evolution API read receipt data.">
+        <SectionLabel info="Track how many of your sent messages are delivered, read, and then replied to. Needs read receipts from WhatsApp.">
           Message journey {'\u2014'} read receipts
         </SectionLabel>
         <div className="flex items-center gap-2">

@@ -15,7 +15,7 @@ const MESSAGES_TIP =
   'Your monthly plan pays for HeySasa and your number. AI messages are separate — they get used up each time HeySasa messages a customer. Need more? KES 1,000 ≈ 3,000 extra messages.';
 
 const WHATSAPP_TIP =
-  'A WhatsApp number is your normal WhatsApp, connected to HeySasa. The WhatsApp API is the official business tool — it sends more messages a day, but Meta may charge extra fees.';
+  'A WhatsApp number is your normal WhatsApp (or WhatsApp Business app), linked to HeySasa the same way WhatsApp Web is. You keep using it on your phone.';
 
 const TIERS = [
   {
@@ -44,11 +44,10 @@ const TIERS = [
     featured: true,
     features: [
       { label: 'Everything in Essentials' },
-      { label: 'Official WhatsApp API', tip: WHATSAPP_TIP },
       { label: '2,000 free AI messages a month', tip: MESSAGES_TIP },
       { label: 'Up to 5,000 messages a day' },
       { label: 'Up to 10 campaigns at once' },
-      { label: 'Up to 2 WhatsApp numbers' },
+      { label: 'Up to 2 WhatsApp numbers', tip: WHATSAPP_TIP },
       { label: 'An account manager' },
     ],
   },
@@ -60,7 +59,7 @@ const TIERS = [
     featured: false,
     features: [
       { label: 'Everything in Growth' },
-      { label: 'Up to 2 official WhatsApp numbers', tip: WHATSAPP_TIP },
+      { label: 'More WhatsApp numbers on request', tip: WHATSAPP_TIP },
       { label: '2,000 free AI messages a month', tip: MESSAGES_TIP },
       { label: '2,000–10,000 messages a day' },
       { label: 'Up to 20 campaigns at once' },

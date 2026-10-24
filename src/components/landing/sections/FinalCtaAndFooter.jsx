@@ -55,9 +55,9 @@ export function Footer({ onJoinWaitlist }) {
             <nav aria-label="Quick links" className="mt-5 flex flex-col items-start gap-3 text-sm text-white/70">
               <a href="/" className="transition hover:text-white">Home</a>
               <a href="/pricing" className="transition hover:text-white">Pricing</a>
-              <a href="#how-it-works" className="transition hover:text-white">How it works</a>
-              <a href="#founding-offer" className="transition hover:text-white">Founding offer</a>
-              <a href="#faq" className="transition hover:text-white">FAQ</a>
+              <a href="/#how-it-works" className="transition hover:text-white">How it works</a>
+              <a href="/#founding-offer" className="transition hover:text-white">Founding offer</a>
+              <a href="/#faq" className="transition hover:text-white">FAQ</a>
             </nav>
           </div>
 

@@ -13,6 +13,7 @@ import PlaygroundPage from './components/playground/PlaygroundPage';
 import ProductsPage from './components/products/ProductsPage';
 import LoginPage from './components/auth/LoginPage';
 import SignupPage from './components/auth/SignupPage';
+import ResetPasswordPage from './components/auth/ResetPasswordPage';
 import LandingPage from './components/landing/LandingPage';
 import PricingPage from './components/landing/PricingPage';
 import PolicyPage from './components/policies/PolicyPage';
@@ -221,6 +222,7 @@ export default function App() {
       <Routes>
         <Route path="/login" element={user ? <Navigate to="/" replace /> : <LoginPage />} />
         <Route path="/signup" element={user ? <Navigate to="/" replace /> : <SignupPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/pricing" element={<PricingPage />} />
         <Route path="/terms" element={<PolicyPage page="terms" />} />
         <Route path="/privacy" element={<PolicyPage page="privacy" />} />

@@ -1,20 +1,16 @@
 import { supabase } from '../lib/supabase';
+import { whatsappFetch } from './whatsappApi';
 
-const EVOLUTION_API_URL = (import.meta.env.VITE_EVOLUTION_API_URL || 'http://localhost:8080').replace(/\/$/, '');
-const EVOLUTION_API_KEY = import.meta.env.VITE_EVOLUTION_API_KEY || '';
 const BUSINESS_LOGO_TYPES = new Set(['image/png', 'image/jpeg']);
 
 function getImageExtension(fileName) {
   return String(fileName).split('.').pop()?.toLowerCase() || '';
 }
 
-async function fetchEvolutionInstances() {
-  if (!EVOLUTION_API_KEY) return null;
-
+// Only this business's instances (the backend filters them). null when the check is not possible right now.
+async function fetchEvolutionInstances(businessId) {
   try {
-    const response = await fetch(`${EVOLUTION_API_URL}/instance/fetchInstances`, {
-      headers: { apikey: EVOLUTION_API_KEY },
-    });
+    const response = await whatsappFetch('/instance/fetchInstances', { businessId });
     if (!response.ok) return null;
     const instances = await response.json().catch(() => null);
     return Array.isArray(instances) ? instances : null;
@@ -26,7 +22,7 @@ async function fetchEvolutionInstances() {
 export async function fetchWhatsAppSessions(businessId) {
   if (!supabase || !businessId) return [];
 
-  const evolutionInstances = await fetchEvolutionInstances();
+  const evolutionInstances = await fetchEvolutionInstances(businessId);
   const { data, error } = await supabase
     .from('whatsapp_sessions')
     .select('id, business_id, phone_number, status, instance_name, evolution_instance_id, history_loaded_at, updated_at, session_data')
@@ -87,20 +83,24 @@ export async function saveWhatsAppSession({ businessId, phoneNumber, instanceNam
   if (!supabase) throw new Error('Supabase is not configured.');
   if (!businessId) throw new Error('No active business is available to save this WhatsApp connection.');
 
-  const { data, error } = await supabase
-    .from('whatsapp_sessions')
-    .insert({
-      business_id: businessId,
-      phone_number: phoneNumber || null,
-      instance_name: instanceName || null,
-      status,
-      session_data: label ? { label } : null,
-    })
-    .select('id, business_id, phone_number, status, instance_name, evolution_instance_id, history_loaded_at, updated_at, session_data')
-    .single();
+  const columns = 'id, business_id, phone_number, status, instance_name, evolution_instance_id, history_loaded_at, updated_at, session_data';
+  // The backend already saved this connection as pending when it was started (so its messages are recognised at once).
+  // Finish that row; only insert when there is none (an older backend).
+  const { data: started } = instanceName
+    ? await supabase.from('whatsapp_sessions').select('id, session_data').eq('business_id', businessId).eq('instance_name', instanceName).maybeSingle()
+    : { data: null };
+  const values = {
+    phone_number: phoneNumber || null,
+    status,
+    session_data: { ...(started?.session_data || {}), ...(label ? { label } : {}) },
+    updated_at: new Date().toISOString(),
+  };
+  const { data, error } = started
+    ? await supabase.from('whatsapp_sessions').update(values).eq('id', started.id).eq('business_id', businessId).select(columns).single()
+    : await supabase.from('whatsapp_sessions').insert({ ...values, business_id: businessId, instance_name: instanceName || null }).select(columns).single();
 
   if (error) throw new Error(`Could not save WhatsApp connection: ${error.message}`);
-  const evolutionInstances = await fetchEvolutionInstances();
+  const evolutionInstances = await fetchEvolutionInstances(businessId);
   const evolutionInstance = evolutionInstances?.find((instance) => instance.name === instanceName);
   if (!evolutionInstance?.id) return data;
 
@@ -120,10 +120,7 @@ export async function disconnectWhatsAppInstance({ businessId, sessionId, instan
     throw new Error('This WhatsApp connection is missing the information needed to disconnect it.');
   }
 
-  const response = await fetch(`${EVOLUTION_API_URL}/instance/delete/${encodeURIComponent(instanceName)}`, {
-    method: 'DELETE',
-    headers: { apikey: EVOLUTION_API_KEY, 'Content-Type': 'application/json' },
-  });
+  const response = await whatsappFetch(`/instance/delete/${encodeURIComponent(instanceName)}`, { method: 'DELETE', businessId });
   await readBackendResponse(response, 'Could not remove this WhatsApp instance.');
 
   if (!supabase) return { id: sessionId, business_id: businessId, status: 'disconnected' };
