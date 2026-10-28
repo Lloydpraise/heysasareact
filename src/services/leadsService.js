@@ -402,7 +402,7 @@ export function subscribeToLeadData(businessId, onChange) {
       { event: '*', schema: 'public', table: 'conversations', filter: `business_id=eq.${businessId}` },
       onChange
     )
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, onChange)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'messages', filter: `business_id=eq.${businessId}` }, onChange)
     .subscribe();
 
   return () => supabase.removeChannel(channel);

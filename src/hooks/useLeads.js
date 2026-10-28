@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { MOCK_LEADS } from '../services/mockLeads';
 import leadsService from '../services/leadsService';
 
@@ -8,13 +8,30 @@ function hasLiveLeadData() {
   return leadsService.hasLiveData();
 }
 
-export function useLeads() {
-  const [leads, setLeads] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+// The leads list is expensive to build (summary rows, every message, contacts, campaign links), so it is built once and
+// kept here, per business, for as long as the app is open. Switching away from Leads and back shows it at once instead
+// of refetching thousands of contacts; filters and search work on this list in the browser and never touch the database.
+const leadsCache = new Map();
+const STALE_MS = 5 * 60_000;       // an older list is shown immediately and refreshed quietly behind it
+const LIVE_REFRESH_GAP_MS = 45_000; // realtime changes refresh the list at most this often, not once per message
 
-  const fetchLeads = useCallback(async () => {
-    setLoading(true);
+function currentBusinessId() {
+  return typeof window !== 'undefined' ? window.currentBusinessId || localStorage.getItem('business_id') : null;
+}
+
+export function useLeads() {
+  const [cachedAtMount] = useState(() => leadsCache.get(currentBusinessId()) || null);
+  const [leads, setLeads] = useState(cachedAtMount?.leads ?? []);
+  const [loading, setLoading] = useState(!cachedAtMount);
+  const [error, setError] = useState(null);
+  const lastFetchAt = useRef(0);
+  const dirtyRef = useRef(false);
+
+  // silent: keep showing the current list while it refreshes (no spinner, no empty flash on failure).
+  const fetchLeads = useCallback(async ({ silent = false } = {}) => {
+    lastFetchAt.current = Date.now();
+    dirtyRef.current = false;
+    if (!silent) setLoading(true);
     setError(null);
     try {
       if (USE_MOCK_DATA) {
@@ -42,32 +59,58 @@ export function useLeads() {
       if (!data) {
         console.error('[useLeads] Live lead query returned no data.');
         setError('Could not load live leads.');
-        setLeads([]);
+        if (!silent) setLeads([]);
         return;
       }
 
       if (data.length === 0) console.warn('[useLeads] No live leads found for the configured business.');
+      leadsCache.set(businessId, { leads: data, at: Date.now() });
       setLeads(data);
     } catch (err) {
       console.error('[useLeads] fetch failed:', err);
-      setLeads([]);
+      if (!silent) setLeads([]);
       setError(err.message || 'Could not load leads.');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
+  // Open: nothing cached -> load; cached and fresh -> do nothing; cached but old -> refresh quietly.
   useEffect(() => {
-    fetchLeads();
-  }, [fetchLeads]);
+    if (!cachedAtMount) fetchLeads();
+    else if (Date.now() - cachedAtMount.at > STALE_MS) fetchLeads({ silent: true });
+  }, [fetchLeads, cachedAtMount]);
 
+  // Local edits (patchLead, add, delete) are written back so the cache never shows an older version than the screen.
+  useEffect(() => {
+    const businessId = currentBusinessId();
+    const cached = businessId ? leadsCache.get(businessId) : null;
+    if (cached && cached.leads !== leads) leadsCache.set(businessId, { ...cached, leads });
+  }, [leads]);
+
+  // Realtime changes: refresh quietly, at most once per LIVE_REFRESH_GAP_MS, and only while the tab is visible
+  // (a hidden tab just remembers that it is out of date and refreshes when it comes back).
   useEffect(() => {
     if (USE_MOCK_DATA) return undefined;
 
-    const businessId = typeof window !== 'undefined' ? localStorage.getItem('business_id') : null;
+    const businessId = currentBusinessId();
     if (!businessId) return undefined;
 
-    return leadsService.subscribeToLeadData(businessId, fetchLeads);
+    let timer = null;
+    const refreshIfDue = () => {
+      if (document.visibilityState === 'hidden') { dirtyRef.current = true; return; }
+      const wait = LIVE_REFRESH_GAP_MS - (Date.now() - lastFetchAt.current);
+      if (wait <= 0) { fetchLeads({ silent: true }); return; }
+      if (!timer) timer = setTimeout(() => { timer = null; refreshIfDue(); }, wait);
+    };
+    const onVisible = () => { if (document.visibilityState === 'visible' && dirtyRef.current) refreshIfDue(); };
+    document.addEventListener('visibilitychange', onVisible);
+    const unsubscribe = leadsService.subscribeToLeadData(businessId, refreshIfDue);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      clearTimeout(timer);
+      unsubscribe();
+    };
   }, [fetchLeads]);
 
   // Patches one lead in local state without a full refetch — used for
