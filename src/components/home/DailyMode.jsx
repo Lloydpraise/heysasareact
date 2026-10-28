@@ -13,6 +13,7 @@ import WhoNeedsYou from './WhoNeedsYou';
 import YourMoveCard from './YourMoveCard';
 import { buildMoves } from './buildMoves';
 import { normalizeSummary } from './normalizeSummary';
+import useRefreshOnFocus from '../../hooks/useRefreshOnFocus';
 
 // After setup, top to bottom: a greeting, the one thing to do now, what HeySasa is doing (four small status pills),
 // one line of good news, what waits for your OK, who to talk to, then what else you could switch on.
@@ -29,9 +30,8 @@ export default function DailyMode({ businessId, connected, status, onRetrySetup 
   );
   useEffect(() => {
     loadSummary();
-    const timer = setInterval(loadSummary, 60000);
-    return () => clearInterval(timer);
   }, [loadSummary]);
+  useRefreshOnFocus(loadSummary);
 
   const walletEmpty = Boolean(overview) && Number(overview.balance_kes) <= 0;
   const setupFailed = status?.status === 'failed' && !status?.home_ready;

@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../../context/useAuth';
-import { fetchWhatsAppSessions } from '../../services/businessService';
+import { fetchWhatsAppSessions, subscribeToWhatsAppSessions } from '../../services/businessService';
 import { startSetup } from '../../services/setupService';
 import SetupMode from './SetupMode';
 import DailyMode from './DailyMode';
 import { isOnboarding } from './setupGate';
+import useRefreshOnFocus from '../../hooks/useRefreshOnFocus';
 
 // The app shell clips its pages, so every page brings its own scroll area. Home's is here: the one place that
 // scrolls, with the page padding, for the setup journey, the daily page and the loading state alike.
@@ -34,9 +35,10 @@ export default function HomePage({ setup, onFinish }) {
   useEffect(() => {
     const first = async () => { await loadSessions(); };
     first();
-    const timer = setInterval(loadSessions, 30000);
-    return () => clearInterval(timer);
-  }, [loadSessions]);
+    // Connection changes arrive over realtime (whatsapp_sessions is in the publication) instead of a 30s poll.
+    return subscribeToWhatsAppSessions(businessId, loadSessions);
+  }, [loadSessions, businessId]);
+  useRefreshOnFocus(loadSessions);
 
   if (!businessId) return <Scroll><div className="py-16 text-center text-sm text-slate-400">Choose a business to begin.</div></Scroll>;
   if (!status || sessions === null) {

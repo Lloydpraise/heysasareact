@@ -1,22 +1,24 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import AnCard, { SectionLabel } from '../analytics/shared/AnCard';
 import { fetchTopLeads } from '../../services/setupService';
 import { timeAgo } from '../../utils/leadHelpers';
 import { openLead } from './homeCopy';
 import HelpGuide from './guides/HelpGuide';
+import useRefreshOnFocus from '../../hooks/useRefreshOnFocus';
 
 // The few people to talk to today, each with a short summary so the owner remembers them at a glance.
 // `label` and `emptyText` let setup mode reuse it for "Your first leads", so the owner sees real value early.
-export default function WhoNeedsYou({ businessId, label = 'Who needs you now', emptyText = 'Nobody looks ready to buy right now. HeySasa keeps checking every new message.', refreshMs = 60000 }) {
+export default function WhoNeedsYou({ businessId, label = 'Who needs you now', emptyText = 'Nobody looks ready to buy right now. HeySasa keeps checking every new message.' }) {
   const [leads, setLeads] = useState(null);
 
+  const load = useCallback(
+    () => fetchTopLeads(businessId).then(setLeads).catch(() => setLeads((current) => current || [])),
+    [businessId],
+  );
   useEffect(() => {
-    let cancelled = false;
-    const load = () => fetchTopLeads(businessId).then((rows) => { if (!cancelled) setLeads(rows); }).catch(() => { if (!cancelled) setLeads((current) => current || []); });
     load();
-    const timer = setInterval(load, refreshMs);
-    return () => { cancelled = true; clearInterval(timer); };
-  }, [businessId, refreshMs]);
+  }, [load]);
+  useRefreshOnFocus(load);
 
   return (
     <AnCard>

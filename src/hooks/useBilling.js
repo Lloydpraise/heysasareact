@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { fetchBillingOverview, getTopUpUrl } from '../services/billingService';
+import useRefreshOnFocus from './useRefreshOnFocus';
 
 const REFRESH_MS = 60_000;
 
@@ -28,9 +29,8 @@ export function useBilling(businessId = null) {
 
   useEffect(() => {
     load();
-    const t = setInterval(() => load({ silent: true }), REFRESH_MS);
-    return () => clearInterval(t);
   }, [load]);
+  useRefreshOnFocus(() => load({ silent: true }), REFRESH_MS);
 
   const topUpUrl = useMemo(() => getTopUpUrl(businessId), [businessId]);
   const topUp = useCallback(() => {

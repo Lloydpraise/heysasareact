@@ -57,9 +57,9 @@ export default function LiveCounters() {
         // a transient network hiccup.
       }
     };
+    // Loaded once per visit: every landing-page visitor used to hit the backend (and Supabase) every 20 seconds.
     load();
-    const interval = setInterval(load, 20000);
-    return () => { cancelled = true; clearInterval(interval); };
+    return () => { cancelled = true; };
   }, []);
 
   return (

@@ -7,6 +7,16 @@ function getImageExtension(fileName) {
   return String(fileName).split('.').pop()?.toLowerCase() || '';
 }
 
+// Pushes a refresh when this business's WhatsApp connection rows change. Returns the unsubscribe function.
+export function subscribeToWhatsAppSessions(businessId, onChange) {
+  if (!supabase || !businessId) return () => {};
+  const channel = supabase
+    .channel(`wa-sessions-${businessId}`)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'whatsapp_sessions', filter: `business_id=eq.${businessId}` }, onChange)
+    .subscribe();
+  return () => supabase.removeChannel(channel);
+}
+
 // Only this business's instances (the backend filters them). null when the check is not possible right now.
 async function fetchEvolutionInstances(businessId) {
   try {

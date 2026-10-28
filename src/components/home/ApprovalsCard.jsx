@@ -4,6 +4,7 @@ import AnCard, { SectionLabel } from '../analytics/shared/AnCard';
 import { applySwitches, approveMessageGroup, approvePlaybookPlan, getHomeApprovals, getSetupDefaults } from '../../services/setupService';
 import { goToTab } from './homeCopy';
 import HelpGuide from './guides/HelpGuide';
+import useRefreshOnFocus from '../../hooks/useRefreshOnFocus';
 
 const primary = 'rounded-full bg-[#28A745] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1f8d3d] disabled:opacity-50';
 const quiet = 'rounded-full px-3 py-2 text-sm font-medium text-slate-500 hover:text-slate-700';
@@ -28,9 +29,8 @@ export default function ApprovalsCard({ businessId, onChanged }) {
   useEffect(() => {
     const first = async () => { await load(); };
     first();
-    const timer = setInterval(load, 30000);
-    return () => clearInterval(timer);
   }, [load]);
+  useRefreshOnFocus(load);
 
   const approve = async (group) => {
     setBusyKey(group.key); setError(''); setNote('');

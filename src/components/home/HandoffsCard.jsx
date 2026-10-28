@@ -4,10 +4,11 @@ import AnCard, { SectionLabel } from '../analytics/shared/AnCard';
 import { getOpenHandoffs, resolveHandoff } from '../../services/handoffService';
 import { timeAgo } from '../../utils/leadHelpers';
 import { openLead } from './homeCopy';
+import useRefreshOnFocus from '../../hooks/useRefreshOnFocus';
 
 // Chats the AI handed over to a person. It is the first thing to look at, so it only shows when something is waiting.
 // The owner also gets a WhatsApp message from HeySasa for each one (see Handoff & Closing in the Playground).
-export default function HandoffsCard({ businessId, refreshMs = 30000 }) {
+export default function HandoffsCard({ businessId }) {
   const [items, setItems] = useState(null);
   const [busyId, setBusyId] = useState(null);
   const [error, setError] = useState('');
@@ -15,9 +16,8 @@ export default function HandoffsCard({ businessId, refreshMs = 30000 }) {
   const load = useCallback(() => getOpenHandoffs(businessId).then(setItems).catch(() => setItems((cur) => cur ?? [])), [businessId]);
   useEffect(() => {
     load();
-    const timer = setInterval(load, refreshMs);
-    return () => clearInterval(timer);
-  }, [load, refreshMs]);
+  }, [load]);
+  useRefreshOnFocus(load);
 
   const handled = async (item) => {
     setBusyId(item.conversation_id); setError('');
