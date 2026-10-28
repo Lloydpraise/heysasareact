@@ -214,6 +214,27 @@ async function fetchAllPages(buildQuery, pageSize = 1000) {
   return rows;
 }
 
+// One database call each instead of one request per lead / a scan of every message. Both return null when the
+// function is not installed yet (see supabase/migrations/20261028000000_lead_list_functions.sql), and the caller then
+// falls back to the older, slower queries below.
+async function fetchLeadMessageStats(businessId) {
+  try {
+    return await fetchAllPages(() => supabase.rpc('lead_message_stats', { p_business_id: businessId }).order('contact_id', { ascending: true }));
+  } catch (error) {
+    console.warn('[leadsService] lead_message_stats unavailable, using the slow path:', error.message);
+    return null;
+  }
+}
+
+async function fetchLeadEnrollmentSummaries(businessId) {
+  try {
+    return await fetchAllPages(() => supabase.rpc('lead_campaign_enrollments', { p_business_id: businessId }).order('lead_id', { ascending: true }));
+  } catch (error) {
+    console.warn('[leadsService] lead_campaign_enrollments unavailable, using the slow path:', error.message);
+    return null;
+  }
+}
+
 async function fetchLiveLeads(businessId) {
   const id = getBusinessId(businessId);
   if (!supabase) {
@@ -233,18 +254,35 @@ async function fetchLiveLeads(businessId) {
       .order('id', { ascending: true }));
 
     const manualListLeadIds = await fetchManualListLeadIds(id);
-    const { data: enrolledRows, error: enrolledError } = await supabase
-      .from('campaign_enrollments')
-      .select('lead_id')
-      .in('status', ['pending', 'active']);
-    if (enrolledError) throw enrolledError;
-    const enrolledLeadIds = new Set((enrolledRows || []).map((row) => row.lead_id));
+    let enrolledLeadIds;
+    let enrollmentByLeadId;
+    const enrollmentSummaries = await fetchLeadEnrollmentSummaries(id);
+    if (enrollmentSummaries) {
+      enrolledLeadIds = new Set(enrollmentSummaries.map((row) => row.lead_id));
+      enrollmentByLeadId = new Map(enrollmentSummaries.map((row) => [row.lead_id, {
+        campaignId: row.campaign_id,
+        campaignName: row.campaign_name,
+        status: row.status,
+        currentStep: row.current_step ?? 0,
+        lastMessage: row.last_message || null,
+        lastSentAt: row.last_sent_at || null,
+      }]));
+    } else {
+      const { data: enrolledRows, error: enrolledError } = await supabase
+        .from('campaign_enrollments')
+        .select('lead_id')
+        .in('status', ['pending', 'active']);
+      if (enrolledError) throw enrolledError;
+      enrolledLeadIds = new Set((enrolledRows || []).map((row) => row.lead_id));
+    }
     const leads = (data || []).filter((lead) => !manualListLeadIds.has(lead.id) || enrolledLeadIds.has(lead.id)).map(normalizeLead);
-    const enrolledLeads = await Promise.all(leads.filter((lead) => enrolledLeadIds.has(lead.id)).map(async (lead) => ({
-      id: lead.id,
-      campaignEnrollment: await fetchLeadCampaignEnrollment(id, lead.id),
-    })));
-    const enrollmentByLeadId = new Map(enrolledLeads.map((item) => [item.id, item.campaignEnrollment]).filter((item) => item[1]));
+    if (!enrollmentByLeadId) {
+      const enrolledLeads = await Promise.all(leads.filter((lead) => enrolledLeadIds.has(lead.id)).map(async (lead) => ({
+        id: lead.id,
+        campaignEnrollment: await fetchLeadCampaignEnrollment(id, lead.id),
+      })));
+      enrollmentByLeadId = new Map(enrolledLeads.map((item) => [item.id, item.campaignEnrollment]).filter((item) => item[1]));
+    }
     const leadsWithCampaigns = leads.map((lead) => ({ ...lead, campaignEnrollment: enrollmentByLeadId.get(lead.id) || null }));
     if (!leadsWithCampaigns.length) return leadsWithCampaigns;
 
@@ -257,26 +295,36 @@ async function fetchLiveLeads(businessId) {
     // whether that reply went out from HeySasa or from the phone's own WhatsApp.
     const unansweredByContact = new Map();
     const answeredContacts = new Set();
-    const messages = await fetchAllPages(() => supabase
-      .from('messages')
-      .select('contact_id, direction, created_at')
-      .eq('business_id', id)
-      .order('created_at', { ascending: false }));
-    messages.forEach((message) => {
-      if (!latestMessageDirectionByContact.has(message.contact_id)) {
-        latestMessageDirectionByContact.set(message.contact_id, message.direction);
-      }
-      if (message.direction === 'in' && !lastInboundByContact.has(message.contact_id)) {
-        lastInboundByContact.set(message.contact_id, message.created_at);
-      }
-      if (message.direction === 'out' && !lastOutboundByContact.has(message.contact_id)) {
-        lastOutboundByContact.set(message.contact_id, message.created_at);
-      }
-      if (message.direction === 'out') answeredContacts.add(message.contact_id);
-      else if (message.direction === 'in' && !answeredContacts.has(message.contact_id)) {
-        unansweredByContact.set(message.contact_id, (unansweredByContact.get(message.contact_id) || 0) + 1);
-      }
-    });
+    const messageStats = await fetchLeadMessageStats(id);
+    if (messageStats) {
+      messageStats.forEach((row) => {
+        latestMessageDirectionByContact.set(row.contact_id, row.latest_direction);
+        if (row.last_inbound_at) lastInboundByContact.set(row.contact_id, row.last_inbound_at);
+        if (row.last_outbound_at) lastOutboundByContact.set(row.contact_id, row.last_outbound_at);
+        if (row.unanswered_count) unansweredByContact.set(row.contact_id, row.unanswered_count);
+      });
+    } else {
+      const messages = await fetchAllPages(() => supabase
+        .from('messages')
+        .select('contact_id, direction, created_at')
+        .eq('business_id', id)
+        .order('created_at', { ascending: false }));
+      messages.forEach((message) => {
+        if (!latestMessageDirectionByContact.has(message.contact_id)) {
+          latestMessageDirectionByContact.set(message.contact_id, message.direction);
+        }
+        if (message.direction === 'in' && !lastInboundByContact.has(message.contact_id)) {
+          lastInboundByContact.set(message.contact_id, message.created_at);
+        }
+        if (message.direction === 'out' && !lastOutboundByContact.has(message.contact_id)) {
+          lastOutboundByContact.set(message.contact_id, message.created_at);
+        }
+        if (message.direction === 'out') answeredContacts.add(message.contact_id);
+        else if (message.direction === 'in' && !answeredContacts.has(message.contact_id)) {
+          unansweredByContact.set(message.contact_id, (unansweredByContact.get(message.contact_id) || 0) + 1);
+        }
+      });
+    }
 
     // Columns the summary view does not carry: when the lead came in, aliases, and why the score is what it is.
     const contacts = await fetchAllPages(() => supabase
