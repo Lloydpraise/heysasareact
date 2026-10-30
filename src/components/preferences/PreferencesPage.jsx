@@ -9,6 +9,7 @@ import { WhatsAppSection } from './sections/WhatsAppSection';
 import { BillingSection } from './sections/BillingSection';
 import { AssistantSection } from './sections/AssistantSection';
 import { ChatSection } from './sections/ChatSection';
+import { IntegrationsSection } from './sections/IntegrationsSection';
 import { Toast } from './shared/Toast';
 import { usePreferences } from '../../hooks/usePreferences';
 import { useMaterials } from '../../hooks/useMaterials';
@@ -76,6 +77,8 @@ export default function PreferencesPage({ initialSection = 'followup', startInSe
         return <ChatSection />;
       case 'assistant':
         return <AssistantSection />;
+      case 'integrations':
+        return <IntegrationsSection />;
       case 'billing':
         return isAdmin ? <BillingSection /> : null;
       default:
@@ -84,7 +87,7 @@ export default function PreferencesPage({ initialSection = 'followup', startInSe
   };
 
   const activeLabel = sections.find((section) => section.id === activeSection)?.label ?? 'Follow-up';
-  const showSave = activeSection !== 'billing' && activeSection !== 'assistant' && activeSection !== 'chat';
+  const showSave = !['billing', 'assistant', 'chat', 'integrations'].includes(activeSection);
 
   const body = (
     <>
